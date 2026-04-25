@@ -1,0 +1,22 @@
+@reference "tailwindcss";
+.wrap {
+  @apply flex gap-1;
+}
+
+.btn {
+  @apply px-3 py-1 rounded-md text-xs font-semibold transition-colors;
+  background-color: var(--color-valo-panel);
+  border: 1px solid var(--color-valo-border);
+  color: var(--color-valo-muted);
+}
+
+.btn:hover {
+  border-color: var(--color-valo-muted);
+  color: var(--color-valo-text);
+}
+
+.active {
+  border-color: var(--color-valo-red) !important;
+  color: var(--color-valo-red) !important;
+  background-color: rgba(255, 70, 85, 0.08) !important;
+}

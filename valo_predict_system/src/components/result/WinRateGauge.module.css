@@ -1,0 +1,19 @@
+@reference "tailwindcss";
+.wrap {
+  @apply flex flex-col items-center gap-2;
+}
+
+.label {
+  @apply text-sm font-bold uppercase tracking-widest;
+  color: var(--color-valo-muted);
+}
+
+.value {
+  @apply text-4xl font-black;
+  color: var(--color-valo-red);
+}
+
+.sub {
+  @apply text-xs;
+  color: var(--color-valo-muted);
+}

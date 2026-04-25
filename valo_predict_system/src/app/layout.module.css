@@ -1,0 +1,10 @@
+@reference "tailwindcss";
+.root {
+  @apply min-h-screen flex flex-col antialiased;
+  background-color: var(--color-valo-bg);
+  color: var(--color-valo-text);
+}
+
+.main {
+  @apply flex-1;
+}

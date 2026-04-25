@@ -1,0 +1,63 @@
+@reference "tailwindcss";
+.tableWrap {
+  @apply overflow-x-auto rounded-xl;
+  border: 1px solid var(--color-valo-border);
+}
+
+.table {
+  @apply w-full text-sm border-collapse;
+}
+
+.thead tr {
+  background-color: var(--color-valo-panel-alt);
+}
+
+.thead th {
+  @apply px-4 py-3 text-left text-xs font-bold uppercase tracking-wider;
+  color: var(--color-valo-muted);
+  border-bottom: 1px solid var(--color-valo-border);
+}
+
+.tbody tr {
+  border-bottom: 1px solid var(--color-valo-border);
+  transition: background-color 0.1s;
+}
+
+.tbody tr:hover {
+  background-color: var(--color-valo-panel-alt);
+}
+
+.tbody td {
+  @apply px-4 py-3;
+  color: var(--color-valo-text);
+}
+
+.probHigh {
+  @apply font-bold;
+  color: var(--color-confidence-high);
+}
+
+.probMed {
+  @apply font-bold;
+  color: #f59e0b;
+}
+
+.probLow {
+  @apply font-bold;
+  color: #ef4444;
+}
+
+.agents {
+  @apply flex flex-wrap gap-1 max-w-xs;
+}
+
+.agentTag {
+  @apply text-xs px-1.5 py-0.5 rounded;
+  background-color: var(--color-valo-border);
+  color: var(--color-valo-muted);
+}
+
+.empty {
+  @apply py-12 text-center;
+  color: var(--color-valo-muted);
+}

@@ -1,0 +1,11 @@
+@reference "tailwindcss";
+.box {
+  @apply flex items-start gap-3 px-4 py-3 rounded-lg text-sm;
+  background-color: rgba(255, 70, 85, 0.1);
+  border: 1px solid rgba(255, 70, 85, 0.3);
+  color: #ff7a85;
+}
+
+.icon {
+  @apply text-base shrink-0 mt-0.5;
+}

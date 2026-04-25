@@ -1,0 +1,25 @@
+@reference "tailwindcss";
+.card {
+  @apply p-4 rounded-xl flex flex-col gap-1;
+  background-color: var(--color-valo-panel);
+  border: 1px solid var(--color-valo-border);
+}
+
+.label {
+  @apply text-xs font-bold uppercase tracking-widest;
+  color: var(--color-valo-muted);
+}
+
+.value {
+  @apply text-2xl font-black;
+  color: var(--color-valo-text);
+}
+
+.sub {
+  @apply text-xs;
+  color: var(--color-valo-muted);
+}
+
+.accentRed   { color: var(--color-valo-red); }
+.accentGreen { color: var(--color-confidence-high); }
+.accentAmber { color: var(--color-confidence-medium); }

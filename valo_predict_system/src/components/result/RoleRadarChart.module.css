@@ -1,0 +1,14 @@
+@reference "tailwindcss";
+.wrap {
+  @apply flex flex-col gap-2;
+}
+
+.title {
+  @apply text-sm font-bold;
+  color: var(--color-valo-text);
+}
+
+.chart {
+  @apply w-full;
+  height: 260px;
+}

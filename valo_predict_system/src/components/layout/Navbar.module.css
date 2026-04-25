@@ -1,0 +1,42 @@
+@reference "tailwindcss";
+/* Navbar */
+.nav {
+  @apply fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 h-14;
+  background-color: rgba(15, 25, 35, 0.9);
+  border-bottom: 1px solid var(--color-valo-border);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.logo {
+  @apply flex items-center gap-2 select-none;
+}
+
+.logoAccent {
+  @apply text-lg font-black tracking-tight;
+  color: var(--color-valo-red);
+}
+
+.logoText {
+  @apply text-lg font-semibold tracking-tight;
+  color: var(--color-valo-text);
+}
+
+.links {
+  @apply flex items-center gap-1;
+}
+
+.link {
+  @apply px-3 py-1.5 rounded-lg text-sm font-medium transition-colors;
+  color: var(--color-valo-muted);
+}
+
+.link:hover {
+  color: var(--color-valo-text);
+  background-color: var(--color-valo-panel);
+}
+
+.linkActive {
+  color: var(--color-valo-text);
+  background-color: var(--color-valo-panel);
+}

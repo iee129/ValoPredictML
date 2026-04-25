@@ -1,0 +1,57 @@
+@reference "tailwindcss";
+.pageTitle {
+  @apply text-2xl font-black mb-6;
+  color: var(--color-valo-text);
+}
+
+.grid {
+  @apply grid gap-4 mb-6;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.charts {
+  @apply grid gap-6;
+  grid-template-columns: 1fr 1fr;
+}
+
+.chartCard {
+  @apply p-5 rounded-xl;
+  background-color: var(--color-valo-panel);
+  border: 1px solid var(--color-valo-border);
+}
+
+.chartTitle {
+  @apply text-sm font-bold mb-4;
+  color: var(--color-valo-text);
+}
+
+.barRow {
+  @apply flex items-center gap-3 mb-2;
+}
+
+.barLabel {
+  @apply text-xs w-20 text-right shrink-0;
+  color: var(--color-valo-muted);
+}
+
+.barTrack {
+  @apply flex-1 rounded-full overflow-hidden;
+  height: 8px;
+  background-color: var(--color-valo-border);
+}
+
+.barFill {
+  @apply h-full rounded-full transition-all;
+  background-color: var(--color-valo-red);
+}
+
+.barValue {
+  @apply text-xs w-10 shrink-0;
+  color: var(--color-valo-muted);
+}
+
+@media (max-width: 768px) {
+  .charts {
+    grid-template-columns: 1fr;
+  }
+}

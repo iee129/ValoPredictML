@@ -1,0 +1,46 @@
+@reference "tailwindcss";
+.wrap {
+  @apply flex flex-col gap-2;
+}
+
+.label {
+  @apply text-xs font-bold uppercase tracking-widest;
+  color: var(--color-valo-muted);
+}
+
+.slots {
+  @apply flex gap-2 flex-wrap;
+}
+
+.slot {
+  @apply flex flex-col items-center gap-1 w-14;
+}
+
+.slotImg {
+  @apply w-12 h-12 rounded-lg overflow-hidden flex items-center justify-center;
+  background-color: var(--color-valo-border);
+  border: 1px solid var(--color-valo-border);
+}
+
+.slotImg img {
+  @apply w-full h-full object-cover;
+}
+
+.emptySlot {
+  @apply w-12 h-12 rounded-lg border-2 border-dashed flex items-center justify-center;
+  border-color: var(--color-valo-border);
+}
+
+.emptyIcon {
+  @apply text-sm;
+  color: var(--color-valo-border);
+}
+
+.slotName {
+  @apply text-xs text-center;
+  color: var(--color-valo-muted);
+  max-width: 56px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
