@@ -1,0 +1,21 @@
+.DS_Store
+.env
+.env.local
+.venv/
+__pycache__/
+*.pyc
+data/raw/
+data/processed/
+reports/
+models/
+*.joblib
+riot.txt
+
+# OMC 런타임 (커밋 불필요)
+.omc/
+
+# Claude Code 로컬 설정
+.claude/settings.local.json
+CLAUDE.md
+CONTRIBUTING.md
+AGENTS.md
