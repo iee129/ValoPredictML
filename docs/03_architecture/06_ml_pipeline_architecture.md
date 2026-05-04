@@ -1,112 +1,151 @@
 # 06. ML 파이프라인 아키텍처
 
+마지막 업데이트: 2026-05-04
+
 ## 1. 전체 파이프라인 다이어그램
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                       데이터 수집 단계                        │
+│                       데이터 수집 단계 (완료)                  │
 │                                                             │
-│  ┌──────────────────┐    ┌─────────────────────────────┐   │
-│  │  Kaggle Datasets │    │   HenrikDev API (선택)      │   │
-│  │  (kagglehub)     │    │   henrik_api_key 필요       │   │
-│  │  - VCT 2021~2023 │    │   match_cache 테이블 저장   │   │
-│  └────────┬─────────┘    └──────────────┬──────────────┘   │
-│           │                             │                    │
-│           ↓                             ↓                    │
-│      data/raw/*.csv            data/external/                │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │  Kaggle 7개 데이터셋 (kagglehub)                      │  │
+│  │  - vct_2021_2023          (1.2GB, ryanluong)         │  │
+│  │  - ryanluong challengers  (1.0GB, ryanluong, w=1.8)  │  │
+│  │  - qualidea1217           (~35MB, qualidea)          │  │
+│  │  - piyush 2024/2025       (~30MB, piyush, w=1.5)     │  │
+│  │  - ediashtarevin          (~6K행, 보조)               │  │
+│  │  - kierru vctpacific-2023 (~5K행, 보조)               │  │
+│  └──────────────────────────────────────────────────────┘  │
+│           ↓ python dataload.py                              │
+│      data/raw/kaggle/                                       │
 └─────────────────────────────────────────────────────────────┘
                           │
                           ↓
 ┌─────────────────────────────────────────────────────────────┐
-│                       전처리 단계                             │
-│          [ml/data_pipeline.py]                              │
+│                   파싱 단계 (구현 예정)                        │
+│         [ml/parsers/*.py]                                   │
 │                                                             │
-│  1. 멀티 CSV 로드 (glob 패턴)                               │
-│  2. 컬럼 표준화 (소스별 다른 컬럼명 통일)                   │
-│  3. 중복 제거 (match_id + team_id + agent)                  │
-│  4. 결측값 처리 (신규 요원 → Unknown, 맵 → Other)           │
-│  5. 플레이어 → 경기 단위 집계                               │
-│  6. Stratified Split 70/15/15                              │
+│  parse_ryanluong("vct_2021_2023")        → 공통 스키마 행    │
+│  parse_ryanluong("ryanluong challengers") → 공통 스키마 행   │
+│  parse_qualidea ("qualidea1217__*")       → 공통 스키마 행   │
+│  parse_piyush   ("piyush__*2024*")        → 공통 스키마 행   │
+│  parse_piyush   ("piyush__*2025*")        → 공통 스키마 행   │
+│  parse_edia     ("ediashtarevin__*")      → 공통 스키마 행   │
+│  parse_kierru   ("kierru__*")             → 공통 스키마 행   │
 │                                                             │
-│       data/processed/train.csv (70%)                        │
-│       data/processed/val.csv   (15%)                        │
-│       data/processed/test.csv  (15%)                        │
+│  공통 스키마: source, match_key, dedup_key, date, event,    │
+│              map, team_a, team_b, players_a, players_b,     │
+│              score_a, score_b, atk_a, def_a, label          │
 └─────────────────────────────────────────────────────────────┘
                           │
                           ↓
 ┌─────────────────────────────────────────────────────────────┐
-│                    피처 엔지니어링 단계                        │
-│         [ml/feature_engineering.py]                         │
+│                   정규화 단계                                  │
 │                                                             │
-│  입력: 요원 리스트 (팀 A 5명, 팀 B 5명) + 맵                │
-│                                                             │
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │              15개 피처 생성                          │   │
-│  │                                                     │   │
-│  │  역할군 카운트 (8개)                                 │   │
-│  │  team_a_duelist_count  team_b_duelist_count         │   │
-│  │  team_a_initiator_count team_b_initiator_count      │   │
-│  │  team_a_controller_count team_b_controller_count    │   │
-│  │  team_a_sentinel_count  team_b_sentinel_count       │   │
-│  │                                                     │   │
-│  │  diff 피처 (4개)                                    │   │
-│  │  duelist_diff = a_count - b_count                   │   │
-│  │  initiator_diff, controller_diff, sentinel_diff     │   │
-│  │                                                     │   │
-│  │  has_controller (2개)                               │   │
-│  │  team_a_has_controller  team_b_has_controller       │   │
-│  │                                                     │   │
-│  │  맵 인코딩 (1개)                                    │   │
-│  │  map_encoded (LabelEncoder: Ascent=0, Bind=1, ...)  │   │
-│  └─────────────────────────────────────────────────────┘   │
+│  normalize_agent(raw)  → AGENT_ROLE_MAP → 별칭 → .title()   │
+│  normalize_map(raw)    → MAP_ORDER → 별칭 → .title()         │
+│  normalize_team(raw)   → TEAM_NAME_ALIASES                  │
+│  컬럼명 통일           → snake_case (hs%/hs_percent → hs)    │
+│  KD 표기 통일          → kd (float)                         │
+│  KAST 표기 통일        → kast (float 0~1)                   │
 └─────────────────────────────────────────────────────────────┘
                           │
                           ↓
 ┌─────────────────────────────────────────────────────────────┐
-│                    하이퍼파라미터 최적화 단계                  │
-│         [ml/optimize.py] — Optuna TPE Sampler               │
+│                   품질 게이트 단계                             │
 │                                                             │
-│  XGBoost 탐색 공간:                                         │
-│  - max_depth: [3, 8]                                        │
-│  - n_estimators: [100, 800]                                 │
-│  - learning_rate: [0.01, 0.3] (log scale)                   │
-│  - subsample: [0.5, 1.0]                                    │
-│  - colsample_bytree: [0.5, 1.0]                             │
-│  - min_child_weight: [1, 10]                                │
-│                                                             │
-│  LightGBM 탐색 공간:                                        │
-│  - num_leaves: [20, 150]                                    │
-│  - max_depth: [3, 8]                                        │
-│  - n_estimators: [100, 800]                                 │
-│  - learning_rate: [0.01, 0.3] (log scale)                   │
-│  - min_child_samples: [5, 50]                               │
-│                                                             │
-│  평가: StratifiedKFold 10겹, ROC-AUC 최대화                  │
-│  n_trials=100, timeout=3600초                               │
-│                                                             │
-│  출력: reports/best_params_xgb.json                         │
-│        reports/best_params_lgbm.json                        │
+│  팀당 요원 수 = 5       (미충족 → rejected_matches.csv)      │
+│  요원 유효성            (AGENT_ROLE_MAP에 없으면 탈락)        │
+│  맵 유효성              (MAP_ORDER에 없으면 탈락)             │
+│  레이블 유효성          (승팀 특정 불가 → 탈락)              │
+│  핵심 스탯 결측         (ACS·KD 결측 → 탈락)                │
+│  승패 동점              (score_a = score_b → 탈락)           │
+│  소스 비중              (단일 소스 > 20% → under-sampling)   │
 └─────────────────────────────────────────────────────────────┘
                           │
                           ↓
 ┌─────────────────────────────────────────────────────────────┐
-│                       학습 단계                               │
-│         [ml/train.py]                                       │
+│                   dedup 단계                                  │
 │                                                             │
-│  ┌────────────────────┐    ┌──────────────────────────┐    │
-│  │  XGBoost 모델      │    │  LightGBM 모델           │    │
-│  │  (60% 가중치)      │    │  (40% 가중치)            │    │
-│  │  Early Stopping    │    │  Early Stopping          │    │
-│  │  eval_metric=      │    │  callbacks=              │    │
-│  │  ['logloss','auc'] │    │  [early_stopping(50)]    │    │
-│  └────────┬───────────┘    └──────────────┬───────────┘    │
-│           │                               │                  │
-│           └────────────┬──────────────────┘                 │
-│                        ↓                                     │
-│               Soft Voting 앙상블                             │
-│      final = 0.6 * xgb_prob + 0.4 * lgbm_prob              │
+│  dedup_key = SHA-1[:24](date|event|map|team_a|team_b|       │
+│                          agents_a|agents_b|score_a|score_b) │
 │                                                             │
-│  출력: models/xgboost_model.joblib                          │
+│  동일 dedup_key → 소스 가중치 높은 행 보존                   │
+│  동점 → 컬럼 수 더 많은 행 보존                             │
+│                                                             │
+│  출력: data/processed/matches_clean.csv                     │
+└─────────────────────────────────────────────────────────────┘
+                          │
+                          ↓
+┌─────────────────────────────────────────────────────────────┐
+│                   데이터 분할 단계                             │
+│                                                             │
+│  match_key 단위 GroupShuffleSplit                           │
+│  train 70% / val 15% / test 15%                             │
+│                                                             │
+│  출력: data/processed/train.csv                             │
+│        data/processed/val.csv                               │
+│        data/processed/test.csv                              │
+│                                                             │
+│  (선택) 시간 기반 분할 검증 실험:                            │
+│    train: 2021-01 ~ 2023-12                                 │
+│    test:  2024-01 ~ 2025-현재                               │
+└─────────────────────────────────────────────────────────────┘
+                          │
+                          ↓
+┌─────────────────────────────────────────────────────────────┐
+│               피처 사전 집계 단계 (누수 방지)                  │
+│         train.csv 기준으로만 집계                            │
+│                                                             │
+│  atk_side_advantage[map]        ← ryanluong challengers    │
+│  agent_map_stats[agent][map]    ← train 경기 전체           │
+│    .winrate = wins / total                                  │
+│    .pickrate = total / total_matches_on_map                 │
+│  agent_experience[player][agent] ← train 등장 횟수          │
+│                                                             │
+│  val/test에 join (신규 조합: winrate=0.5, experience=0)      │
+└─────────────────────────────────────────────────────────────┘
+                          │
+                          ↓
+┌─────────────────────────────────────────────────────────────┐
+│               피처 엔지니어링 단계                             │
+│                                                             │
+│  43개 피처 생성:                                             │
+│  역할군 카운트 (12): a_duelist ~ diff_sentinel               │
+│  역할군 파생   (4):  has_controller_a/b, is_double_duelist_a/b│
+│  선수 스탯    (12): a_avg_acs ~ b_avg_hs                    │
+│  시너지       (6):  a_fk_fd_ratio ~ b_kast_std              │
+│  요원 조합    (6):  a_avg_agent_map_wr ~ b_avg_agent_exp    │
+│  맵           (3):  map_encoded, atk_side_advantage, is_attacker_a│
+│                                                             │
+│  A/B Swap 증강 (train 한정):                                │
+│    원본: team_a=T1, label=1                                 │
+│    swap: team_a=FNC, label=0  (--no-augment-train 으로 비활성)│
+│                                                             │
+│  sample_weight = time_weight × source_weight                │
+│                                                             │
+│  출력: data/processed/features_base.csv                     │
+└─────────────────────────────────────────────────────────────┘
+                          │
+                          ↓
+┌─────────────────────────────────────────────────────────────┐
+│                   모델 학습 단계 (구현 예정)                   │
+│         [ml/train_model.py]                                 │
+│                                                             │
+│  K-Fold (K=5), GroupKFold(match_key 단위)                  │
+│                                                             │
+│  ┌───────────────┐ ┌───────────────┐ ┌───────────────┐    │
+│  │ Random Forest │ │   XGBoost     │ │   LightGBM    │    │
+│  │ (scikit-learn)│ │ Early Stopping│ │ Early Stopping│    │
+│  └───────┬───────┘ └───────┬───────┘ └───────┬───────┘    │
+│          └────────────────┬──────────────────┘             │
+│                           ↓                                 │
+│               앙상블 (확률 평균)                             │
+│      final = (p_rf + p_xgb + p_lgb) / 3                    │
+│                                                             │
+│  출력: models/rf_model.joblib                               │
+│        models/xgboost_model.joblib                          │
 │        models/lgbm_model.joblib                             │
 │        models/label_encoder_map.joblib                      │
 │        models/model_metadata.json                           │
@@ -114,32 +153,35 @@
                           │
                           ↓
 ┌─────────────────────────────────────────────────────────────┐
-│                       평가 단계                               │
-│         [ml/evaluate.py]                                    │
+│                   평가 단계 (구현 예정)                        │
+│         [ml/evaluate_model.py]                              │
 │                                                             │
 │  평가 지표:                                                  │
-│  - Accuracy (목표: ≥ 80%)                                   │
-│  - F1-Score Macro                                           │
-│  - ROC-AUC                                                  │
-│  - PR-AUC                                                   │
+│  - Accuracy (예상: 58~65%)                                  │
+│  - ROC-AUC  (예상: 0.62~0.68)                              │
+│  - F1-Score                                                 │
 │  - Confusion Matrix                                         │
 │                                                             │
-│  과적합 검사:                                                │
-│  - Train Accuracy - Val Accuracy 갭 < 3% 목표               │
-│  - Train Loss vs Val Loss 비교                              │
+│  피처 중요도 검증:                                           │
+│  1. RF feature_importances_ (빠른 스크리닝)                 │
+│  2. XGBoost gain/cover                                      │
+│  3. Permutation importance                                  │
+│  4. Ablation study (카테고리 단위 제거)                      │
 │                                                             │
 │  출력: reports/training_report.json                         │
-│        reports/confusion_matrix.png (선택)                   │
+│        reports/rejected_matches.csv                         │
 └─────────────────────────────────────────────────────────────┘
                           │
                           ↓
 ┌─────────────────────────────────────────────────────────────┐
-│                      서빙 단계 (런타임)                        │
-│         [backend/ml/predictor.py]                           │
+│                   서빙 단계 (구현 예정)                        │
+│         [app/streamlit_app.py]                              │
 │                                                             │
-│  FastAPI 시작 시 모델 싱글톤 로드                           │
-│  → 요청마다 joblib 로드 없이 메모리에서 즉시 추론           │
-│  → 평균 응답 시간 < 50ms                                    │
+│  @st.cache_resource 로 모델 1회 로드                        │
+│  → 사용자 입력 → 피처 빌드 → 앙상블 예측 → 승률 출력        │
+│  → 피처 중요도 / SHAP 시각화 (Plotly)                       │
+│  → 교체 시뮬레이션 delta 표시                               │
+│  → 맵별 최적 요원 조합 탐색 (80,730가지)                    │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -149,33 +191,27 @@
 
 ```
 dataload.py
-    ↓ 사용: kagglehub
-    ↓ 출력: data/raw/
+    ↓ kagglehub → data/raw/kaggle/
+
+ml/agent_roles.py          (공통 참조: AGENT_ROLE_MAP, MAP_ORDER, 정규화 함수)
 
 ml/data_pipeline.py
-    ↓ 사용: ml/feature_engineering.py
-    ↓ 입력: data/raw/
-    ↓ 출력: data/processed/
+    ↓ ml/parsers/*.py      (파싱)
+    ↓ ml/agent_roles.py    (정규화)
+    ↓ data/processed/      (출력)
 
-ml/optimize.py
-    ↓ 사용: ml/feature_engineering.py, xgboost, lightgbm, optuna
-    ↓ 입력: data/processed/train.csv, val.csv
-    ↓ 출력: reports/best_params_*.json
+ml/train_model.py
+    ↓ data/processed/train.csv, val.csv
+    ↓ models/*.joblib      (출력)
 
-ml/train.py
-    ↓ 사용: ml/feature_engineering.py, xgboost, lightgbm, joblib
-    ↓ 입력: data/processed/train.csv, val.csv, reports/best_params_*.json
-    ↓ 출력: models/*.joblib
+ml/evaluate_model.py
+    ↓ models/*.joblib
+    ↓ data/processed/test.csv
+    ↓ reports/             (출력)
 
-ml/evaluate.py
-    ↓ 사용: ml/feature_engineering.py, sklearn
-    ↓ 입력: models/*.joblib, data/processed/test.csv
-    ↓ 출력: reports/training_report.json
-
-backend/ml/predictor.py
-    ↓ 사용: models/*.joblib (서빙 시 로드)
-    ↓ 의존: backend/ml/agent_roles.py
-              backend/ml/feature_engineer.py (피처 엔지니어링 서빙 버전)
+app/streamlit_app.py
+    ↓ models/*.joblib      (서빙 시 로드)
+    ↓ ml/agent_roles.py    (피처 빌드)
 ```
 
 ---
@@ -183,7 +219,7 @@ backend/ml/predictor.py
 ## 3. 관련 문서
 
 | 문서 | 내용 |
-|---|---|
-| [../04_data_processing/](../04_data_processing/) | 전처리 단계 상세 |
-| [../05_data_learning/](../05_data_learning/) | 학습 전략 상세 |
-| [../03_architecture/02_request_flow.md](02_request_flow.md) | 서빙 시 피처 처리 흐름 |
+|------|------|
+| [../docs/preprocessing.md](../preprocessing.md) | 전처리 파이프라인 정전 설계 (43개 피처 상세) |
+| [../02_file_structure/03_ml_pipeline_files.md](../02_file_structure/03_ml_pipeline_files.md) | ml/ 폴더 파일 상세 |
+| [02_request_flow.md](02_request_flow.md) | 서빙 시 피처 처리 흐름 |

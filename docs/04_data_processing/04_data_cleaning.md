@@ -1,151 +1,147 @@
-# 04. 데이터 클리닝
+# 04. 데이터 클리닝 — 품질 게이트 및 dedup
 
-## 1. 중복 제거
+마지막 업데이트: 2026-05-04
 
-### 1.1 중복 유형
+## 1. 개요
 
-| 유형 | 발생 원인 | 기준 컬럼 |
-|---|---|---|
-| 완전 중복 | 동일 파일 중복 행 | 전체 컬럼 |
-| 경기-요원 중복 | 여러 파일에서 같은 경기 | `match_id` + `team_id` + `agent_name` |
+파싱·정규화 이후 두 단계 클리닝이 진행된다.
 
-```python
-def remove_duplicates(df: pd.DataFrame) -> pd.DataFrame:
-    before = len(df)
-    
-    # 1. 완전 중복 제거
-    df = df.drop_duplicates()
-    
-    # 2. 경기-요원 수준 중복 제거
-    df = df.drop_duplicates(subset=["match_id", "team_id", "agent_name"])
-    
-    after = len(df)
-    print(f"중복 제거: {before - after:,}행 제거 ({before:,} → {after:,})")
-    return df
-```
+1. **품질 게이트** (Phase 3): 개별 행이 학습에 적합한지 7개 조건 검사
+2. **dedup_key 중복 제거** (Phase 4): 여러 소스에 걸친 동일 경기 중복 제거
 
 ---
 
-## 2. 결측값 처리
+## 2. 품질 게이트 (Phase 3)
+
+아래 조건 중 하나라도 실패하면 해당 맵 행 제외 → `reports/rejected_matches.csv`에 기록.
+
+| 조건 | 기준 | 왜 |
+|------|------|----|
+| 팀당 요원 수 | 팀 A·B 각각 정확히 5명 | 5명 아니면 역할군 카운트 피처 부정확 |
+| 요원 유효성 | 5명 모두 AGENT_ROLE_MAP에 존재 | 알 수 없는 요원 → 역할군 집계 불가 |
+| 맵 유효성 | MAP_ORDER 12개에 존재 | map_encoded / atk_side_advantage 집계 불가 |
+| 레이블 유효성 | winner가 team_a 또는 team_b | 레이블 없으면 지도학습 불가 |
+| 핵심 스탯 결측 | ACS·KD 각 선수 모두 비결측 | 핵심 선수 스탯 피처 생성 불가 |
+| 소스 비중 | 단일 소스 < 학습셋 전체의 20% | 소스 편향 방지 |
+| 동점 | score_a ≠ score_b | 동점(overtime 등)은 레이블 불명확 |
 
 ```python
-def handle_missing_values(df: pd.DataFrame) -> pd.DataFrame:
-    print("결측값 현황:")
-    print(df[["match_id", "team_id", "agent_name", "team_won", "map_name"]].isnull().sum())
-    
-    # 핵심 컬럼 결측 → 행 제거
-    critical_cols = ["match_id", "agent_name", "team_won", "map_name"]
-    before = len(df)
-    df = df.dropna(subset=critical_cols)
-    print(f"결측값 제거: {before - len(df):,}행")
-    
-    # team_id 결측 → match_id 기반 유추 시도
-    if df["team_id"].isnull().any():
-        df["team_id"] = df.groupby("match_id")["team_id"].transform(
-            lambda x: x.fillna(method="ffill")
-        )
-        df = df.dropna(subset=["team_id"])
-    
-    return df
-```
-
----
-
-## 3. 신규 요원 및 미지원 요원 처리
-
-새 요원이 추가될 경우 `agent_roles.py` 업데이트 전까지 Unknown으로 처리.
-
-```python
-from backend.ml.agent_roles import AGENT_ROLE_MAP
-
-def handle_unknown_agents(df: pd.DataFrame) -> pd.DataFrame:
-    known_agents = set(AGENT_ROLE_MAP.keys())
-    
-    # 알 수 없는 요원 확인
-    unknown = df[~df["agent_name"].isin(known_agents)]["agent_name"].unique()
-    if len(unknown) > 0:
-        print(f"미지원 요원 {len(unknown)}개: {unknown}")
-        # 미지원 요원이 포함된 경기 제외 (팀 조합이 불완전)
-        invalid_matches = df[df["agent_name"].isin(unknown)]["match_id"].unique()
-        before = len(df)
-        df = df[~df["match_id"].isin(invalid_matches)]
-        print(f"미지원 요원 경기 제외: {before - len(df):,}행")
-    
-    return df
-```
-
----
-
-## 4. 팀당 요원 수 검증
-
-각 팀은 정확히 5명이어야 한다.
-
-```python
-def validate_team_size(df: pd.DataFrame) -> pd.DataFrame:
-    # match_id + team_id 기준 요원 수 계산
-    team_counts = df.groupby(["match_id", "team_id"])["agent_name"].count()
-    
-    # 5명이 아닌 팀 식별
-    invalid_teams = team_counts[team_counts != 5]
-    if len(invalid_teams) > 0:
-        invalid_match_ids = invalid_teams.index.get_level_values("match_id").unique()
-        print(f"비정상 팀 크기: {len(invalid_match_ids)}개 경기 제외")
-        df = df[~df["match_id"].isin(invalid_match_ids)]
-    
-    return df
-```
-
----
-
-## 5. 라벨 일관성 검사
-
-같은 경기에서 두 팀의 결과가 모순되지 않아야 한다.
-
-```python
-def validate_label_consistency(df: pd.DataFrame) -> pd.DataFrame:
+def quality_gate(row: dict) -> tuple[bool, str]:
     """
-    한 경기에서 두 팀만 존재해야 하고,
-    하나는 team_won=True, 다른 하나는 team_won=False여야 한다.
+    반환: (통과 여부, 탈락 사유)
     """
-    match_results = df.groupby(["match_id", "team_id"])["team_won"].first()
-    match_won_counts = match_results.groupby("match_id").sum()
-    
-    # 승리 팀이 정확히 1개인 경기만 유지
-    valid_matches = match_won_counts[match_won_counts == 1].index
-    before = len(df)
-    df = df[df["match_id"].isin(valid_matches)]
-    print(f"라벨 검증: {before - len(df):,}행 제거")
-    return df
+    agents_a = [p["agent"] for p in row["players_a"]]
+    agents_b = [p["agent"] for p in row["players_b"]]
+
+    if len(agents_a) != 5 or len(agents_b) != 5:
+        return False, "team_size_not_5"
+    if not all(a in AGENT_ROLE_MAP for a in agents_a + agents_b):
+        return False, "unknown_agent"
+    if row["map"] not in MAP_ORDER:
+        return False, "unknown_map"
+    if row["label"] not in (0, 1):
+        return False, "invalid_label"
+    if row["score_a"] == row["score_b"]:
+        return False, "draw"
+    # ACS·KD 결측 검사
+    for players in (row["players_a"], row["players_b"]):
+        for p in players:
+            if p.get("acs") is None or p.get("kd") is None:
+                return False, "missing_core_stat"
+    return True, ""
+```
+
+`MAP_ORDER` 기준 맵 12개: Ascent, Bind, Haven, Split, Icebox, Breeze, Fracture, Pearl, Lotus, Sunset, Abyss, Drift.
+
+---
+
+## 3. 신규 요원 처리
+
+새 요원(`AGENT_ROLE_MAP`에 없는)이 포함된 행은 품질 게이트 탈락. `ml/agent_roles.py`의 `AGENT_ROLE_MAP`을 업데이트하면 자동 통과.
+
+---
+
+## 4. dedup_key 중복 제거 (Phase 4)
+
+### 왜 중복이 발생하는가
+
+qualidea와 vct_2021_2023이 같은 VCT 경기를 각자 수록하면 동일 경기가 두 번 학습되어 모델이 해당 경기 패턴에 과적합된다.
+
+### 중복 제거 전략
+
+```python
+def dedup_rows(rows: list[dict]) -> list[dict]:
+    """
+    동일 dedup_key 중 소스 가중치가 가장 높은 행만 보존.
+    가중치 동점 시 컬럼 수(스탯 완성도)가 더 많은 행 보존.
+    """
+    SOURCE_WEIGHT = {
+        "ryanluong_challengers": 1.8,
+        "piyush_2024": 1.5,
+        "piyush_2025": 1.5,
+        "vct_2021_2023": 1.0,
+        "qualidea": 1.0,
+        "ediashtarevin": 0.9,
+        "kierru": 0.9,
+    }
+
+    best: dict[str, dict] = {}
+    for row in rows:
+        key = row["dedup_key"]
+        if key not in best:
+            best[key] = row
+        else:
+            existing = best[key]
+            ew = SOURCE_WEIGHT.get(existing["source"], 1.0)
+            rw = SOURCE_WEIGHT.get(row["source"], 1.0)
+            if rw > ew:
+                best[key] = row
+            elif rw == ew:
+                # 컬럼 수(스탯 완성도) 비교
+                if _col_count(row) > _col_count(existing):
+                    best[key] = row
+    return list(best.values())
 ```
 
 ---
 
-## 6. 전체 클리닝 파이프라인
+## 5. 팀명 정규화 (dedup 누락 방지)
+
+같은 팀이 소스마다 `"T1"` / `"T1 Korea"` / `"Team One Korea"`로 다르게 표기되면 dedup_key가 달라져 동일 경기가 중복 제거되지 않는다.
+
+파서 A~E 모두에서 팀명 확정 직후 `normalize_team()` 호출.
 
 ```python
-def clean_data(df: pd.DataFrame) -> pd.DataFrame:
-    df = remove_duplicates(df)
-    df = handle_missing_values(df)
-    df = handle_unknown_agents(df)
-    df = validate_team_size(df)
-    df = validate_label_consistency(df)
-    
-    print(f"\n클리닝 완료: {len(df):,}행")
-    return df
+from ml.agent_roles import normalize_team
+
+team_a = normalize_team(raw_team_a)
+team_b = normalize_team(raw_team_b)
+dedup_key = make_dedup_key(date, event, map_, team_a, team_b, ...)
 ```
+
+`TEAM_NAME_ALIASES` 딕셔너리는 파싱 실행 중 불일치 발견 시 지속 보완.
+
+---
+
+## 6. 클리닝 출력
+
+| 파일 | 내용 |
+|------|------|
+| `data/processed/matches_clean.csv` | 품질 게이트·dedup 통과한 맵 행 전체 |
+| `reports/rejected_matches.csv` | 품질 게이트 탈락 행 및 탈락 사유 |
 
 ---
 
 ## 7. 클리닝 품질 체크리스트
 
 ```
-□ 중복 행 0개 확인
-□ 필수 컬럼 결측값 0개 확인
-□ 모든 요원이 AGENT_ROLE_MAP에 존재
-□ 모든 팀의 요원 수 = 5
-□ 모든 경기의 승리 팀 = 1개
-□ 맵 이름이 유효한 9개 맵 중 하나
-□ team_won 컬럼이 bool 타입
+[ ] 팀당 요원 수 = 5 (양 팀 모두)
+[ ] 모든 요원이 AGENT_ROLE_MAP에 존재
+[ ] 모든 맵이 MAP_ORDER 12개 중 하나
+[ ] score_a != score_b (동점 없음)
+[ ] ACS·KD 결측 없음
+[ ] dedup 후 동일 dedup_key 중복 0개
+[ ] 단일 소스 비중 < 20%
 ```
 
 ---
@@ -153,6 +149,6 @@ def clean_data(df: pd.DataFrame) -> pd.DataFrame:
 ## 8. 관련 문서
 
 | 문서 | 내용 |
-|---|---|
-| [05_aggregation.md](05_aggregation.md) | 클리닝 후 경기 단위 집계 |
-| [../07_data/](../07_data/) | 각 데이터셋 품질 분석 |
+|------|------|
+| [05_aggregation.md](05_aggregation.md) | 클리닝 후 선수 행 → 맵 행 집계 |
+| [../preprocessing.md](../preprocessing.md) | 전처리 전략 원문 (섹션 3~4) |

@@ -1,8 +1,16 @@
 # 04. XGBoost 피처 중요도 분석
 
+마지막 업데이트: 2026-05-04
+
 ## 개요
 
 XGBoost가 제공하는 세 가지 피처 중요도(gain, weight, cover)의 차이와 발로란트 도메인 관점에서의 해석, 시각화 코드를 제공한다.
+
+**피처 중요도 검증 순서** (정전 기준):
+1. RF `feature_importances_` — 훈련 직후 무료. 빠른 전체 윤곽.
+2. XGBoost gain/cover — RF와 비교해 일관성 확인.
+3. Permutation importance — 피처를 섞었을 때 성능 하락량. 신뢰도 높음.
+4. Ablation study — 카테고리 단위(역할군만 / 스탯만 / 시너지만) 제거 실험.
 
 ---
 
@@ -106,10 +114,15 @@ def extract_all_feature_importances(
 
 # 사용 예시
 feature_names = [
-    "duelist_team1", "initiator_team1", "controller_team1", "sentinel_team1",
-    "duelist_team2", "initiator_team2", "controller_team2", "sentinel_team2",
-    "duelist_diff", "initiator_diff", "controller_diff", "sentinel_diff",
-    "has_controller_team1", "has_controller_team2", "map_encoded"
+    # 역할군 카운트 (12)
+    "a_duelist", "a_initiator", "a_controller", "a_sentinel",
+    "b_duelist", "b_initiator", "b_controller", "b_sentinel",
+    "diff_duelist", "diff_initiator", "diff_controller", "diff_sentinel",
+    # 역할군 파생 (4)
+    "has_controller_a", "has_controller_b",
+    "is_double_duelist_a", "is_double_duelist_b",
+    # 선수 스탯 (12), 시너지 (6), 요원 조합 (6), 맵 (3) ...
+    # 전체 43개 피처 목록은 preprocessing.md 7장 참조
 ]
 
 importance_df = extract_all_feature_importances(xgb_model, feature_names)
@@ -391,7 +404,7 @@ def select_features_by_importance(
 ) -> list[str]:
     """
     중요도 임계값 이하 피처 제거.
-    ValoPredictML: 15개 피처가 이미 선별되어 있어 제거 최소화.
+    ValoPredictML: 43개 피처가 이미 선별되어 있어 제거 최소화.
     """
     importance_df = extract_all_feature_importances(model, feature_names)
 
@@ -403,8 +416,9 @@ def select_features_by_importance(
 
     print(f"선택된 피처 ({len(selected)}개): {selected}")
     print(f"제거된 피처 ({len(removed)}개): {removed}")
-    print("\n주의: ValoPredictML은 15개 피처가 도메인 지식으로 선별됨.")
+    print("\n주의: ValoPredictML은 43개 피처가 도메인 지식으로 선별됨.")
     print("중요도 낮은 피처도 제거 전 도메인 전문가 검토 필요.")
+    print("Ablation study(카테고리 단위 제거)로 최종 확인 권장.")
 
     return selected
 ```

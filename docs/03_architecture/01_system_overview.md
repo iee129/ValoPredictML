@@ -1,40 +1,46 @@
 # 01. 시스템 전체 개요
 
-## 1. 3계층 아키텍처
+마지막 업데이트: 2026-05-04
 
-ValoPredictML은 **ML 파이프라인 → FastAPI 백엔드 → Next.js 프론트엔드** 의 3계층 구조로 설계되었다.
+## 1. 시스템 구조
+
+ValoPredictML은 **ML 파이프라인 → Streamlit 로컬 UI** 의 단순 2계층 구조로 설계되었다.
+
+**범위 외 (out of scope)**: FastAPI, Next.js, React, Vercel/클라우드 배포는 이 프로젝트에서 사용하지 않는다. REST API 서버 없이 Streamlit이 모델을 직접 호출한다.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                     클라이언트 레이어                          │
+│                     UI 레이어                                │
 │                                                             │
 │   ┌──────────────────────────────────────────────────┐     │
-│   │         Next.js 16 (Vercel 배포)                 │     │
-│   │   /predict  /analytics  /history  /           │     │
-│   │   Recharts · Tailwind CSS v4 · CSS Modules     │     │
+│   │         Streamlit (로컬 실행)                     │     │
+│   │   app/streamlit_app.py                           │     │
+│   │   - 선수/요원 조합 입력                           │     │
+│   │   - 예측 결과 + 영향도 시각화 (Plotly)            │     │
+│   │   - 교체 시뮬레이션                               │     │
 │   └──────────────────────────────────────────────────┘     │
-│                         ↕ HTTPS / REST API                  │
+│                    Python 함수 호출                           │
 └─────────────────────────────────────────────────────────────┘
-
+                            ↓
 ┌─────────────────────────────────────────────────────────────┐
-│                    애플리케이션 레이어                         │
+│                    모델 레이어                                │
 │                                                             │
 │   ┌──────────────────────────────────────────────────┐     │
-│   │         FastAPI 0.115+ (Python 3.11+)            │     │
-│   │   POST /predict    GET /history                  │     │
-│   │   GET /agents      GET /maps                     │     │
-│   │   XGBoost + LightGBM 앙상블 예측                │     │
+│   │   Feature Builder (ml/agent_roles.py 참조)       │     │
+│   │   RF / XGBoost / LightGBM (앙상블)               │     │
+│   │   SHAP / feature importance                      │     │
+│   │   models/*.joblib (로컬 파일)                    │     │
 │   └──────────────────────────────────────────────────┘     │
-│                         ↕ SQLAlchemy ORM                    │
+│                    SQLAlchemy (후보)                         │
 └─────────────────────────────────────────────────────────────┘
-
+                            ↓
 ┌─────────────────────────────────────────────────────────────┐
-│                     데이터 레이어                              │
+│                   데이터 레이어                               │
 │                                                             │
 │   ┌─────────────────┐     ┌──────────────────────────┐    │
-│   │  PostgreSQL 18  │     │  ML Pipeline (로컬 실행)  │    │
-│   │  Vercel Postgres│     │  Kaggle → 전처리 → 학습  │    │
-│   │  predictions 표 │     │  data/ → models/ 저장    │    │
+│   │  PostgreSQL      │     │  ML Pipeline (로컬 실행) │    │
+│   │  predictions 표  │     │  Kaggle → 전처리 → 학습  │    │
+│   │  (후보, 미구현)  │     │  data/ → models/ 저장    │    │
 │   └─────────────────┘     └──────────────────────────┘    │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -43,85 +49,83 @@ ValoPredictML은 **ML 파이프라인 → FastAPI 백엔드 → Next.js 프론�
 
 ## 2. 계층별 책임
 
-### 클라이언트 레이어 (Next.js)
-- 요원 선택 UI 제공
-- FastAPI REST API 호출
-- 예측 결과 시각화 (Recharts)
-- Vercel에 자동 배포
+### UI 레이어 (Streamlit)
+- 맵, 선수 5명 + 요원 5명 (팀당) 입력 UI 제공
+- Python 함수 직접 호출로 예측 실행 (API 서버 없음)
+- 예측 결과 시각화 (Plotly)
+- 교체 시뮬레이션, 최적 조합 탐색
 
-### 애플리케이션 레이어 (FastAPI)
-- HTTP 요청 검증 (Pydantic)
-- 피처 엔지니어링 (요청 시 실시간)
-- XGBoost + LightGBM Soft Voting 앙상블
-- 예측 결과 PostgreSQL 저장
-- 예측 기록 조회
+### 모델 레이어
+- 피처 벡터 생성 (43개)
+- RF + XGBoost + LightGBM Soft Voting 앙상블 (확률 평균)
+- 예측 결과 PostgreSQL 저장 (후보)
+- 예측 기록 조회 (후보)
 
 ### 데이터 레이어
-- **PostgreSQL 18**: 예측 기록, 캐시 저장
-- **ML Pipeline**: 오프라인 학습, joblib 저장
+- **Kaggle 원천 데이터**: `data/raw/kaggle/` (2.3GB, 7개 데이터셋)
+- **ML Pipeline**: 오프라인 전처리 + 학습, joblib 저장
+- **PostgreSQL**: 예측 기록 저장 후보 (미구현)
 
 ---
 
 ## 3. 기술 스택 요약
 
 | 계층 | 기술 | 버전 | 역할 |
-|---|---|---|---|
-| 프론트엔드 | Next.js | 16.2.4 | 웹 UI |
-| 프론트엔드 | React | 19.2.4 | UI 컴포넌트 |
-| 프론트엔드 | Tailwind CSS | v4 | 스타일링 |
-| 프론트엔드 | Recharts | 2.x | 차트 시각화 |
-| 백엔드 | FastAPI | 0.115+ | REST API |
-| 백엔드 | Python | 3.11+ | 서버 언어 |
-| 백엔드 | SQLAlchemy | 2.x | ORM |
-| DB | PostgreSQL | 18.x | 예측 기록 |
-| ML | XGBoost | 2.x | 분류 모델 |
-| ML | LightGBM | 4.x | 분류 모델 |
-| ML | Optuna | 3.x | 하이퍼파라미터 최적화 |
-| 배포 | Vercel | — | Next.js 호스팅 |
-| 패키지 | kagglehub | 최신 | 데이터 다운로드 |
+|------|------|------|------|
+| UI | Streamlit | 최신 | 로컬 분석 도구 |
+| UI | Plotly | 최신 | 시각화 (후보) |
+| 언어 | Python | 3.14.4 | 전체 |
+| 데이터 처리 | pandas | 2.x | 전처리 |
+| 데이터 처리 | NumPy | 최신 | 수치 연산 |
+| ML | Random Forest | scikit-learn 1.5+ | 앙상블 구성 |
+| ML | XGBoost | 2.x | 앙상블 구성 |
+| ML | LightGBM | 4.x | 앙상블 구성 |
+| 설명 | SHAP / feature importance | — | 예측 근거 |
+| 모델 저장 | joblib | 최신 | 직렬화 |
+| DB | PostgreSQL + SQLAlchemy | 후보 | 예측 기록 (미구현) |
+
+**범위 외**: FastAPI, uvicorn, Next.js, React, Tailwind, Recharts, Vercel, Optuna, HenrikDev API
 
 ---
 
-## 4. 데이터 흐름 요약
+## 4. 데이터 흐름
 
 ```
-[Kaggle 데이터셋]
-        ↓ (kagglehub 다운로드)
-  data/raw/*.csv
-        ↓ (ml/data_pipeline.py)
+[Kaggle 데이터셋 7개] (data/raw/kaggle/, 2.3GB)
+        ↓ ml/data_pipeline.py (구현 예정)
+  파싱 → 정규화 → 품질 게이트 → dedup → 분할
+        ↓
   data/processed/train.csv, val.csv, test.csv
-        ↓ (ml/optimize.py → ml/train.py)
-  models/xgboost_model.joblib + lgbm_model.joblib
-        ↓ (백엔드 시작 시 로드)
-  FastAPI PredictionService
-        ↓ (POST /api/v1/predict)
-  Soft Voting → 승률 계산
-        ↓ (PostgreSQL INSERT)
-  predictions 테이블
-        ↓ (GET /api/v1/history)
-  Next.js 대시보드 시각화
+        ↓ ml/train_model.py (구현 예정)
+  RF + XGBoost + LightGBM 학습 (K-Fold K=5)
+        ↓
+  models/*.joblib
+        ↓ app/streamlit_app.py (구현 예정)
+  사용자 입력 → 피처 빌드 → 앙상블 예측 → 승률 출력
+        ↓ (후보)
+  PostgreSQL predictions 테이블
 ```
 
 ---
 
-## 5. 비기능 요구사항
+## 5. 현재 구현 상태
 
-| 항목 | 목표 | 전략 |
-|---|---|---|
-| 예측 정확도 | ≥ 80% Accuracy | Soft Voting 앙상블, Optuna 최적화 |
-| 과적합 방지 | Train-Val 갭 < 3% | Early Stopping, 10-Fold CV |
-| API 응답 시간 | < 200ms | 모델 싱글톤, 피처 연산 최소화 |
-| 프론트엔드 배포 | Vercel 자동 배포 | GitHub 연동 |
-| 데이터 무결성 | 중복 예측 기록 방지 | PostgreSQL UNIQUE 제약 |
+| 컴포넌트 | 상태 |
+|----------|------|
+| 데이터 수집 (`dataload.py`) | 완료 |
+| 전처리 파이프라인 (`ml/data_pipeline.py`) | 미구현 |
+| 모델 학습 (`ml/train_model.py`) | 미구현 |
+| Streamlit UI (`app/streamlit_app.py`) | 미구현 |
+| PostgreSQL 예측 기록 | 미구현 (후보) |
 
 ---
 
 ## 6. 관련 문서
 
 | 문서 | 내용 |
-|---|---|
+|------|------|
 | [02_request_flow.md](02_request_flow.md) | 예측 요청 흐름 단계별 상세 |
 | [03_database_schema.md](03_database_schema.md) | PostgreSQL 스키마 DDL |
-| [04_api_design.md](04_api_design.md) | REST API 엔드포인트 스펙 |
-| [05_deployment_architecture.md](05_deployment_architecture.md) | Vercel + 백엔드 배포 구조 |
+| [04_api_design.md](04_api_design.md) | 범위 외 (out of scope) 참조 |
+| [05_deployment_architecture.md](05_deployment_architecture.md) | 범위 외 (out of scope) 참조 |
 | [06_ml_pipeline_architecture.md](06_ml_pipeline_architecture.md) | ML 파이프라인 상세 다이어그램 |

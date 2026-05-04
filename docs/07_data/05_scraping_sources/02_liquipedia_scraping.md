@@ -1,3 +1,5 @@
+> ⚠️ **범위 외**: 스크래핑 미사용 방침. 본 프로젝트는 Kaggle 7개 데이터셋만 사용하며 Liquipedia 스크래핑은 적용되지 않는다. 본문은 참고용으로 보존된다.
+
 # 02. Liquipedia 스크래핑 가이드
 
 ## 1. Liquipedia VALORANT 소개

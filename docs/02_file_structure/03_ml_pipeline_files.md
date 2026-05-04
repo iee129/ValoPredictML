@@ -1,221 +1,214 @@
 # 03. ML 파이프라인 파일 상세 (`ml/`)
 
+마지막 업데이트: 2026-05-04
+
 ## 1. 폴더 전체 구조
 
 ```
 ml/
-├── data_pipeline.py            # 데이터 로드 및 전처리
-├── feature_engineering.py      # 피처 생성
-├── train.py                    # 모델 학습 스크립트
-├── evaluate.py                 # 모델 평가
-├── optimize.py                 # Optuna 하이퍼파라미터 최적화
-├── utils.py                    # 공통 유틸리티
-└── collect_matches.py          # HenrikDev API 데이터 수집 (선택)
+├── agent_roles.py          # 요원→역할군 매핑, 맵 목록, 정규화 함수
+├── data_pipeline.py        # 전처리 파이프라인 진입점
+├── parsers/
+│   ├── __init__.py
+│   ├── ryanluong.py        # vct_2021_2023 + challengers 파서
+│   ├── qualidea.py         # qualidea1217 파서
+│   ├── piyush.py           # piyush86kumar 2024/2025 파서
+│   ├── ediashtarevin.py    # ediashtarevin 파서
+│   └── kierru.py           # kierru 파서
+├── train_model.py          # RF + XGBoost + LightGBM 학습
+└── evaluate_model.py       # 성능 평가 (Accuracy, ROC-AUC, F1)
 ```
+
+> `ml/` 폴더는 현재 미존재. Phase 2 진입 시 생성.
 
 ---
 
 ## 2. 실행 순서
 
 ```bash
-# Step 1: 데이터 전처리 (raw/ → processed/)
-python ml/data_pipeline.py
+# Step 1: 데이터 다운로드 (구현 완료)
+python dataload.py
 
-# Step 2: 하이퍼파라미터 최적화 (약 30~60분)
-python ml/optimize.py
+# Step 2: 전처리 파이프라인 (구현 예정)
+python -m ml.data_pipeline \
+  --input data/raw/kaggle \
+  --output data/processed \
+  --reports reports
 
-# Step 3: 최적 파라미터로 최종 모델 학습
-python ml/train.py
+# Dry-run (원본 무수정)
+python -m ml.data_pipeline \
+  --input data/raw/kaggle \
+  --output /tmp/valo_out \
+  --reports /tmp/valo_reports
 
-# Step 4: 성능 평가 및 리포트 출력
-python ml/evaluate.py
+# A/B swap 증강 비활성화
+python -m ml.data_pipeline ... --no-augment-train
+
+# Step 3: 모델 학습 (구현 예정)
+python -m ml.train_model
+
+# Step 4: 성능 평가 (구현 예정)
+python -m ml.evaluate_model
 ```
 
 ---
 
 ## 3. 파일별 역할 및 구조
 
-### 3.1 `data_pipeline.py` — 데이터 로드 및 전처리
+### 3.1 `ml/agent_roles.py` — 공통 참조 데이터
 
-**입력:** `data/raw/**/*.csv`  
-**출력:** `data/processed/train.csv`, `val.csv`, `test.csv`
+**책임:** 파서·정규화·품질 게이트 전 단계에서 공통으로 참조하는 매핑 테이블.
 
 ```python
-import pandas as pd
-import glob
-from ml.feature_engineering import create_features
-from sklearn.model_selection import train_test_split
+AGENT_ROLE_MAP: dict[str, str] = {
+    # Duelist (8종)
+    "Jett": "Duelist", "Reyna": "Duelist", "Phoenix": "Duelist",
+    "Raze": "Duelist", "Yoru": "Duelist", "Neon": "Duelist",
+    "ISO": "Duelist", "Waylay": "Duelist",
+    # Initiator (7종)
+    "Sova": "Initiator", "Breach": "Initiator", "Skye": "Initiator",
+    "KAY/O": "Initiator", "Fade": "Initiator", "Gekko": "Initiator",
+    "Tejo": "Initiator",
+    # Controller (6종)
+    "Viper": "Controller", "Omen": "Controller", "Brimstone": "Controller",
+    "Astra": "Controller", "Harbor": "Controller", "Clove": "Controller",
+    # Sentinel (6종)
+    "Killjoy": "Sentinel", "Cypher": "Sentinel", "Sage": "Sentinel",
+    "Chamber": "Sentinel", "Deadlock": "Sentinel", "Vyse": "Sentinel",
+}
 
-def load_kaggle_data(raw_dir: str = "data/raw") -> pd.DataFrame:
-    """멀티 CSV 로드 및 concat"""
-    all_files = glob.glob(f"{raw_dir}/**/*.csv", recursive=True)
-    dfs = [pd.read_csv(f) for f in all_files]
-    return pd.concat(dfs, ignore_index=True)
+MAP_ORDER: list[str] = [
+    "Ascent", "Bind", "Haven", "Split", "Icebox", "Breeze",
+    "Fracture", "Pearl", "Lotus", "Sunset", "Abyss", "Drift",
+]
+MAP_TO_INDEX: dict[str, int] = {m: i for i, m in enumerate(MAP_ORDER)}
 
-def standardize_columns(df: pd.DataFrame) -> pd.DataFrame:
-    """소스별 컬럼명 통일"""
-    column_mapping = {
-        "agent": "agent_name",
-        "character": "agent_name",
-        "result": "team_won",
-        "outcome": "team_won",
-        "gameid": "match_id",
-        # ... 소스별 매핑
-    }
-    return df.rename(columns={k: v for k, v in column_mapping.items() if k in df.columns})
-
-def remove_duplicates(df: pd.DataFrame) -> pd.DataFrame:
-    """match_id + team_id 기준 중복 제거"""
-    return df.drop_duplicates(subset=["match_id", "team_id", "agent_name"])
-
-def aggregate_to_match_level(df: pd.DataFrame) -> pd.DataFrame:
-    """플레이어 단위 데이터 → 경기 단위 집계"""
-    # 같은 match_id의 5명을 1행으로 묶음
-    ...
-
-def split_and_save(df: pd.DataFrame):
-    """Stratified Split: 70/15/15"""
-    train, temp = train_test_split(df, test_size=0.30, stratify=df["label"], random_state=42)
-    val, test = train_test_split(temp, test_size=0.50, stratify=temp["label"], random_state=42)
-    train.to_csv("data/processed/train.csv", index=False)
-    val.to_csv("data/processed/val.csv", index=False)
-    test.to_csv("data/processed/test.csv", index=False)
+def normalize_agent(raw: str) -> str | None: ...
+def normalize_map(raw: str) -> str | None: ...
+def normalize_team(raw: str) -> str: ...
 ```
 
 ---
 
-### 3.2 `feature_engineering.py` — 피처 생성
+### 3.2 `ml/data_pipeline.py` — 전처리 파이프라인 진입점
 
-**입력:** 경기 단위 DataFrame (요원 리스트 포함)  
-**출력:** 15개 피처 + `label` 컬럼
+**입력:** `data/raw/kaggle/**`
+**출력:** `data/processed/matches_clean.csv`, `train.csv`, `val.csv`, `test.csv`, `features_base.csv`
 
-```python
-from ml.agent_roles import get_role  # backend/ml/agent_roles.py와 공유
-
-ROLES = ["Duelist", "Initiator", "Controller", "Sentinel"]
-
-def get_role_counts(agents: list) -> dict:
-    counts = {role: 0 for role in ROLES}
-    for agent in agents:
-        role = get_role(agent)
-        if role in counts:
-            counts[role] += 1
-    return counts
-
-def create_features(team_a: list, team_b: list, map_name: str, le_map) -> pd.Series:
-    a_counts = get_role_counts(team_a)
-    b_counts = get_role_counts(team_b)
-
-    features = {}
-    for role in ROLES:
-        features[f"team_a_{role.lower()}_count"] = a_counts[role]
-        features[f"team_b_{role.lower()}_count"] = b_counts[role]
-        features[f"{role.lower()}_diff"] = a_counts[role] - b_counts[role]
-
-    features["team_a_has_controller"] = int(a_counts["Controller"] >= 1)
-    features["team_b_has_controller"] = int(b_counts["Controller"] >= 1)
-    features["map_encoded"] = le_map.transform([map_name])[0]
-
-    return pd.Series(features)
-```
+파이프라인 단계:
+1. **파싱** — 소스별 파서(`ml/parsers/`) 호출 → 공통 스키마 행 리스트 병합
+2. **정규화** — 요원명·맵명·컬럼명 통일
+3. **품질 게이트** — 팀당 요원 5개, 알려진 요원/맵, 유효 레이블 등 검사
+4. **dedup** — `dedup_key` 기준 중복 제거 (소스 가중치 높은 행 우선)
+5. **분할** — 70/15/15 train/val/test (match_key 단위 GroupShuffleSplit)
+6. **피처 사전 집계** — train.csv 기준으로 atk_side_advantage, agent_map_stats, agent_experience 집계
+7. **A/B Swap 증강** — train 한정, `--no-augment-train`으로 비활성화 가능
+8. **features_base.csv 저장**
 
 ---
 
-### 3.3 `train.py` — 모델 학습
+### 3.3 `ml/parsers/ryanluong.py` — ryanluong 파서
 
-**입력:** `data/processed/train.csv`, `val.csv`  
-**출력:** `models/xgboost_model.joblib`, `models/lgbm_model.joblib`, `models/model_metadata.json`
+**대상 소스:** `vct_2021_2023`, `ryanluong1__valorant-challengers-league-data`
+
+- `overview.csv` (선수 스탯) + `maps_scores.csv` (팀 점수) 조인 필수
+- 조인 키: `Match Name + Map`
+- `maps_scores.csv`의 `Attacker Score / Defender Score` → `atk_side_advantage` 집계 소스
+- 연도별 하위 폴더(`vct_2021/`~`vct_2026/`) 재귀 탐색
+
+---
+
+### 3.4 `ml/parsers/qualidea.py` — qualidea 파서
+
+**대상 소스:** `qualidea1217__valorant-pro-matches-since-april-2021`
+
+- 단일 파일 `data-since-april-2021.csv` (249,711행) — 조인 불필요
+- 공수 분리 컬럼(`acs-t`, `acs-ct`, `kd-t`, `kd-ct`) 포함
+
+---
+
+### 3.5 `ml/parsers/piyush.py` — piyush 파서
+
+**대상 소스:** `piyush86kumar__*2024*`, `piyush86kumar__*2025*`
+
+- 이벤트 폴더 내 `detailed_matches_player_stats.csv` — 조인 불필요
+- `*_csvs` 하위 폴더 재귀 탐색
+- `map_winner` 컬럼에서 직접 레이블 추출
+- KAST 일부 이벤트 결측
+
+---
+
+### 3.6 `ml/parsers/ediashtarevin.py` — ediashtarevin 파서
+
+**대상 소스:** `ediashtarevin__vct-champions-2023-stats`
+
+- 단일 파일 `player_stats.csv` — 조인 불필요
+- `win_lose` 컬럼에서 레이블 추출 (`'win'`→1, `'lose'`→0)
+
+---
+
+### 3.7 `ml/parsers/kierru.py` — kierru 파서
+
+**대상 소스:** `kierru__vctpacific-2023`
+
+- `csv/stats.csv` — 조인 불필요
+- `role_agent` 컬럼 직접 포함 → AGENT_ROLE_MAP 조회 없이 역할군 파싱 가능
+
+---
+
+### 3.8 `ml/train_model.py` — 모델 학습
+
+**입력:** `data/processed/train.csv`, `val.csv`
+**출력:** `models/rf_model.joblib`, `models/xgboost_model.joblib`, `models/lgbm_model.joblib`, `models/model_metadata.json`
 
 ```python
+import joblib
+from sklearn.ensemble import RandomForestClassifier
 import xgboost as xgb
 import lightgbm as lgb
-import joblib
-import json
+from sklearn.model_selection import GroupKFold
 
 FEATURE_COLS = [
-    "team_a_duelist_count", "team_a_initiator_count",
-    "team_a_controller_count", "team_a_sentinel_count",
-    "team_b_duelist_count", "team_b_initiator_count",
-    "team_b_controller_count", "team_b_sentinel_count",
-    "duelist_diff", "initiator_diff", "controller_diff", "sentinel_diff",
-    "team_a_has_controller", "team_b_has_controller",
-    "map_encoded"
+    # 역할군 카운트 (12)
+    "a_duelist", "a_initiator", "a_controller", "a_sentinel",
+    "b_duelist", "b_initiator", "b_controller", "b_sentinel",
+    "diff_duelist", "diff_initiator", "diff_controller", "diff_sentinel",
+    # 역할군 파생 (4)
+    "has_controller_a", "has_controller_b",
+    "is_double_duelist_a", "is_double_duelist_b",
+    # 선수 스탯 (12)
+    "a_avg_acs", "b_avg_acs", "a_avg_kd", "b_avg_kd",
+    "a_avg_kast", "b_avg_kast", "a_avg_adr", "b_avg_adr",
+    "a_max_clutch", "b_max_clutch", "a_avg_hs", "b_avg_hs",
+    # 시너지 (6)
+    "a_fk_fd_ratio", "b_fk_fd_ratio",
+    "a_avg_assists", "b_avg_assists",
+    "a_kast_std", "b_kast_std",
+    # 요원 조합 (6)
+    "a_avg_agent_map_wr", "b_avg_agent_map_wr",
+    "a_avg_agent_pick_rate", "b_avg_agent_pick_rate",
+    "a_avg_agent_exp", "b_avg_agent_exp",
+    # 맵 (3)
+    "map_encoded", "atk_side_advantage", "is_attacker_a",
 ]
 
-def train_xgboost(X_train, y_train, X_val, y_val, params: dict):
-    model = xgb.XGBClassifier(**params, early_stopping_rounds=50, eval_metric="logloss")
-    model.fit(X_train, y_train, eval_set=[(X_val, y_val)], verbose=100)
-    joblib.dump(model, "models/xgboost_model.joblib")
-    return model
-
-def train_lightgbm(X_train, y_train, X_val, y_val, params: dict):
-    model = lgb.LGBMClassifier(**params)
-    model.fit(X_train, y_train,
-              eval_set=[(X_val, y_val)],
-              callbacks=[lgb.early_stopping(50), lgb.log_evaluation(100)])
-    joblib.dump(model, "models/lgbm_model.joblib")
-    return model
+# K-Fold (K=5), match_key 단위 GroupKFold
+# 앙상블: RF + XGBoost + LightGBM 예측 확률 평균
 ```
 
 ---
 
-### 3.4 `optimize.py` — Optuna 하이퍼파라미터 최적화
+### 3.9 `ml/evaluate_model.py` — 모델 평가
 
-**입력:** `data/processed/train.csv`, `val.csv`  
-**출력:** 최적 파라미터 (터미널 출력 + JSON 저장)
-
-```python
-import optuna
-
-def objective_xgb(trial):
-    params = {
-        "max_depth": trial.suggest_int("max_depth", 3, 8),
-        "n_estimators": trial.suggest_int("n_estimators", 100, 800),
-        "learning_rate": trial.suggest_float("learning_rate", 0.01, 0.3, log=True),
-        "subsample": trial.suggest_float("subsample", 0.5, 1.0),
-        "colsample_bytree": trial.suggest_float("colsample_bytree", 0.5, 1.0),
-        "min_child_weight": trial.suggest_int("min_child_weight", 1, 10),
-    }
-    # 5-Fold CV로 평가
-    ...
-    return cv_score
-
-study = optuna.create_study(direction="maximize", sampler=optuna.samplers.TPESampler())
-study.optimize(objective_xgb, n_trials=100, timeout=3600)
-```
-
----
-
-### 3.5 `evaluate.py` — 모델 평가
-
-**입력:** `models/*.joblib`, `data/processed/test.csv`  
+**입력:** `models/*.joblib`, `data/processed/test.csv`
 **출력:** 터미널 리포트 + `reports/training_report.json`
 
 **출력 내용:**
-- Accuracy, F1-Score (Macro), ROC-AUC
+- Accuracy, F1-Score, ROC-AUC
 - Confusion Matrix
 - Train-Val 갭 (과적합 여부)
 - 피처 중요도 상위 10개
-
----
-
-### 3.6 `utils.py` — 공통 유틸리티
-
-```python
-import logging
-import os
-
-def setup_logger(name: str, level=logging.INFO) -> logging.Logger:
-    logger = logging.getLogger(name)
-    logger.setLevel(level)
-    handler = logging.StreamHandler()
-    handler.setFormatter(logging.Formatter("[%(levelname)s] %(name)s: %(message)s"))
-    logger.addHandler(handler)
-    return logger
-
-def ensure_dir(path: str):
-    os.makedirs(path, exist_ok=True)
-```
+- SHAP 분석 (구현 시)
 
 ---
 
@@ -223,27 +216,38 @@ def ensure_dir(path: str):
 
 ```
 dataload.py
-    ↓ (data/raw/ 저장)
-data_pipeline.py
-    ├──→ feature_engineering.py
+    ↓ (data/raw/kaggle/ 저장)
+ml/data_pipeline.py
+    ├──→ ml/agent_roles.py       (공통 참조)
+    ├──→ ml/parsers/*.py         (소스별 파싱)
     └──→ data/processed/ 저장
-         ↓
-    optimize.py
-         ↓ (최적 파라미터)
-    train.py
-    ├──→ feature_engineering.py
-    └──→ models/ 저장
-         ↓
-    evaluate.py
-    └──→ reports/ 저장
+              ↓
+         ml/train_model.py
+         └──→ models/ 저장
+                   ↓
+              ml/evaluate_model.py
+              └──→ reports/ 저장
 ```
 
 ---
 
-## 5. 관련 문서
+## 5. 출력 파일
+
+| 경로 | 내용 |
+|------|------|
+| `data/processed/matches_clean.csv` | 품질 게이트·dedup 통과한 맵 행 전체 |
+| `data/processed/features_base.csv` | 피처 테이블 (43개 피처 + 레이블) |
+| `data/processed/train.csv` | 학습셋 (A/B swap 증강 포함) |
+| `data/processed/val.csv` | 검증셋 |
+| `data/processed/test.csv` | 테스트셋 (최종 평가 전용) |
+| `reports/preprocess_summary.json` | 소스별 행수·제거율·최종 분포 등 실행 통계 |
+| `reports/rejected_matches.csv` | 품질 게이트 탈락 행 및 탈락 사유 |
+
+---
+
+## 6. 관련 문서
 
 | 문서 | 내용 |
-|---|---|
-| [../04_data_processing/](../04_data_processing/) | 데이터 전처리 전략 상세 |
-| [../05_data_learning/](../05_data_learning/) | 모델 학습 전략 상세 |
+|------|------|
+| [../docs/preprocessing.md](../preprocessing.md) | 전처리 파이프라인 정전 설계 |
 | [../03_architecture/06_ml_pipeline_architecture.md](../03_architecture/06_ml_pipeline_architecture.md) | ML 파이프라인 아키텍처 다이어그램 |

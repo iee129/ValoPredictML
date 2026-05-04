@@ -1,8 +1,11 @@
 # 03. LightGBM 완전한 학습 구현
 
+마지막 업데이트: 2026-05-04
+
 ## 개요
 
 LightGBM의 완전한 학습 코드를 Native API와 sklearn API 두 가지 방식으로 제공한다. callbacks, early_stopping, 로깅, 평가를 포함한다.
+LightGBM은 RF + XGBoost + LightGBM 앙상블 구성원 중 하나다. 스케일링 불필요. sample_weight = time_weight × source_weight를 model.fit()에 전달한다.
 
 ---
 
@@ -28,6 +31,7 @@ def train_lightgbm(
     y_train: pd.Series,
     X_val: pd.DataFrame,
     y_val: pd.Series,
+    sample_weight: pd.Series = None,
     params: dict = None,
     model_dir: str = "models"
 ) -> tuple[lgb.LGBMClassifier, dict]:
@@ -35,10 +39,11 @@ def train_lightgbm(
     LightGBM 완전한 학습 함수 (sklearn API).
 
     Args:
-        X_train: 학습 피처 DataFrame (N_train, 15)
+        X_train: 학습 피처 DataFrame (N_train, 43)
         y_train: 학습 레이블 (0: 패, 1: 승)
         X_val: 검증 피처 DataFrame
         y_val: 검증 레이블
+        sample_weight: 샘플 가중치 (time_weight × source_weight). None이면 균등 가중치.
         params: 하이퍼파라미터 딕셔너리
         model_dir: 모델 저장 경로
 
@@ -58,6 +63,7 @@ def train_lightgbm(
     start_time = datetime.now()
     model.fit(
         X_train, y_train,
+        sample_weight=sample_weight,
         eval_set=[(X_val, y_val)],
         eval_names=["val"],
         eval_metric="binary_logloss",
@@ -290,16 +296,19 @@ def train_lightgbm_native(
 ## 5. K-Fold 교차 검증
 
 ```python
-from sklearn.model_selection import StratifiedKFold
+from sklearn.model_selection import GroupKFold
 
-def train_lightgbm_cv(X, y, params, n_splits=10):
+def train_lightgbm_cv(X, y, params, df, n_splits=5):
     """
-    Stratified K-Fold 교차 검증으로 LightGBM 안정적 성능 추정.
+    Group K-Fold (K=5) 교차 검증으로 LightGBM 안정적 성능 추정.
+    match_key 단위로 폴드를 분할해 경기 누수를 방지한다.
+    train.csv를 5개 폴드로 분할해 각 폴드를 한 번씩 검증에 사용한다.
+    test.csv는 K-Fold와 완전히 분리되어 최종 평가 1회에만 사용한다.
     """
-    skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=42)
+    gkf = GroupKFold(n_splits=n_splits)
     fold_metrics = []
 
-    for fold_idx, (train_idx, val_idx) in enumerate(skf.split(X, y)):
+    for fold_idx, (train_idx, val_idx) in enumerate(gkf.split(X, y, groups=df["match_key"])):
         X_tr, X_vl = X.iloc[train_idx], X.iloc[val_idx]
         y_tr, y_vl = y.iloc[train_idx], y.iloc[val_idx]
 
@@ -478,11 +487,6 @@ def save_lgbm_metadata(training_info: dict, summary: dict,
         **training_info,
         "cv_summary": summary,
         "lightgbm_version": lgb.__version__,
-        "goals": {"accuracy": 0.80, "roc_auc": 0.82},
-        "goals_achieved": {
-            "accuracy": summary["accuracy_mean"] >= 0.80,
-            "roc_auc": summary["roc_auc_mean"] >= 0.82,
-        }
     }
 
     with open(output_path, "w") as f:

@@ -1,8 +1,10 @@
-# 02. Random Forest 베이스라인 구현
+# 02. Random Forest 구현
+
+마지막 업데이트: 2026-05-04
 
 ## 개요
 
-Random Forest는 두 번째 베이스라인 모델이다. 로지스틱 회귀(선형)보다 높은 성능을 보이되, XGBoost/LightGBM(부스팅)의 필요성을 검증하기 위한 "향상된 기준선"으로 사용한다.
+Random Forest는 **앙상블 메인 모델 중 하나**다. RF + XGBoost + LightGBM 세 모델의 예측 확률을 단순 평균하여 최종 승률을 산출한다. 또한 로지스틱 회귀(선형)보다 높은 성능의 비교 기준선(Baseline+)으로도 활용한다. 스케일링 불필요 — 트리 기반 모델은 피처 스케일에 무관하다.
 
 ---
 
@@ -13,7 +15,7 @@ Random Forest = Bagging + Feature Randomization + 다수결 투표
 
 핵심 파라미터:
 - n_estimators (T): 트리 수
-- max_features (m): 분기 시 고려할 피처 수 (보통 sqrt(d) = sqrt(15) ≈ 4)
+- max_features (m): 분기 시 고려할 피처 수 (보통 sqrt(d) = sqrt(43) ≈ 6)
 - max_depth: 각 트리 최대 깊이 (None = 완전 성장)
 - min_samples_split: 분기 최소 샘플 수
 - min_samples_leaf: 리프 최소 샘플 수
@@ -55,7 +57,7 @@ def train_random_forest(
     Random Forest 베이스라인 학습.
 
     Args:
-        X_train: 학습 피처 (N_train, 15)
+        X_train: 학습 피처 (N_train, 43)
         y_train: 학습 레이블
         X_val: 검증 피처
         y_val: 검증 레이블
@@ -370,14 +372,16 @@ def plot_learning_curve(rf, X, y):
 
 ## 6. 예상 성능 및 결론
 
-| 지표 | Logistic Regression | **Random Forest** | XGBoost+LGBM 목표 |
+K-Fold (K=5) 교차 검증 기준 예상 성능 (약 80~100K 맵 행, 43 피처):
+
+| 지표 | Logistic Regression | **Random Forest** | RF+XGB+LGBM 앙상블 |
 |------|--------------------|--------------------|-------------------|
-| Accuracy | ~0.72 | **~0.76** | ≥ 0.80 |
-| ROC-AUC | ~0.74 | **~0.78** | ≥ 0.82 |
-| F1-Score | ~0.70 | **~0.74** | - |
-| 학습 시간 | < 1초 | **~2초** | ~6초 |
+| Accuracy | ~0.55~0.58 | **~0.60~0.63** | ~0.63~0.66 |
+| ROC-AUC | ~0.57~0.61 | **~0.62~0.66** | ~0.66~0.69 |
+| F1-Score | ~0.54~0.57 | **~0.59~0.62** | ~0.62~0.65 |
+| 학습 시간 | < 1초 | **~10초** | ~35초 (3모델 합산) |
 | OOB 검증 | 없음 | **있음 (무료)** | 없음 |
 
-**결론**: Random Forest는 LR보다 ~4% 높은 성능을 보이지만 목표(80%)에는 미달.
-비선형 패턴 포착 능력이 있으나, 부스팅 방식의 순차적 오류 수정만큼 효과적이지 않음.
-XGBoost/LightGBM 앙상블이 추가로 ~4-5% 성능 개선이 필요하고 달성 가능.
+**결론**: Random Forest는 LR보다 높은 성능, 비선형 패턴 포착 능력 있음.
+앙상블(RF + XGBoost + LightGBM) 구성원으로 피처 중요도 검증 1단계(`feature_importances_`)에도 활용.
+평가 지표: Accuracy, ROC-AUC, F1. 실제 수치는 전처리 완료 후 측정.

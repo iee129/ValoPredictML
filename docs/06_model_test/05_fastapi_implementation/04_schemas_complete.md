@@ -1,3 +1,5 @@
+> ⚠️ **범위 외**: FastAPI 미사용. 본 프로젝트는 Streamlit 로컬 도구이며 API 엔드포인트 테스트는 적용되지 않는다. 본문은 참고용으로 보존된다.
+
 # 04. Pydantic 스키마 완전 정의
 
 ## 1. 스키마 파일 구조
@@ -146,7 +148,7 @@ class AgentInfo(BaseModel):
 
     name:    str
     role:    str      # "Duelist" / "Initiator" / "Controller" / "Sentinel"
-    role_kr: str      # "타격대" / "척후병" / "전략가" / "감시자"
+    role_kr: str      # "타격대" / "척후대" / "전략가" / "감시자"
 
 
 class RoleInfo(BaseModel):
@@ -169,7 +171,7 @@ class AgentsResponse(BaseModel):
             "example": {
                 "agents": [
                     {"name": "Jett", "role": "Duelist", "role_kr": "타격대"},
-                    {"name": "Sova", "role": "Initiator", "role_kr": "척후병"},
+                    {"name": "Sova", "role": "Initiator", "role_kr": "척후대"},
                 ],
                 "roles": {
                     "Duelist": {

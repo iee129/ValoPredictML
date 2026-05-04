@@ -1,8 +1,11 @@
 # 01. Optuna 설치 및 Study 설정
 
+마지막 업데이트: 2026-05-04
+
 ## 개요
 
-Optuna는 자동 하이퍼파라미터 최적화(HPO) 프레임워크다. ValoPredictML에서 XGBoost와 LightGBM의 하이퍼파라미터를 베이지안 최적화로 탐색한다. 이 문서는 Optuna 설치부터 전체 최적화 실행까지 완전한 코드를 제공한다.
+Optuna는 자동 하이퍼파라미터 최적화(HPO) 프레임워크다. ValoPredictML에서 RF + XGBoost + LightGBM 앙상블 각 구성원의 하이퍼파라미터를 베이지안 최적화로 탐색한다. 이 문서는 Optuna 설치부터 전체 최적화 실행까지 완전한 코드를 제공한다.
+K-Fold (K=5)로 train.csv 내에서 교차 검증하며, test.csv는 최종 평가 1회에만 사용한다.
 
 ---
 
@@ -52,7 +55,7 @@ python -c "import optuna; print(optuna.__version__)"
 import optuna
 import numpy as np
 import pandas as pd
-from sklearn.model_selection import StratifiedKFold
+from sklearn.model_selection import GroupKFold
 from sklearn.metrics import roc_auc_score
 import xgboost as xgb
 import lightgbm as lgb
@@ -79,10 +82,10 @@ study = optuna.create_study(
 ### 3.2 영구 저장 Study (PostgreSQL)
 
 ```python
-# Vercel Postgres에 Study 결과 저장
+# 로컬 PostgreSQL에 Study 결과 저장 (Vercel 미사용)
 import os
 
-DATABASE_URL = os.environ.get("POSTGRES_URL")
+DATABASE_URL = os.environ.get("DATABASE_URL")
 # postgresql://user:password@host:5432/dbname 형식
 
 study = optuna.create_study(
@@ -115,7 +118,7 @@ study = optuna.create_study(
 ## 4. XGBoost Objective 함수
 
 ```python
-def xgb_objective(trial, X, y, n_splits=5):
+def xgb_objective(trial, X, y, df, n_splits=5):
     """
     XGBoost 하이퍼파라미터 최적화 목적 함수.
 
@@ -123,7 +126,8 @@ def xgb_objective(trial, X, y, n_splits=5):
         trial: Optuna Trial 객체
         X: 전체 피처 DataFrame
         y: 전체 레이블 Series
-        n_splits: CV fold 수 (속도 위해 5, 최종 평가는 10)
+        df: match_key 컬럼을 포함한 원본 DataFrame (GroupKFold용)
+        n_splits: CV fold 수 (K=5 고정)
 
     Returns:
         float: 평균 ROC-AUC (최대화 목표)
@@ -148,10 +152,10 @@ def xgb_objective(trial, X, y, n_splits=5):
         "verbosity": 0,
     }
 
-    skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=42)
+    gkf = GroupKFold(n_splits=n_splits)
     auc_scores = []
 
-    for fold_idx, (train_idx, val_idx) in enumerate(skf.split(X, y)):
+    for fold_idx, (train_idx, val_idx) in enumerate(gkf.split(X, y, groups=df["match_key"])):
         X_tr, X_vl = X.iloc[train_idx], X.iloc[val_idx]
         y_tr, y_vl = y.iloc[train_idx], y.iloc[val_idx]
 
@@ -179,7 +183,7 @@ def xgb_objective(trial, X, y, n_splits=5):
 ## 5. LightGBM Objective 함수
 
 ```python
-def lgbm_objective(trial, X, y, n_splits=5):
+def lgbm_objective(trial, X, y, df, n_splits=5):
     """
     LightGBM 하이퍼파라미터 최적화 목적 함수.
     """
@@ -202,10 +206,10 @@ def lgbm_objective(trial, X, y, n_splits=5):
         "verbose": -1,
     }
 
-    skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=42)
+    gkf = GroupKFold(n_splits=n_splits)
     auc_scores = []
 
-    for fold_idx, (train_idx, val_idx) in enumerate(skf.split(X, y)):
+    for fold_idx, (train_idx, val_idx) in enumerate(gkf.split(X, y, groups=df["match_key"])):
         X_tr, X_vl = X.iloc[train_idx], X.iloc[val_idx]
         y_tr, y_vl = y.iloc[train_idx], y.iloc[val_idx]
 
@@ -322,15 +326,11 @@ if __name__ == "__main__":
     from sklearn.model_selection import train_test_split
 
     # 데이터 로드 (실제 경로로 변경)
-    df = pd.read_csv("data/processed/valorant_features.csv")
-    feature_cols = [
-        "duelist_team1", "initiator_team1", "controller_team1", "sentinel_team1",
-        "duelist_team2", "initiator_team2", "controller_team2", "sentinel_team2",
-        "duelist_diff", "initiator_diff", "controller_diff", "sentinel_diff",
-        "has_controller_team1", "has_controller_team2", "map_encoded"
-    ]
+    df = pd.read_csv("data/processed/train.csv")
+    # 43개 피처 — 전체 컬럼 목록은 docs/preprocessing.md 참조
+    feature_cols = [c for c in df.columns if c not in ["label", "match_key", "dedup_key"]]
     X = df[feature_cols]
-    y = df["team1_win"]
+    y = df["label"]
 
     # XGBoost 최적화
     xgb_study, xgb_best = run_optimization(X, y, model_type="xgb", n_trials=100)

@@ -1,36 +1,41 @@
 # 03. Baseline 성능 기준표 및 비교 방법론
 
+마지막 업데이트: 2026-05-04
+
 ## 개요
 
-베이스라인 모델들의 성능을 체계적으로 비교하고, 최종 앙상블 모델이 달성해야 할 최소 기준을 설정한다.
+베이스라인 모델들의 성능을 체계적으로 비교하고, 최종 앙상블 모델(RF + XGBoost + LightGBM 단순 평균)이 달성해야 할 최소 기준을 설정한다.
+평가 지표: Accuracy, ROC-AUC, F1. 교차 검증: K-Fold (K=5). test.csv는 최종 평가 1회만 사용.
 
 ---
 
 ## 1. 베이스라인 성능 기준표
 
-### 1.1 모델별 성능 비교 (목표)
+### 1.1 모델별 성능 비교 (K-Fold K=5 기준 예상값, 43 피처, ~80~100K 맵 행)
 
-| 모델 | Accuracy | ROC-AUC | F1-Score | PR-AUC | 학습 시간 |
-|------|----------|---------|---------|--------|---------|
-| Dummy (다수 클래스) | ~0.52 | ~0.50 | ~0.34 | ~0.52 | < 0.01s |
-| Logistic Regression | ~0.72 | ~0.74 | ~0.70 | ~0.73 | < 1s |
-| Random Forest | ~0.76 | ~0.78 | ~0.74 | ~0.77 | ~2s |
-| **목표 (XGB+LGBM)** | **≥ 0.80** | **≥ 0.82** | **≥ 0.78** | **≥ 0.80** | ~6s |
+| 모델 | Accuracy | ROC-AUC | F1-Score | 학습 시간 | 역할 |
+|------|----------|---------|---------|---------|------|
+| Dummy (다수 클래스) | ~0.51 | ~0.50 | ~0.34 | < 0.01s | 하한 |
+| Logistic Regression | ~0.55~0.58 | ~0.57~0.61 | ~0.54~0.57 | < 1s | Baseline (메인 아님) |
+| Random Forest | ~0.60~0.63 | ~0.62~0.66 | ~0.59~0.62 | ~10s | Baseline+ / 앙상블 |
+| **RF+XGB+LGBM 앙상블** | **~0.63~0.66** | **~0.66~0.69** | **~0.62~0.65** | ~35s | **메인** |
+
+실제 수치는 전처리 완료 후 측정 — 현재 미구현.
 
 ### 1.2 성능 갭 분석
 
 ```python
 baseline_results = {
-    "Dummy":               {"accuracy": 0.52, "roc_auc": 0.50, "f1": 0.34},
-    "LogisticRegression":  {"accuracy": 0.72, "roc_auc": 0.74, "f1": 0.70},
-    "RandomForest":        {"accuracy": 0.76, "roc_auc": 0.78, "f1": 0.74},
-    "XGB+LGBM_Target":     {"accuracy": 0.80, "roc_auc": 0.82, "f1": 0.78},
+    "Dummy":               {"accuracy": 0.51, "roc_auc": 0.50, "f1": 0.34},
+    "LogisticRegression":  {"accuracy": 0.57, "roc_auc": 0.59, "f1": 0.56},
+    "RandomForest":        {"accuracy": 0.62, "roc_auc": 0.64, "f1": 0.61},
+    "RF+XGB+LGBM_Ensemble": {"accuracy": 0.65, "roc_auc": 0.67, "f1": 0.64},
 }
 
-# 갭 계산
-target = baseline_results["XGB+LGBM_Target"]
+# 갭 계산 (앙상블 대비)
+target = baseline_results["RF+XGB+LGBM_Ensemble"]
 for model, perf in baseline_results.items():
-    if model == "XGB+LGBM_Target":
+    if model == "RF+XGB+LGBM_Ensemble":
         continue
     gap_acc = target["accuracy"] - perf["accuracy"]
     gap_auc = target["roc_auc"] - perf["roc_auc"]
@@ -344,9 +349,10 @@ print(BASELINE_CHECKLIST)
 
 베이스라인 구축 완료 후 결론:
 
-1. **Dummy 대비 개선량**: 로지스틱 회귀 +20%p, RF +24%p → 피처가 예측력 있음을 확인
-2. **비선형 패턴 존재**: RF가 LR보다 ~4%p 높음 → 역할군 조합 간 비선형 상호작용 존재 확인
-3. **목표 달성 갭**: RF 기준 Accuracy +4%p, AUC +4%p → XGBoost+LightGBM 앙상블로 달성 가능
-4. **데이터 품질 확인**: 베이스라인 성능이 예상 범위에 있으면 데이터 전처리 올바름
+1. **Dummy 대비 개선량**: LR > Dummy, RF > LR → 피처가 예측력 있음을 확인
+2. **비선형 패턴 존재**: RF가 LR보다 높음 → 역할군 조합 간 비선형 상호작용 존재 확인
+3. **앙상블 이점**: RF + XGBoost + LightGBM 단순 평균 → RF 단독보다 안정적이고 높은 성능
+4. **데이터 품질 확인**: 베이스라인 성능이 예상 범위에 있으면 전처리 올바름
+5. **평가 지표**: Accuracy, ROC-AUC, F1 / K-Fold (K=5) 교차 검증 / test.csv 최종 평가 1회
 
 다음 단계: `03_xgboost/` 폴더의 XGBoost 상세 구현으로 이동.

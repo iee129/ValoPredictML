@@ -1,378 +1,266 @@
 # 04. 데이터 로드 및 전처리 전략
 
+마지막 업데이트: 2026-05-04
+
 ## 1. 전처리 파이프라인 개요
 
 ```
-[수집] → [로드] → [정제] → [집계] → [피처 생성] → [분할] → [저장]
+[수집] → [파싱] → [정규화] → [품질 게이트] → [dedup] → [분할] → [피처 집계] → [피처 생성] → [증강] → [저장]
 ```
 
-전처리는 `ml/data_pipeline.py`와 `ml/feature_engineering.py` 두 모듈로 처리합니다.
+외부 API 미사용 — Kaggle CSV 7개만 사용한다. 전처리는 `ml/data_pipeline.py`와 `ml/parsers/*.py`로 처리한다.
 
 ---
 
 ## 2. 데이터 수집
 
-### 2.1 Kaggle VCT 데이터셋 다운로드
+### 2.1 Kaggle 7개 데이터셋 다운로드
 
 ```python
-# dataload.py (현재 존재)
+# dataload.py
 import kagglehub
 
-path = kagglehub.dataset_download("ryanluong1/valorant-champion-tour-2021-2023-data")
-print("Path to dataset files:", path)
+DATASETS = [
+    ("ryanluong1/valorant-champion-tour-2021-2023-data",
+     "data/raw/kaggle/vct_2021_2023"),
+    ("ryanluong1/valorant-challengers-league-data",
+     "data/raw/kaggle/ryanluong1__valorant-challengers-league-data"),
+    ("qualidea1217/valorant-pro-matches-since-april-2021",
+     "data/raw/kaggle/qualidea1217__valorant-pro-matches-since-april-2021"),
+    ("piyush86kumar/valorant-champions-tour-2024-all-events",
+     "data/raw/kaggle/piyush86kumar__valorant-champions-tour-2024-all-events"),
+    ("piyush86kumar/valorant-vct-2025-all-events",
+     "data/raw/kaggle/piyush86kumar__valorant-vct-2025-all-events"),
+    ("ediashtarevin/vct-champions-2023-stats",
+     "data/raw/kaggle/ediashtarevin__vct-champions-2023-stats"),
+    ("kierru/vctpacific-2023",
+     "data/raw/kaggle/kierru__vctpacific-2023"),
+]
 ```
 
-> **주의:** `.venv` 가상환경에서 실행할 것.  
-> 다운로드된 파일 경로를 확인 후 `data/raw/`로 복사합니다.
-
+실행:
 ```bash
-# 실행 방법
 source .venv/bin/activate
 python dataload.py
 ```
 
-### 2.2 HenrikDev API 수집
-
-```python
-# ml/henrik_collector.py
-import os
-import requests
-import pandas as pd
-from time import sleep
-
-API_KEY = os.environ["HENRIK_API_KEY"]
-BASE_URL = "https://api.henrikdev.xyz/valorant/v4"
-
-def fetch_recent_matches(name: str, tag: str, region: str = "ap", size: int = 20) -> list:
-    """특정 플레이어의 최근 경기 목록 수집"""
-    url = f"{BASE_URL}/matches/{region}/pc/{name}/{tag}"
-    params = {"mode": "competitive", "size": size}
-    headers = {"Authorization": API_KEY}
-    
-    resp = requests.get(url, params=params, headers=headers, timeout=10)
-    resp.raise_for_status()
-    return resp.json().get("data", [])
-
-def collect_and_save(player_list: list, output_path: str):
-    """여러 플레이어의 경기 데이터 수집 후 CSV 저장"""
-    all_rows = []
-    for name, tag in player_list:
-        try:
-            matches = fetch_recent_matches(name, tag)
-            for match in matches:
-                row = extract_match_features(match)
-                if row:
-                    all_rows.append(row)
-            sleep(0.5)  # API Rate Limit 준수
-        except Exception as e:
-            print(f"[WARN] {name}#{tag} 수집 실패: {e}")
-    
-    df = pd.DataFrame(all_rows)
-    df.to_csv(output_path, index=False)
-    print(f"[INFO] {len(df)} 경기 저장 → {output_path}")
-```
+`~/.kaggle/kaggle.json` 필요. API 키나 raw CSV는 절대 커밋 금지.
 
 ---
 
-## 3. 데이터 로드
+## 3. 소스별 파서
 
-### 3.1 CSV 멀티파일 로드 및 병합
+소스마다 파일 구조가 달라 파서를 소스별로 분리한다. 파서 공통 출력 스키마:
 
 ```python
-# ml/data_pipeline.py
-import os
-import glob
-import pandas as pd
-
-def load_raw_data(raw_dir: str = "data/raw") -> pd.DataFrame:
-    """data/raw/ 하위 모든 CSV 파일 로드 및 병합"""
-    csv_files = glob.glob(os.path.join(raw_dir, "**/*.csv"), recursive=True)
-    
-    if not csv_files:
-        raise FileNotFoundError(f"CSV 파일이 없습니다: {raw_dir}")
-    
-    dfs = []
-    for filepath in csv_files:
-        try:
-            df = pd.read_csv(filepath, encoding="utf-8")
-            df["source_file"] = os.path.basename(filepath)
-            dfs.append(df)
-        except Exception as e:
-            print(f"[WARN] 로드 실패: {filepath} → {e}")
-    
-    combined = pd.concat(dfs, ignore_index=True)
-    print(f"[INFO] 로드 완료: {len(combined)} 행, {len(csv_files)} 파일")
-    return combined
+{
+    "source": str,           # 소스 식별자
+    "match_key": str,        # 16자 SHA-1 (경기 단위 grouping)
+    "dedup_key": str,        # 24자 SHA-1 (중복 제거 키)
+    "date": str,             # YYYY-MM-DD
+    "event": str,
+    "map": str,
+    "team_a": str,
+    "team_b": str,
+    "players_a": list[dict], # 5명 x {player, agent, acs, kd, kast, adr, fk, fd, assists}
+    "players_b": list[dict],
+    "score_a": int,
+    "score_b": int,
+    "atk_a": int | None,
+    "def_a": int | None,
+    "label": int,            # 1 = team_a 승, 0 = team_b 승
+}
 ```
 
-### 3.2 컬럼 표준화
+| 파서 | 소스 | 조인 필요 |
+|------|------|----------|
+| ryanluong | vct_2021_2023, challengers | 필요 (Match Name + Map) |
+| qualidea | qualidea1217 | 불필요 |
+| piyush | piyush 2024/2025 | 불필요 |
+| ediashtarevin | ediashtarevin | 불필요 |
+| kierru | kierru | 불필요 |
 
-Kaggle 데이터셋과 HenrikDev API 데이터의 컬럼명이 다를 수 있습니다.  
-모든 소스를 **표준 컬럼명**으로 통일합니다.
+---
+
+## 4. 정규화
 
 ```python
-COLUMN_MAPPING = {
-    # Kaggle VCT → 표준
-    "match_id": "match_id",
-    "map": "map",
-    "player": "player_name",
-    "team": "team_name",
-    "agent": "agent",
-    "winner": "winner",
-    # HenrikDev → 표준 (extract_match_features에서 처리)
+from ml.agent_roles import normalize_agent, normalize_map, normalize_team
+
+# 파서 내 팀명 확정 직후
+team_a = normalize_team(raw_team_a)
+team_b = normalize_team(raw_team_b)
+
+# 요원·맵 정규화
+agent = normalize_agent(raw_agent)   # None이면 품질 게이트 탈락
+map_  = normalize_map(raw_map)       # None이면 품질 게이트 탈락
+```
+
+컬럼명 통일: `hs%` / `hs_percent` / `HS%` → `hs`, `kast%` / `Kill Assist Trade Survive %` → `kast`.
+
+---
+
+## 5. 품질 게이트
+
+| 조건 | 기준 |
+|------|------|
+| 팀당 요원 수 | 팀 A·B 각각 정확히 5명 |
+| 요원 유효성 | AGENT_ROLE_MAP에 모두 존재 |
+| 맵 유효성 | MAP_ORDER 12개에 존재 |
+| 레이블 유효성 | winner가 team_a 또는 team_b |
+| 핵심 스탯 결측 | ACS·KD 비결측 |
+| 소스 비중 | 단일 소스 < 전체의 20% |
+| 동점 | score_a != score_b |
+
+탈락 행 → `reports/rejected_matches.csv`.
+
+---
+
+## 6. dedup_key 중복 제거
+
+```python
+import hashlib
+
+def make_dedup_key(date, event, map_, team_a, team_b, agents_a, agents_b, score_a, score_b):
+    canonical = "|".join([
+        str(date), event.lower().strip(), map_.lower(),
+        team_a.lower(), team_b.lower(),
+        ",".join(sorted(agents_a)), ",".join(sorted(agents_b)),
+        str(score_a), str(score_b)
+    ])
+    return hashlib.sha1(canonical.encode()).hexdigest()[:24]
+```
+
+소스 가중치:
+
+| 소스 | 가중치 |
+|------|--------|
+| ryanluong challengers | 1.8 |
+| piyush 2024/2025 | 1.5 |
+| vct_2021_2023 | 1.0 |
+| qualidea | 1.0 |
+| ediashtarevin | 0.9 |
+| kierru | 0.9 |
+
+동일 dedup_key 중 소스 가중치가 가장 높은 행 보존. 동점 시 컬럼 수 많은 행 보존.
+
+---
+
+## 7. 데이터 분할
+
+match_key 단위 GroupShuffleSplit (seed=42):
+
+```python
+from sklearn.model_selection import GroupShuffleSplit
+
+splitter = GroupShuffleSplit(n_splits=1, test_size=0.30, random_state=42)
+train_idx, temp_idx = next(splitter.split(df, groups=df["match_key"]))
+
+splitter2 = GroupShuffleSplit(n_splits=1, test_size=0.50, random_state=42)
+val_idx, test_idx = next(
+    splitter2.split(df.iloc[temp_idx], groups=df.iloc[temp_idx]["match_key"])
+)
+```
+
+비율: train 70% / val 15% / test 15%.
+
+---
+
+## 8. 피처 엔지니어링
+
+### 8.1 피처 카테고리 (43개 + 1 레이블)
+
+| 카테고리 | 피처 수 |
+|----------|---------|
+| 역할군 카운트 (a/b 각 4 + diff 4) | 12 |
+| 역할군 파생 (has_controller, is_double_duelist) | 4 |
+| 선수 스탯 (acs/kd/kast/adr/clutch/hs, 팀당) | 12 |
+| 시너지 (fk_fd_ratio/assists/kast_std, 팀당) | 6 |
+| 요원 조합 (agent_map_wr/pick_rate/exp, 팀당) | 6 |
+| 맵 (map_encoded/atk_side_advantage/is_attacker_a) | 3 |
+| 레이블 | 1 |
+
+### 8.2 피처 생성 함수 스켈레톤
+
+```python
+from ml.agent_roles import AGENT_ROLE_MAP, MAP_TO_INDEX
+
+def build_features(row: dict, agent_map_stats: dict, agent_exp: dict) -> dict:
+    agents_a = [p["agent"] for p in row["players_a"]]
+    agents_b = [p["agent"] for p in row["players_b"]]
+
+    # 역할군 카운트
+    def count_roles(agents):
+        counts = {"Duelist": 0, "Initiator": 0, "Controller": 0, "Sentinel": 0}
+        for a in agents:
+            role = AGENT_ROLE_MAP.get(a)
+            if role:
+                counts[role] += 1
+        return counts
+
+    a_cnt = count_roles(agents_a)
+    b_cnt = count_roles(agents_b)
+
+    feats = {}
+    for role in ["Duelist", "Initiator", "Controller", "Sentinel"]:
+        r = role.lower()
+        feats[f"a_{r}"] = a_cnt[role]
+        feats[f"b_{r}"] = b_cnt[role]
+        feats[f"diff_{r}"] = a_cnt[role] - b_cnt[role]
+
+    feats["has_controller_a"] = int(a_cnt["Controller"] >= 1)
+    feats["has_controller_b"] = int(b_cnt["Controller"] >= 1)
+    feats["is_double_duelist_a"] = int(a_cnt["Duelist"] >= 2)
+    feats["is_double_duelist_b"] = int(b_cnt["Duelist"] >= 2)
+
+    # 선수 스탯 (train split 후 집계 없이 직접 계산)
+    def mean_stat(players, key):
+        vals = [p[key] for p in players if p.get(key) is not None]
+        return sum(vals) / len(vals) if vals else None
+
+    feats["a_avg_acs"]  = mean_stat(row["players_a"], "acs")
+    feats["b_avg_acs"]  = mean_stat(row["players_b"], "acs")
+    feats["a_avg_kd"]   = mean_stat(row["players_a"], "kd")
+    feats["b_avg_kd"]   = mean_stat(row["players_b"], "kd")
+    # ... 나머지 스탯 동일 패턴
+
+    # 맵
+    feats["map_encoded"] = MAP_TO_INDEX.get(row["map"], 0)
+    feats["label"] = row["label"]
+
+    return feats
+```
+
+### 8.3 피처 사전 집계 (누수 방지)
+
+```
+Step 1. matches_clean.csv → train/val/test 분할
+Step 2. train.csv만으로:
+          atk_side_advantage, agent_map_stats, agent_experience 집계
+Step 3. train/val/test 각각에 join
+          신규 조합: winrate=0.5, experience=0
+Step 4. A/B swap 증강 (train 전용)
+Step 5. sample_weight = time_weight x source_weight
+Step 6. features_base.csv 저장
+```
+
+### 8.4 sample_weight
+
+```python
+def get_time_weight(date_str: str) -> float:
+    year = int(date_str[:4])
+    if year <= 2022:   return 0.6
+    elif year == 2023: return 0.8
+    else:              return 1.2  # 2024+
+
+SOURCE_WEIGHT = {
+    "ryanluong_challengers": 1.8,
+    "piyush_2024": 1.5, "piyush_2025": 1.5,
+    "vct_2021_2023": 1.0, "qualidea": 1.0,
+    "ediashtarevin": 0.9, "kierru": 0.9,
 }
 
-def standardize_columns(df: pd.DataFrame) -> pd.DataFrame:
-    df = df.rename(columns=COLUMN_MAPPING)
-    required = ["match_id", "map", "player_name", "team_name", "agent", "winner"]
-    missing = [col for col in required if col not in df.columns]
-    if missing:
-        raise ValueError(f"필수 컬럼 누락: {missing}")
-    return df
-```
-
----
-
-## 4. 데이터 정제
-
-### 4.1 중복 제거
-
-```python
-def remove_duplicates(df: pd.DataFrame) -> pd.DataFrame:
-    """동일한 match_id + player_name 중복 제거"""
-    before = len(df)
-    df = df.drop_duplicates(subset=["match_id", "player_name"], keep="first")
-    after = len(df)
-    print(f"[INFO] 중복 제거: {before} → {after} 행 (-{before - after})")
-    return df
-```
-
-### 4.2 결측값 처리
-
-```python
-def handle_missing_values(df: pd.DataFrame) -> pd.DataFrame:
-    """결측값 처리 전략"""
-    
-    # 핵심 컬럼 결측 → 행 제거
-    critical_cols = ["match_id", "map", "agent", "team_name", "winner"]
-    before = len(df)
-    df = df.dropna(subset=critical_cols)
-    print(f"[INFO] 핵심 컬럼 결측 제거: -{before - len(df)} 행")
-    
-    # 수치 컬럼 결측 → 0으로 대체 (역할군 카운트에 영향 없음)
-    numeric_cols = ["kills", "deaths", "assists", "acs", "kd", "kast", "adr"]
-    for col in numeric_cols:
-        if col in df.columns:
-            df[col] = df[col].fillna(0)
-    
-    return df
-```
-
-### 4.3 신규 요원 처리 (방어 로직)
-
-```python
-from ml.agent_roles import AGENT_ROLE_MAP
-
-def safe_get_role(agent_name: str) -> str:
-    """매핑에 없는 요원을 Unknown으로 처리 (오류 방지)"""
-    role = AGENT_ROLE_MAP.get(agent_name)
-    if role is None:
-        print(f"[WARN] 알 수 없는 요원: '{agent_name}' → Unknown 처리")
-        return "Unknown"
-    return role
-```
-
-### 4.4 맵 유효성 검증
-
-```python
-VALID_MAPS = {
-    "Bind", "Haven", "Split", "Ascent", "Icebox",
-    "Breeze", "Fracture", "Pearl", "Lotus", "Sunset", "Abyss"
-}
-
-def validate_maps(df: pd.DataFrame) -> pd.DataFrame:
-    unknown_maps = set(df["map"].unique()) - VALID_MAPS
-    if unknown_maps:
-        print(f"[WARN] 알 수 없는 맵 발견: {unknown_maps} → 해당 행 제거")
-        df = df[df["map"].isin(VALID_MAPS)]
-    return df
-```
-
----
-
-## 5. 경기 단위 집계
-
-Kaggle 데이터는 **플레이어 행 단위**입니다.  
-모델 학습을 위해 **경기(match) 단위**로 집계합니다.
-
-```python
-def aggregate_to_match_level(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    플레이어 행 → 경기 행 변환
-    
-    입력: match_id, map, team_name, agent, winner 컬럼이 있는 플레이어 단위 DF
-    출력: 경기 단위로 집계된 DF (1경기 = 1행)
-    """
-    
-    match_rows = []
-    
-    for match_id, match_df in df.groupby("match_id"):
-        # 팀 분리 (팀 이름 기준으로 team_a / team_b 구분)
-        teams = match_df["team_name"].unique()
-        if len(teams) != 2:
-            continue  # 팀이 정확히 2개가 아니면 스킵
-        
-        team_a_name, team_b_name = teams[0], teams[1]
-        team_a_df = match_df[match_df["team_name"] == team_a_name]
-        team_b_df = match_df[match_df["team_name"] == team_b_name]
-        
-        # 각 팀 5명 확인
-        if len(team_a_df) != 5 or len(team_b_df) != 5:
-            continue
-        
-        # 역할군 카운트
-        map_name = match_df["map"].iloc[0]
-        winner = match_df["winner"].iloc[0]
-        
-        row = {
-            "match_id": match_id,
-            "map": map_name,
-            "team_a": team_a_name,
-            "team_b": team_b_name,
-            "winner": winner,
-        }
-        
-        # 팀별 역할군 카운트
-        for team_key, team_df in [("team_a", team_a_df), ("team_b", team_b_df)]:
-            roles = [safe_get_role(a) for a in team_df["agent"].tolist()]
-            row[f"{team_key}_duelist"] = roles.count("Duelist")
-            row[f"{team_key}_initiator"] = roles.count("Initiator")
-            row[f"{team_key}_controller"] = roles.count("Controller")
-            row[f"{team_key}_sentinel"] = roles.count("Sentinel")
-        
-        match_rows.append(row)
-    
-    result = pd.DataFrame(match_rows)
-    print(f"[INFO] 경기 단위 집계 완료: {len(result)} 경기")
-    return result
-```
-
----
-
-## 6. 피처 엔지니어링
-
-### 6.1 전체 피처 생성 로직
-
-```python
-# ml/feature_engineering.py
-from sklearn.preprocessing import LabelEncoder
-import joblib
-
-def create_features(df: pd.DataFrame, fit_encoder: bool = True) -> pd.DataFrame:
-    """
-    경기 단위 DF에서 모델 입력 피처 생성
-    fit_encoder=True: 학습 시 (새로 fit)
-    fit_encoder=False: 추론 시 (저장된 encoder 사용)
-    """
-    
-    # 1. 맵 인코딩
-    if fit_encoder:
-        le_map = LabelEncoder()
-        df["map_encoded"] = le_map.fit_transform(df["map"])
-        joblib.dump(le_map, "models/label_encoder_map.joblib")
-    else:
-        le_map = joblib.load("models/label_encoder_map.joblib")
-        # 미등록 맵 방어 처리
-        df["map"] = df["map"].apply(
-            lambda m: m if m in le_map.classes_ else le_map.classes_[0]
-        )
-        df["map_encoded"] = le_map.transform(df["map"])
-    
-    # 2. 차이(diff) 피처
-    for role in ["duelist", "initiator", "controller", "sentinel"]:
-        df[f"{role}_diff"] = df[f"team_a_{role}"] - df[f"team_b_{role}"]
-    
-    # 3. 전략가 보유 여부 (이진)
-    df["team_a_has_controller"] = (df["team_a_controller"] > 0).astype(int)
-    df["team_b_has_controller"] = (df["team_b_controller"] > 0).astype(int)
-    
-    # 4. 레이블 생성
-    df["label"] = (df["winner"] == df["team_a"]).astype(int)
-    
-    return df
-
-# 최종 피처 컬럼 목록
-FEATURE_COLUMNS = [
-    "team_a_duelist", "team_a_initiator", "team_a_controller", "team_a_sentinel",
-    "team_b_duelist", "team_b_initiator", "team_b_controller", "team_b_sentinel",
-    "map_encoded",
-    "duelist_diff", "initiator_diff", "controller_diff", "sentinel_diff",
-    "team_a_has_controller", "team_b_has_controller",
-]
-TARGET_COLUMN = "label"
-```
-
----
-
-## 7. Train / Validation / Test Split
-
-### 전략: Stratified Split (70 / 15 / 15)
-
-```python
-from sklearn.model_selection import train_test_split
-
-def split_data(df: pd.DataFrame):
-    X = df[FEATURE_COLUMNS]
-    y = df[TARGET_COLUMN]
-    
-    # 1차: Train 70% vs Rest 30%
-    X_train, X_rest, y_train, y_rest = train_test_split(
-        X, y,
-        test_size=0.30,
-        random_state=42,
-        stratify=y        # 클래스 비율 유지
-    )
-    
-    # 2차: Rest → Val 50% / Test 50% (각 15%)
-    X_val, X_test, y_val, y_test = train_test_split(
-        X_rest, y_rest,
-        test_size=0.50,
-        random_state=42,
-        stratify=y_rest
-    )
-    
-    # 분할 결과 확인
-    print(f"Train: {len(X_train)} | Val: {len(X_val)} | Test: {len(X_test)}")
-    print(f"Train 양성 비율: {y_train.mean():.3f}")
-    print(f"Val   양성 비율: {y_val.mean():.3f}")
-    print(f"Test  양성 비율: {y_test.mean():.3f}")
-    
-    return X_train, X_val, X_test, y_train, y_val, y_test
-```
-
-### 왜 Stratified인가?
-- 클래스 불균형 가능성 (특정 팀 조합이 더 많이 등장)
-- 분할 후에도 승/패 비율이 균등하게 유지됨
-- K-Fold에서도 `StratifiedKFold` 사용
-
----
-
-## 8. 데이터 저장
-
-```python
-def save_processed_data(X_train, X_val, X_test, y_train, y_val, y_test):
-    """전처리된 데이터 CSV로 저장"""
-    os.makedirs("data/processed", exist_ok=True)
-    
-    train = pd.concat([X_train, y_train], axis=1)
-    val = pd.concat([X_val, y_val], axis=1)
-    test = pd.concat([X_test, y_test], axis=1)
-    
-    train.to_csv("data/processed/train.csv", index=False)
-    val.to_csv("data/processed/val.csv", index=False)
-    test.to_csv("data/processed/test.csv", index=False)
-    
-    print("[INFO] 전처리 데이터 저장 완료")
+sample_weight = get_time_weight(row["date"]) * SOURCE_WEIGHT[row["source"]]
 ```
 
 ---
@@ -382,59 +270,75 @@ def save_processed_data(X_train, X_val, X_test, y_train, y_val, y_test):
 ```python
 # ml/data_pipeline.py 메인 실행 흐름
 if __name__ == "__main__":
-    # 1. 데이터 로드
-    df = load_raw_data("data/raw")
-    
-    # 2. 표준화
-    df = standardize_columns(df)
-    
-    # 3. 정제
-    df = remove_duplicates(df)
-    df = handle_missing_values(df)
-    df = validate_maps(df)
-    
-    # 4. 경기 단위 집계
-    df = aggregate_to_match_level(df)
-    
-    # 5. 피처 생성
-    df = create_features(df, fit_encoder=True)
-    
-    # 6. Split
-    X_train, X_val, X_test, y_train, y_val, y_test = split_data(df)
-    
-    # 7. 저장
-    save_processed_data(X_train, X_val, X_test, y_train, y_val, y_test)
+    # 1. 파싱 (5종 파서)
+    rows = []
+    rows += parse_ryanluong("data/raw/kaggle/vct_2021_2023")
+    rows += parse_ryanluong("data/raw/kaggle/ryanluong1__valorant-challengers-league-data")
+    rows += parse_qualidea ("data/raw/kaggle/qualidea1217__valorant-pro-matches-since-april-2021")
+    rows += parse_piyush   ("data/raw/kaggle/piyush86kumar__valorant-champions-tour-2024-all-events")
+    rows += parse_piyush   ("data/raw/kaggle/piyush86kumar__valorant-vct-2025-all-events")
+    rows += parse_edia     ("data/raw/kaggle/ediashtarevin__vct-champions-2023-stats")
+    rows += parse_kierru   ("data/raw/kaggle/kierru__vctpacific-2023")
+
+    # 2. 정규화
+    rows = [normalize_row(r) for r in rows]
+
+    # 3. 품질 게이트
+    rows, rejected = quality_gate_all(rows)
+    save_rejected(rejected, "reports/rejected_matches.csv")
+
+    # 4. dedup
+    rows = dedup_rows(rows)
+    save_clean(rows, "data/processed/matches_clean.csv")
+
+    # 5. 분할 (match_key 단위 GroupShuffleSplit)
+    train_rows, val_rows, test_rows = split_rows(rows, seed=42)
+
+    # 6. 피처 사전 집계 (train 기준)
+    agent_map_stats = compute_agent_map_stats(train_rows)
+    agent_exp       = compute_agent_experience(train_rows)
+    atk_advantage   = compute_atk_side_advantage(train_rows)
+
+    # 7. 피처 생성
+    train_df = build_features_df(train_rows, agent_map_stats, agent_exp, atk_advantage)
+    val_df   = build_features_df(val_rows,   agent_map_stats, agent_exp, atk_advantage)
+    test_df  = build_features_df(test_rows,  agent_map_stats, agent_exp, atk_advantage)
+
+    # 8. A/B swap 증강 (train 전용)
+    train_df = augment_swap(train_df)
+
+    # 9. 저장
+    train_df.to_csv("data/processed/train.csv", index=False)
+    val_df.to_csv("data/processed/val.csv",     index=False)
+    test_df.to_csv("data/processed/test.csv",   index=False)
 ```
 
 ---
 
 ## 10. 데이터 품질 검증 체크리스트
 
-실행 후 아래 항목을 확인합니다.
-
 | 체크 항목 | 확인 방법 | 기준 |
-|---|---|---|
-| 총 샘플 수 | `len(df)` | ≥ 3,000 경기 |
-| 클래스 균형 | `df['label'].mean()` | 0.45 ~ 0.55 |
+|----------|----------|------|
+| 맵 행 총수 | `len(matches_clean)` | 80K~100K 예상 |
+| 클래스 균형 | `df["label"].mean()` | 0.45~0.55 |
 | 결측값 없음 | `df.isnull().sum()` | 모든 피처 0 |
-| 역할군 합계 | `sum of role counts` | 각 팀 항상 합계 = 5 |
-| 맵 인코딩 확인 | `df['map_encoded'].nunique()` | ≤ 11 |
-| 중복 경기 없음 | `df['match_id'].duplicated().sum()` | 0 |
+| 역할군 합계 | `a_duelist+...+a_sentinel` | 각 팀 = 5 |
+| match_key 누수 없음 | train/val/test 교집합 | 0 |
+| 피처 수 | `len(feature_cols)` | 43 |
+| 중복 dedup_key | `dedup_key.duplicated().sum()` | 0 |
 
-```python
-def validate_processed_data(df: pd.DataFrame):
-    """전처리 결과 자동 검증"""
-    assert len(df) >= 3000, f"샘플 부족: {len(df)}"
-    assert 0.40 <= df["label"].mean() <= 0.60, f"클래스 불균형: {df['label'].mean()}"
-    assert df[FEATURE_COLUMNS].isnull().sum().sum() == 0, "결측값 존재"
-    
-    for team in ["team_a", "team_b"]:
-        role_sum = (
-            df[f"{team}_duelist"] + df[f"{team}_initiator"] +
-            df[f"{team}_controller"] + df[f"{team}_sentinel"]
-        )
-        # Unknown 역할군 포함 시 5가 안 될 수 있으므로 ≤ 5 체크
-        assert (role_sum <= 5).all(), f"{team} 역할군 합계 이상"
-    
-    print("[INFO] 데이터 검증 통과 ✅")
-```
+---
+
+## 11. 전처리 출력 파일
+
+| 경로 | 내용 |
+|------|------|
+| `data/processed/matches_clean.csv` | 품질 게이트·dedup 통과한 맵 행 전체 |
+| `data/processed/features_base.csv` | 피처 테이블 (레이블 포함) |
+| `data/processed/train.csv` | 학습셋 (A/B swap 증강 포함) |
+| `data/processed/val.csv` | 검증셋 |
+| `data/processed/test.csv` | 테스트셋 (최종 평가 전용) |
+| `reports/preprocess_summary.json` | 소스별 행수·제거율·최종 분포 등 실행 통계 |
+| `reports/rejected_matches.csv` | 품질 게이트 탈락 행 및 탈락 사유 |
+
+모두 로컬 생성, git 제외 (`.gitignore`에 포함).

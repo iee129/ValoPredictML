@@ -1,29 +1,25 @@
 # 05. 경기 단위 집계
 
+마지막 업데이트: 2026-05-04
+
 ## 1. 집계 필요성
 
-원본 데이터는 **플레이어 단위** (1행 = 1명의 플레이어 통계)이다.  
-모델 학습을 위해 **경기 단위** (1행 = 1경기, 양 팀 요원 포함)로 변환해야 한다.
+원본 데이터는 **선수 단위** (1행 = 선수 1명 × 맵 1개)다. 품질 게이트·dedup 이후 `matches_clean.csv`도 선수 행 단위. 피처 엔지니어링을 위해 팀별 5명 스탯을 집계한 **맵 행 단위** (1행 = 맵 1개, 양 팀 포함)로 변환한다.
 
 ```
-원본 데이터 (플레이어 단위):
-match_id | team_id | agent_name | team_won | map_name
----------|---------|------------|----------|----------
-G001     | TeamA   | Jett       | True     | Ascent
-G001     | TeamA   | Viper      | True     | Ascent
-G001     | TeamA   | Sova       | True     | Ascent
-G001     | TeamA   | Killjoy    | True     | Ascent
-G001     | TeamA   | Omen       | True     | Ascent
-G001     | TeamB   | Reyna      | False    | Ascent
-G001     | TeamB   | Brimstone  | False    | Ascent
-G001     | TeamB   | Fade       | False    | Ascent
-G001     | TeamB   | Cypher     | False    | Ascent
-G001     | TeamB   | Skye       | False    | Ascent
-             ↓ 집계
-집계 데이터 (경기 단위):
-match_id | map_name | team_a                         | team_b                           | label
----------|----------|--------------------------------|----------------------------------|------
-G001     | Ascent   | [Jett,Viper,Sova,Killjoy,Omen] | [Reyna,Brimstone,Fade,Cypher,Skye] | 1
+선수 행 단위 (matches_clean.csv 일부):
+match_key | map    | team  | player | agent   | acs | kd  | ...
+----------|--------|-------|--------|---------|-----|-----|
+abc123    | Ascent | T1    | TenZ   | Jett    | 280 | 1.8 | ...
+abc123    | Ascent | T1    | Guma   | Raze    | 240 | 1.5 | ...
+...
+abc123    | Ascent | FNC   | Derke  | Neon    | 200 | 1.2 | ...
+...
+          ↓ 집계
+맵 행 단위:
+match_key | map    | team_a | team_b | players_a            | players_b | label
+----------|--------|--------|--------|----------------------|-----------|------
+abc123    | Ascent | T1     | FNC    | [{TenZ,Jett,...}, ...] | [...]   | 1
 ```
 
 ---
@@ -31,115 +27,74 @@ G001     | Ascent   | [Jett,Viper,Sova,Killjoy,Omen] | [Reyna,Brimstone,Fade,Cyp
 ## 2. 집계 구현
 
 ```python
-def aggregate_to_match_level(df: pd.DataFrame) -> pd.DataFrame:
+def aggregate_to_map_level(rows: list[dict]) -> list[dict]:
     """
-    플레이어 단위 DataFrame → 경기 단위 DataFrame
-    
-    반환 컬럼:
-    - match_id: str
-    - map_name: str
-    - team_a: list[str]  (team_won=True 팀의 요원 리스트)
-    - team_b: list[str]  (team_won=False 팀의 요원 리스트)
-    - label: int          (1 = team_a 승리)
+    공통 스키마 행 리스트 → 맵 단위 행 리스트.
+    각 행은 이미 파서에서 players_a / players_b 리스트를 포함하므로
+    별도 groupby 없이 직접 사용.
     """
-    results = []
-    
-    for match_id, match_df in df.groupby("match_id"):
-        map_name = match_df["map_name"].iloc[0]
-        
-        winning_team_df = match_df[match_df["team_won"] == True]
-        losing_team_df = match_df[match_df["team_won"] == False]
-        
-        # 중복 제거 후 팀 구분
-        winning_teams = winning_team_df["team_id"].unique()
-        losing_teams = losing_team_df["team_id"].unique()
-        
-        if len(winning_teams) != 1 or len(losing_teams) != 1:
-            continue  # 팀 구성이 불명확한 경기 건너뜀
-        
-        team_a_agents = winning_team_df["agent_name"].tolist()
-        team_b_agents = losing_team_df["agent_name"].tolist()
-        
-        if len(team_a_agents) != 5 or len(team_b_agents) != 5:
-            continue  # 5명이 아닌 팀 건너뜀
-        
-        results.append({
-            "match_id": match_id,
-            "map_name": map_name,
-            "team_a": team_a_agents,
-            "team_b": team_b_agents,
-            "label": 1,  # team_a가 항상 승리 팀
-        })
-    
-    match_df = pd.DataFrame(results)
-    print(f"집계 완료: {len(match_df):,}경기")
-    return match_df
+    result = []
+    for row in rows:
+        if len(row["players_a"]) != 5 or len(row["players_b"]) != 5:
+            continue  # 품질 게이트 통과 후에도 방어 체크
+        result.append(row)
+    return result
 ```
+
+ryanluong 파서는 `overview.csv`와 `maps_scores.csv` 조인 시 이미 팀 단위로 집계. qualidea / piyush / ediashtarevin / kierru는 선수 행을 파서 내부에서 5명씩 그룹핑.
 
 ---
 
-## 3. 데이터 증강 (대칭 쌍 생성)
+## 3. 선수 스탯 집계 (팀 단위)
 
-팀 A와 팀 B를 뒤집어 반대 케이스를 생성한다.  
-이를 통해 데이터를 2배로 늘리고 모델의 대칭성을 확보한다.
+맵 행에는 5명 스탯이 배열로 저장된다. 피처 생성 단계에서 팀 단위 집계값을 계산한다.
 
-```python
-def augment_symmetric(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    각 경기에 대해 팀 A/B를 뒤집은 대칭 샘플 추가
-    원본: team_a 승리(label=1)
-    추가: team_b 승리(label=0)
-    """
-    flipped = df.copy()
-    flipped["team_a"], flipped["team_b"] = df["team_b"].copy(), df["team_a"].copy()
-    flipped["label"] = 0
-    flipped["match_id"] = df["match_id"] + "_flip"
-    
-    augmented = pd.concat([df, flipped], ignore_index=True)
-    print(f"대칭 증강: {len(df):,} → {len(augmented):,}행")
-    return augmented
-```
-
-**증강 후 예시:**
-```
-G001     | Ascent | [Jett,...] | [Reyna,...] | 1   ← 원본
-G001_flip| Ascent | [Reyna,...] | [Jett,...] | 0   ← 증강
-```
-
-> **주의**: 증강 후 라벨 분포는 항상 50:50으로 균형잡힘
+| 집계 방식 | 적용 피처 |
+|-----------|-----------|
+| `mean(5명)` | acs, kd, kast, adr, hs |
+| `max(5명)` | clutch_% |
+| `sum(5명) / sum(5명)` | fk_fd_ratio |
+| `mean(5명)` | assists |
+| `std(5명)` | kast_std |
 
 ---
 
-## 4. 팀 할당 전략
+## 4. A/B swap 증강 (train 한정)
 
-승리 팀 = team_a, 패배 팀 = team_b로 고정하는 이유:
-- 모델이 "누가 더 강한 조합인가"를 학습
-- 대칭 증강으로 편향 방지
+파이프라인에서 분할 후 train에만 적용. 집계 단계에서는 적용하지 않는다.
 
-만약 원본 데이터에 승패 정보 없이 side 정보(공격/수비)만 있는 경우:
-```python
-# side 기반 팀 구분 대안
-attacker_df = match_df[match_df["side"] == "attack"]
-defender_df = match_df[match_df["side"] == "defense"]
-# 라운드 승수로 label 결정
 ```
+원본: team_a=T1, team_b=FNC, label=1
+swap: team_a=FNC, team_b=T1, label=0  ← train에만 추가
+```
+
+`--no-augment-train` 플래그로 비활성화 가능.
+val/test에는 미적용 — 평가는 실제 경기 그대로의 행만 사용.
 
 ---
 
 ## 5. 예외 케이스 처리
 
-| 예외 | 처리 방법 |
-|---|---|
-| 팀이 3개 이상인 경기 | 해당 경기 전체 제외 |
-| 무승부 경기 | 해당 경기 제외 (라벨 불명확) |
-| 요원이 5명 미만인 팀 | 해당 경기 제외 |
-| 같은 경기에서 같은 요원 2명 이상 선택 | 경고 로그 후 제외 |
+| 예외 | 처리 |
+|------|------|
+| 팀이 3개 이상 | 해당 맵 행 제외 (품질 게이트에서 선차단) |
+| 동점 경기 | 해당 맵 행 제외 (품질 게이트에서 선차단) |
+| 요원이 5명 미만인 팀 | 해당 맵 행 제외 |
+| 같은 경기의 같은 요원 2명 이상 | 경고 로그 후 제외 |
 
 ---
 
-## 6. 관련 문서
+## 6. 출력
+
+| 파일 | 내용 |
+|------|------|
+| `data/processed/matches_clean.csv` | 집계 완료된 맵 행 전체 (~80~100K 예상) |
+
+---
+
+## 7. 관련 문서
 
 | 문서 | 내용 |
-|---|---|
-| [06_feature_engineering.md](06_feature_engineering.md) | 집계 후 피처 생성 |
-| [07_split_and_validation.md](07_split_and_validation.md) | 증강 데이터 분할 |
+|------|------|
+| [06_feature_engineering.md](06_feature_engineering.md) | 집계 후 43개 피처 생성 |
+| [07_split_and_validation.md](07_split_and_validation.md) | 분할 및 A/B swap 증강 |

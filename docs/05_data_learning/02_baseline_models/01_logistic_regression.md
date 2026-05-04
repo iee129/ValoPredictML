@@ -1,8 +1,11 @@
 # 01. Logistic Regression 베이스라인 구현
 
+마지막 업데이트: 2026-05-04
+
 ## 개요
 
-로지스틱 회귀는 ValoPredictML의 첫 번째 베이스라인 모델이다. 선형 결정 경계의 한계를 명확히 하고, 이후 트리 기반 모델과의 성능 차이를 정량적으로 측정하기 위해 사용한다.
+로지스틱 회귀는 ValoPredictML의 첫 번째 베이스라인 모델이다. **메인 모델 후보가 아님** — 선형 결정 경계의 한계를 명확히 하고, 이후 트리 기반 앙상블(RF + XGBoost + LightGBM)과의 성능 차이를 정량적으로 측정하기 위한 비교 기준선으로만 사용한다.
+트리 기반 모델과 달리 LR은 **StandardScaler 필수**.
 
 ---
 
@@ -70,7 +73,7 @@ def train_logistic_regression(
     로지스틱 회귀 베이스라인 학습.
 
     Args:
-        X_train: 학습 피처 (N_train, 15)
+        X_train: 학습 피처 (N_train, 43)
         y_train: 학습 레이블 (0: 패, 1: 승)
         X_val: 검증 피처
         y_val: 검증 레이블
@@ -243,7 +246,7 @@ def analyze_lr_coefficients(pipeline, feature_names):
 
 ### 3.2 발로란트 도메인 계수 해석 예시
 
-ValoPredictML 피처 15개에 대한 예상 계수 방향:
+ValoPredictML 피처 43개 중 역할군 관련 주요 피처에 대한 예상 계수 방향:
 
 | 피처 | 예상 계수 방향 | 해석 |
 |------|--------------|------|
@@ -383,13 +386,13 @@ def save_baseline_results(metrics: dict, filepath: str = "results/baseline_lr.js
 
 ## 6. 예상 성능 및 결론
 
-| 지표 | 예상 성능 | 목표 | 갭 |
-|------|---------|------|-----|
-| Accuracy | ~0.72 | ≥ 0.80 | -0.08 |
-| ROC-AUC | ~0.74 | ≥ 0.82 | -0.08 |
-| F1-Score | ~0.70 | - | - |
-| 학습 시간 | < 1초 | - | - |
+| 지표 | 예상 성능 | 평가 방법 |
+|------|---------|---------|
+| Accuracy | ~0.55~0.58 | K-Fold (K=5) |
+| ROC-AUC | ~0.57~0.61 | K-Fold (K=5) |
+| F1-Score | ~0.54~0.57 | K-Fold (K=5) |
+| 학습 시간 | < 1초 | - |
 
-**결론**: 로지스틱 회귀는 목표에 ~8% 미달하지만, 이것이 XGBoost/LightGBM이 채워야 할 성능 갭을 정량화한다. 비선형 패턴 포착 능력이 핵심 차이.
+**결론**: 로지스틱 회귀는 메인 모델 후보가 아님 — baseline 하한선 설정 용도. 비선형 패턴 포착 불가로 앙상블 대비 성능 차이가 명확히 드러난다. 평가 지표: Accuracy, ROC-AUC, F1.
 
 다음 단계: `02_random_forest.md`에서 RF 베이스라인 구축 후 성능 비교.

@@ -1,3 +1,5 @@
+> ⚠️ **범위 외**: FastAPI 미사용. 본 프로젝트는 Streamlit 로컬 도구이며 API 엔드포인트 테스트는 적용되지 않는다. 본문은 참고용으로 보존된다.
+
 # 01. 정상 케이스 테스트 시나리오
 
 ## 개요
@@ -172,7 +174,7 @@ curl -X POST http://localhost:8000/predict \
 
 ---
 
-## TC-N-007: 척후병(Initiator) 집중 팀 — Breeze
+## TC-N-007: 척후대(Initiator) 집중 팀 — Breeze
 
 | 항목 | 내용 |
 |------|------|

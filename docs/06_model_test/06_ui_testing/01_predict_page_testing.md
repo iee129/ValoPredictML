@@ -1,3 +1,5 @@
+> ⚠️ **범위 외**: FastAPI 미사용. 본 프로젝트는 Streamlit 로컬 도구이며 API 엔드포인트 테스트는 적용되지 않는다. 본문은 참고용으로 보존된다.
+
 # 01. /predict 페이지 테스트 플로우
 
 ## 1. 페이지 개요
@@ -167,7 +169,7 @@ const server = setupServer(
     res(ctx.json({
       agents: [
         { name: "Jett", role: "Duelist", role_kr: "타격대" },
-        { name: "Sova", role: "Initiator", role_kr: "척후병" },
+        { name: "Sova", role: "Initiator", role_kr: "척후대" },
       ],
       roles: {},
       total: 2,

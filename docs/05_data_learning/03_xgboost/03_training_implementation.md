@@ -1,8 +1,12 @@
 # 03. XGBoost 완전한 학습 구현
 
+마지막 업데이트: 2026-05-04
+
 ## 개요
 
 Early Stopping, 로깅, 평가 세트, 콜백을 포함한 XGBoost의 완전한 학습 구현 코드를 제공한다.
+XGBoost는 RF + XGBoost + LightGBM 앙상블 구성원 중 하나다.
+학습 시 `sample_weight = time_weight × source_weight` 적용. 스케일링 불필요.
 
 ---
 
@@ -38,9 +42,9 @@ def train_xgboost(
     XGBoost 완전한 학습 함수.
 
     Args:
-        X_train: 학습 피처 DataFrame (N_train, 15)
+        X_train: 학습 피처 DataFrame (N_train, 43)
         y_train: 학습 레이블 (0: 패, 1: 승)
-        X_val: 검증 피처 DataFrame (N_val, 15)
+        X_val: 검증 피처 DataFrame (N_val, 43)
         y_val: 검증 레이블
         params: 하이퍼파라미터 딕셔너리 (None이면 기본값 사용)
         model_dir: 모델 저장 경로
@@ -272,16 +276,19 @@ def plot_xgb_learning_curves(model, title="XGBoost 학습 곡선"):
 ## 5. K-Fold 교차 검증 학습
 
 ```python
-from sklearn.model_selection import StratifiedKFold
+from sklearn.model_selection import GroupKFold
 
-def train_xgboost_cv(X, y, params, n_splits=10):
+def train_xgboost_cv(X, y, params, df, n_splits=5):
     """
-    Stratified K-Fold 교차 검증으로 XGBoost 안정적 성능 추정.
+    Group K-Fold (K=5) 교차 검증으로 XGBoost 안정적 성능 추정.
+    match_key 단위로 폴드를 분할해 경기 누수를 방지한다.
+    train을 5조각으로 나눠 각 조각을 한 번씩 검증셋으로 사용 → 5번 Accuracy 평균.
+    test.csv는 이 함수와 완전 분리 — 최종 평가 1회만 사용.
     """
-    skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=42)
+    gkf = GroupKFold(n_splits=n_splits)
     fold_metrics = []
 
-    for fold_idx, (train_idx, val_idx) in enumerate(skf.split(X, y)):
+    for fold_idx, (train_idx, val_idx) in enumerate(gkf.split(X, y, groups=df["match_key"])):
         X_tr, X_vl = X.iloc[train_idx], X.iloc[val_idx]
         y_tr, y_vl = y.iloc[train_idx], y.iloc[val_idx]
 
@@ -320,18 +327,11 @@ def train_xgboost_cv(X, y, params, n_splits=10):
         "avg_best_iteration": df["best_iteration"].mean(),
     }
 
-    print(f"\n{n_splits}-Fold CV 결과:")
+    print(f"\n{n_splits}-Fold CV 결과 (평가 지표: Accuracy, ROC-AUC, F1):")
     print(f"  Accuracy:  {summary['accuracy_mean']:.4f} ± {summary['accuracy_std']:.4f}")
     print(f"  ROC-AUC:   {summary['roc_auc_mean']:.4f} ± {summary['roc_auc_std']:.4f}")
     print(f"  F1:        {summary['f1_mean']:.4f} ± {summary['f1_std']:.4f}")
     print(f"  평균 트리 수: {summary['avg_best_iteration']:.0f}")
-
-    # 목표 달성 여부
-    print(f"\n목표 달성 여부:")
-    print(f"  Accuracy ≥ 0.80: {'✓' if summary['accuracy_mean'] >= 0.80 else '✗'} "
-          f"({summary['accuracy_mean']:.4f})")
-    print(f"  ROC-AUC ≥ 0.82: {'✓' if summary['roc_auc_mean'] >= 0.82 else '✗'} "
-          f"({summary['roc_auc_mean']:.4f})")
 
     return summary, df
 ```

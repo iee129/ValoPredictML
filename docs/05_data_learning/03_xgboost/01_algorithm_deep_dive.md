@@ -1,8 +1,11 @@
 # 01. XGBoost 알고리즘 심층 분석
 
+마지막 업데이트: 2026-05-04
+
 ## 개요
 
 XGBoost(eXtreme Gradient Boosting)의 내부 동작 원리를 수식과 함께 상세히 설명한다. Gradient Boosting의 이론적 배경부터 XGBoost 고유의 최적화 기법까지 다룬다.
+ValoPredictML에서 XGBoost는 RF + XGBoost + LightGBM 앙상블의 구성원 중 하나다.
 
 ---
 
@@ -304,7 +307,7 @@ def simulate_best_split(X_feature, g, h, lambda_reg=1.0, gamma=0.0):
 | 추론 (1개) | O(T × max_depth) | 매우 빠름 |
 | 메모리 | O(N × d) | 블록 저장 |
 
-ValoPredictML (N=5000, d=15, T=500, max_depth=6):
-- 전처리: 5000 × 15 × log(5000) ≈ 940,000 연산
-- 전체 학습: 500 × 15 × 5000 = 37,500,000 연산 → 약 5초
+ValoPredictML (N~80K 맵 행, d=43, T=500, max_depth=6):
+- 전처리: 80000 × 43 × log(80000) ≈ 37M 연산
+- 전체 학습: 500 × 43 × 80000 = 1.72B 연산 → 약 20초
 - 추론: 500 × 6 = 3,000 연산 → < 1ms

@@ -1,229 +1,121 @@
-# 04. 프론트엔드 파일 상세 (`valo_predict_system/`)
+# 04. 프론트엔드 파일 상세 (`app/`)
+
+마지막 업데이트: 2026-05-04
+
+> **범위 외 (out of scope)**: Next.js, React, Vercel 배포는 이 프로젝트에서 사용하지 않습니다. 본 프로젝트는 **Streamlit 로컬 도구**입니다. 아래는 `app/streamlit_app.py` 기반 구조입니다.
+
+---
 
 ## 1. 폴더 전체 구조
 
 ```
-valo_predict_system/
-├── src/
-│   └── app/
-│       ├── layout.js                   # 루트 레이아웃 (공통 Navbar, 폰트)
-│       ├── globals.css                 # 전역 CSS + Tailwind 설정
-│       ├── page.js                     # "/" 홈 대시보드
-│       ├── predict/
-│       │   ├── page.js                 # "/predict" 승률 예측 페이지
-│       │   └── predict.module.css
-│       ├── analytics/
-│       │   ├── page.js                 # "/analytics" 통계 분석 페이지
-│       │   └── analytics.module.css
-│       ├── history/
-│       │   ├── page.js                 # "/history" 예측 기록 페이지
-│       │   └── history.module.css
-│       └── components/
-│           ├── layout/
-│           │   ├── Navbar.js
-│           │   └── navbar.module.css
-│           ├── predict/
-│           │   ├── AgentCard.js        # 요원 카드 (선택/해제)
-│           │   ├── AgentPicker.js      # 요원 선택 그리드 + 역할 필터
-│           │   ├── TeamSlot.js         # 선택된 5명 미리보기
-│           │   ├── MapSelector.js      # 맵 드롭다운
-│           │   └── [각각].module.css
-│           └── result/
-│               ├── WinRateGauge.js     # 승률 게이지 (RadialBarChart)
-│               ├── ConfidenceBadge.js  # 신뢰도 배지
-│               ├── RoleRadarChart.js   # 역할군 레이더 차트
-│               ├── FeatureImportanceBar.js # 피처 중요도 바 차트
-│               └── [각각].module.css
-├── public/
-│   └── agents/                         # 요원 아이콘 이미지 (PNG)
-├── src/lib/
-│   └── api.js                          # FastAPI 호출 클라이언트
-├── package.json
-├── next.config.mjs
-├── postcss.config.mjs
-└── .env.local                          # NEXT_PUBLIC_API_URL (git 제외)
+app/                                # Streamlit UI (구현 예정)
+└── streamlit_app.py                # Streamlit 앱 진입점
 ```
+
+> `app/` 폴더는 Phase 5 진입 시 생성.
 
 ---
 
-## 2. App Router 라우팅 구조
-
-```
-/                    → src/app/page.js              # 홈 대시보드
-/predict             → src/app/predict/page.js       # 승률 예측
-/analytics           → src/app/analytics/page.js     # 통계 분석
-/history             → src/app/history/page.js        # 예측 기록
-```
-
----
-
-## 3. 파일별 역할 상세
-
-### 3.1 `src/app/layout.js` — 루트 레이아웃
-
-```javascript
-// src/app/layout.js
-import { Inter } from 'next/font/google';
-import Navbar from './components/layout/Navbar';
-import './globals.css';
-
-const inter = Inter({ subsets: ['latin'] });
-
-export const metadata = {
-  title: 'ValoPredictML',
-  description: 'Valorant 팀 조합 승률 예측 시스템',
-};
-
-export default function RootLayout({ children }) {
-  return (
-    <html lang="ko">
-      <body className={inter.className}>
-        <Navbar />
-        <main>{children}</main>
-      </body>
-    </html>
-  );
-}
-```
+## 2. `app/streamlit_app.py` — Streamlit 앱 진입점
 
 **책임:**
-- 공통 HTML 구조 (html, body 태그)
-- Navbar 렌더링
-- 폰트 설정 (Inter)
-- 전역 메타데이터
+- 맵, 선수 5명, 요원 5명 (팀당) 입력 UI
+- 선공/후공 선택
+- 선수 스탯 선택 입력 (ACS, KD, KAST, ADR, 클러치율)
+- 예측 실행 → 승률 + 피처 중요도 출력
+- 교체 시뮬레이션 (선수/요원 교체 전후 확률 변화량)
+- 맵별 최적 요원 조합 탐색 (후보)
+- PostgreSQL 예측 기록 저장/조회 (후보)
 
----
+**실행 방법:**
 
-### 3.2 `src/app/globals.css` — 전역 CSS
-
-```css
-@import "tailwindcss";
-
-:root {
-  --valo-red: #FF4655;
-  --valo-dark: #0F1923;
-  --valo-gray: #1F2937;
-  --valo-light-gray: #374151;
-  --valo-accent: #FF6B35;
-  --valo-white: #ECE8E1;
-  --valo-teal: #00C4CC;
-}
-
-* {
-  box-sizing: border-box;
-}
-
-body {
-  background-color: var(--valo-dark);
-  color: var(--valo-white);
-}
+```bash
+streamlit run app/streamlit_app.py
 ```
 
 ---
 
-### 3.3 `src/lib/api.js` — API 클라이언트
+## 3. 예상 UI 구조
 
-```javascript
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-
-export async function predictWinRate(map, teamA, teamB) {
-  const res = await fetch(`${BASE_URL}/api/v1/predict`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ map, team_a: teamA, team_b: teamB }),
-  });
-  if (!res.ok) throw new Error(`Prediction failed: ${res.status}`);
-  return res.json();
-}
-
-export async function getAgents() {
-  const res = await fetch(`${BASE_URL}/api/v1/agents`);
-  if (!res.ok) throw new Error('Failed to fetch agents');
-  return res.json();
-}
-
-export async function getMaps() {
-  const res = await fetch(`${BASE_URL}/api/v1/maps`);
-  if (!res.ok) throw new Error('Failed to fetch maps');
-  return res.json();
-}
-
-export async function getHistory(page = 1, limit = 20) {
-  const res = await fetch(`${BASE_URL}/api/v1/history?page=${page}&limit=${limit}`);
-  if (!res.ok) throw new Error('Failed to fetch history');
-  return res.json();
-}
+```
+[ValoPredictML - Streamlit 로컬 분석 도구]
+│
+├── 사이드바
+│   ├── 맵 선택 (selectbox)
+│   ├── 선공/후공 선택
+│   └── 팀 A / 팀 B 요원 선택 (multiselect or selectbox × 5)
+│
+├── 메인 영역
+│   ├── [예측 실행] 버튼
+│   ├── 승률 출력 (팀 A: X%, 팀 B: Y%)
+│   ├── 피처 중요도 바 차트 (Plotly)
+│   ├── 역할군 분포 레이더 차트 (Plotly)
+│   └── 교체 시뮬레이션 결과 테이블
+│
+└── (후보) 예측 기록 탭
+    └── PostgreSQL predictions 테이블 조회
 ```
 
 ---
 
-### 3.4 컴포넌트 역할 요약
+## 4. 모델 로드 패턴
 
-#### `predict/` 컴포넌트
+```python
+import streamlit as st
+import joblib
 
-| 컴포넌트 | 역할 | 주요 props |
-|---|---|---|
-| `AgentCard` | 요원 1개 카드. 클릭 시 선택/해제 | `agent`, `isSelected`, `onClick` |
-| `AgentPicker` | 역할 필터 + 요원 그리드. 팀 A/B 구분 | `team`, `selectedAgents`, `onSelect` |
-| `TeamSlot` | 선택된 5명 요원 미리보기 슬롯 | `team`, `agents` |
-| `MapSelector` | 맵 드롭다운 선택 | `maps`, `selectedMap`, `onChange` |
+@st.cache_resource
+def load_models():
+    """Streamlit 세션 시작 시 1회 로드 후 캐시"""
+    rf  = joblib.load("models/rf_model.joblib")
+    xgb = joblib.load("models/xgboost_model.joblib")
+    lgb = joblib.load("models/lgbm_model.joblib")
+    return rf, xgb, lgb
 
-#### `result/` 컴포넌트
-
-| 컴포넌트 | 역할 | 사용 라이브러리 |
-|---|---|---|
-| `WinRateGauge` | 팀 A 승률 원형 게이지 | Recharts `RadialBarChart` |
-| `ConfidenceBadge` | 신뢰도 뱃지 (High/Medium/Low) | — |
-| `RoleRadarChart` | 양 팀 역할군 분포 레이더 차트 | Recharts `RadarChart` |
-| `FeatureImportanceBar` | 피처 중요도 수평 바 차트 | Recharts `BarChart` |
-
----
-
-### 3.5 CSS 모듈 규칙
-
-Tailwind CSS v4 사용 시 모든 스타일은 `.module.css`에서 `@apply`로 작성:
-
-```css
-/* components/predict/AgentCard.module.css */
-@reference "tailwindcss";
-
-.card {
-  @apply relative cursor-pointer rounded-lg p-2 border-2
-         border-transparent transition-all duration-200;
-}
-
-.selected {
-  @apply border-[var(--valo-red)] bg-[var(--valo-red)]/10;
-}
-```
-
-JSX에서 직접 Tailwind 클래스 사용 금지:
-```javascript
-// ❌ 금지
-<div className="bg-red-500 rounded-lg p-4">
-
-// ✅ 올바른 방법
-import styles from './agentCard.module.css';
-<div className={styles.card}>
+rf_model, xgb_model, lgb_model = load_models()
 ```
 
 ---
 
-## 4. 페이지별 기능
+## 5. 예측 흐름
 
-| 페이지 | URL | 기능 |
-|---|---|---|
-| 홈 | `/` | 프로젝트 소개, 최근 예측 카드 3개, 빠른 예측 시작 버튼 |
-| 예측 | `/predict` | 맵 선택 → 양 팀 요원 선택 → 실시간 승률 + 역할군 차트 |
-| 통계 | `/analytics` | 맵별/역할군별 승률 통계, 트렌드 차트 |
-| 기록 | `/history` | PostgreSQL 저장된 예측 이력 테이블, 필터링 |
+```
+사용자 입력 (맵 + 팀 A/B 요원 + 선수 스탯)
+        ↓
+피처 벡터 생성 (43개)
+  - ml/agent_roles.py 참조
+  - 역할군 카운트/diff, has_controller, is_double_duelist
+  - 선수 스탯 집계, 시너지 피처
+  - 요원×맵 집계값 join (사전 집계 결과물)
+  - map_encoded, atk_side_advantage, is_attacker_a
+        ↓
+RF / XGBoost / LightGBM predict_proba()
+        ↓
+앙상블: 세 모델 예측 확률 평균
+        ↓
+승률 출력 + 피처 중요도 / SHAP 시각화
+```
 
 ---
 
-## 5. 관련 문서
+## 6. 시각화 도구
+
+| 용도 | 도구 |
+|------|------|
+| 승률 게이지 | Streamlit metric 또는 Plotly gauge |
+| 역할군 분포 | Plotly radar chart |
+| 피처 중요도 | Plotly bar chart |
+| 교체 delta | Streamlit dataframe |
+| 예측 기록 | Streamlit dataframe (PostgreSQL 조회, 후보) |
+
+---
+
+## 7. 관련 문서
 
 | 문서 | 내용 |
-|---|---|
-| [../09_web/](../09_web/) | Next.js 대시보드 전체 설계 상세 |
-| [../11_ui_design/](../11_ui_design/) | UI 디자인 가이드, 컬러 시스템 |
-| [05_config_and_env.md](05_config_and_env.md) | `.env.local` 설정, 환경변수 목록 |
+|------|------|
+| [01_directory_overview.md](01_directory_overview.md) | 전체 폴더 구조 |
+| [03_ml_pipeline_files.md](03_ml_pipeline_files.md) | `ml/` 폴더 실행 순서 및 의존성 |
+| [05_config_and_env.md](05_config_and_env.md) | `.env` 설정, 환경변수 목록 |
+| [../03_architecture/01_system_overview.md](../03_architecture/01_system_overview.md) | 시스템 아키텍처 전체 |

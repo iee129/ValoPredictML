@@ -1,236 +1,112 @@
-# 04. REST API 설계
+# 04. API 설계
 
-## 1. API 전체 엔드포인트 목록
+마지막 업데이트: 2026-05-04
 
-| Method | 경로 | 설명 | 인증 |
-|---|---|---|---|
-| `POST` | `/api/v1/predict` | 팀 조합 승률 예측 | 없음 |
-| `GET` | `/api/v1/agents` | 요원 목록 및 역할군 조회 | 없음 |
-| `GET` | `/api/v1/maps` | 맵 목록 조회 | 없음 |
-| `GET` | `/api/v1/history` | 예측 기록 조회 (페이징) | 없음 |
-| `GET` | `/health` | 헬스 체크 | 없음 |
+> **범위 외 (out of scope)**: 이 프로젝트는 FastAPI REST API를 사용하지 않습니다. 본 프로젝트는 **Streamlit 로컬 도구**이며, 외부에 공개되는 HTTP API 엔드포인트가 없습니다. Next.js, Vercel, uvicorn도 사용하지 않습니다.
+>
+> 아래 내용은 **Streamlit 앱 내부에서 Python 함수 인터페이스**로 대체됩니다.
 
 ---
 
-## 2. `POST /api/v1/predict` — 승률 예측
+## 1. Streamlit 내부 함수 인터페이스
 
-### 2.1 요청
+REST API 대신 Python 함수를 직접 호출합니다.
 
-```json
-{
-  "map": "Ascent",
-  "team_a": ["Jett", "Viper", "Sova", "Killjoy", "Omen"],
-  "team_b": ["Reyna", "Brimstone", "Fade", "Cypher", "Skye"]
-}
-```
-
-**요청 스키마 (`PredictRequest`):**
-
-| 필드 | 타입 | 필수 | 제약 |
-|---|---|---|---|
-| `map` | `string` | ✅ | 허용 맵 9개 중 하나 |
-| `team_a` | `string[]` | ✅ | 정확히 5개, 유효한 요원 이름 |
-| `team_b` | `string[]` | ✅ | 정확히 5개, 유효한 요원 이름 |
-
-### 2.2 응답 (200 OK)
-
-```json
-{
-  "team_a_win_probability": 0.673,
-  "team_b_win_probability": 0.327,
-  "confidence": 0.346,
-  "confidence_level": "High",
-  "team_a_roles": {
-    "duelist": 1,
-    "initiator": 1,
-    "controller": 2,
-    "sentinel": 1
-  },
-  "team_b_roles": {
-    "duelist": 1,
-    "initiator": 2,
-    "controller": 1,
-    "sentinel": 1
-  },
-  "feature_importance": [
-    { "feature": "controller_diff", "importance": 0.23 },
-    { "feature": "team_a_has_controller", "importance": 0.18 },
-    { "feature": "map_encoded", "importance": 0.15 },
-    { "feature": "duelist_diff", "importance": 0.12 },
-    { "feature": "team_b_has_controller", "importance": 0.11 }
-  ]
-}
-```
-
-**응답 스키마 (`PredictResponse`):**
-
-| 필드 | 타입 | 설명 |
-|---|---|---|
-| `team_a_win_probability` | `float` | 0.0~1.0, 팀 A 승리 확률 |
-| `team_b_win_probability` | `float` | `1 - team_a_win_probability` |
-| `confidence` | `float` | 0.0~1.0, 예측 신뢰도 |
-| `confidence_level` | `string` | `"High"` / `"Medium"` / `"Low"` |
-| `team_a_roles` | `object` | 팀 A 역할군 카운트 |
-| `team_b_roles` | `object` | 팀 B 역할군 카운트 |
-| `feature_importance` | `array` | 상위 5개 피처 중요도 |
-
-### 2.3 에러 응답
-
-```json
-// 422 Unprocessable Entity (유효하지 않은 입력)
-{
-  "detail": [
-    {
-      "loc": ["body", "map"],
-      "msg": "Invalid map. Must be one of ['Ascent', ...]",
-      "type": "value_error"
-    }
-  ]
-}
-
-// 400 Bad Request (알 수 없는 요원)
-{
-  "error": "invalid_agent",
-  "message": "Unknown agent: 'UnknownAgent'. Valid agents: [...]"
-}
-
-// 503 Service Unavailable (모델 로드 실패)
-{
-  "error": "model_unavailable",
-  "message": "Prediction model is not loaded"
-}
-```
-
----
-
-## 3. `GET /api/v1/agents` — 요원 목록
-
-### 3.1 응답 (200 OK)
-
-```json
-{
-  "agents": [
-    { "name": "Jett", "role": "Duelist", "icon_url": "/agents/jett.png" },
-    { "name": "Viper", "role": "Controller", "icon_url": "/agents/viper.png" },
-    { "name": "Sova", "role": "Initiator", "icon_url": "/agents/sova.png" },
-    { "name": "Killjoy", "role": "Sentinel", "icon_url": "/agents/killjoy.png" }
-  ],
-  "roles": ["Duelist", "Initiator", "Controller", "Sentinel"],
-  "total": 28
-}
-```
-
----
-
-## 4. `GET /api/v1/maps` — 맵 목록
-
-### 4.1 응답 (200 OK)
-
-```json
-{
-  "maps": [
-    { "name": "Ascent", "image_url": "/maps/ascent.png" },
-    { "name": "Bind",   "image_url": "/maps/bind.png" },
-    { "name": "Haven",  "image_url": "/maps/haven.png" },
-    { "name": "Split",  "image_url": "/maps/split.png" },
-    { "name": "Fracture","image_url": "/maps/fracture.png" },
-    { "name": "Pearl",  "image_url": "/maps/pearl.png" },
-    { "name": "Lotus",  "image_url": "/maps/lotus.png" },
-    { "name": "Sunset", "image_url": "/maps/sunset.png" },
-    { "name": "Abyss",  "image_url": "/maps/abyss.png" }
-  ]
-}
-```
-
----
-
-## 5. `GET /api/v1/history` — 예측 기록
-
-### 5.1 쿼리 파라미터
-
-| 파라미터 | 타입 | 기본값 | 설명 |
-|---|---|---|---|
-| `page` | `int` | `1` | 페이지 번호 |
-| `limit` | `int` | `20` | 페이지 당 항목 수 (최대 100) |
-| `map` | `string` | — | 특정 맵 필터 |
-
-### 5.2 응답 (200 OK)
-
-```json
-{
-  "items": [
-    {
-      "id": 42,
-      "created_at": "2025-01-15T09:30:00Z",
-      "map": "Ascent",
-      "team_a_agents": ["Jett", "Viper", "Sova", "Killjoy", "Omen"],
-      "team_b_agents": ["Reyna", "Brimstone", "Fade", "Cypher", "Skye"],
-      "win_probability": 0.673,
-      "confidence_level": "High"
-    }
-  ],
-  "total": 150,
-  "page": 1,
-  "limit": 20,
-  "has_next": true
-}
-```
-
----
-
-## 6. API 설계 원칙
-
-### 6.1 버전 관리
-- URL에 `/api/v1/` 접두사 포함
-- 하위 호환성 유지 (기존 엔드포인트 제거 전 v2 병행 운영)
-
-### 6.2 CORS 정책
+### 1.1 예측 함수
 
 ```python
-allow_origins=[
-    "http://localhost:3000",           # 로컬 개발
-    "https://*.vercel.app",            # Vercel 프리뷰
-    "https://valo-predict.vercel.app", # 프로덕션
-]
+def predict_win_rate(
+    map_name: str,
+    players_a: list[dict],   # [{player, agent, acs, kd, kast, adr, fk, fd}] × 5
+    players_b: list[dict],
+    is_attacker_a: int,      # 1 = 팀 A 선공, 0 = 팀 B 선공
+) -> dict:
+    """
+    반환:
+    {
+        "team_a_win_probability": 0.617,
+        "team_b_win_probability": 0.383,
+        "team_a_roles": {"duelist": 1, "initiator": 2, "controller": 1, "sentinel": 1},
+        "team_b_roles": {"duelist": 1, "initiator": 1, "controller": 2, "sentinel": 1},
+        "feature_importance": [{"feature": "diff_controller", "value": 0.21}, ...],
+    }
+    """
 ```
 
-### 6.3 에러 형식
+### 1.2 교체 시뮬레이션 함수
 
-모든 에러 응답은 동일한 구조 사용:
-```json
-{
-  "error": "error_code",
-  "message": "사람이 읽을 수 있는 설명",
-  "detail": {}  // 선택: 추가 디버그 정보
-}
+```python
+def simulate_swap(
+    base_result: dict,
+    swap_type: str,    # "agent" 또는 "player"
+    team: str,         # "a" 또는 "b"
+    slot: int,         # 0~4
+    new_value: str,    # 새 요원 이름 또는 선수 이름
+) -> dict:
+    """
+    반환:
+    {
+        "new_win_probability": 0.643,
+        "delta": +0.026,   # 교체 전후 승률 변화량
+    }
+    """
 ```
 
-### 6.4 HTTP 상태 코드
+### 1.3 최적 요원 조합 탐색 함수
 
-| 코드 | 사용 경우 |
-|---|---|
-| 200 | 성공 |
-| 400 | 잘못된 요청 (비즈니스 로직 검증 실패) |
-| 422 | 요청 형식 검증 실패 (Pydantic) |
-| 500 | 서버 내부 오류 |
-| 503 | 모델 미로드 등 서비스 불가 상태 |
+```python
+def find_best_agents(
+    map_name: str,
+    player_stats: list[dict],
+    top_n: int = 5,
+) -> list[dict]:
+    """
+    27종에서 5종 선택 = 80,730가지 순차 스코어링
+    반환: [{"agents": [...], "win_probability": 0.71}, ...] × top_n
+    """
+```
 
 ---
 
-## 7. Swagger UI 접근
+## 2. 입력 검증 (Streamlit 레벨)
+
+| 조건 | 처리 |
+|------|------|
+| 팀당 요원 정확히 5명 | 미충족 시 예측 버튼 비활성화 + 경고 |
+| 유효한 요원 이름 | `normalize_agent()` → None 이면 경고 |
+| 유효한 맵 이름 | `normalize_map()` → None 이면 경고 |
+| 선수 스탯 결측 | 허용 (결측 피처는 중립값 대체) |
+
+---
+
+## 3. 출력 형태
+
+### 3.1 승률 예측 결과
+
+| 항목 | 설명 |
+|------|------|
+| `team_a_win_probability` | 팀 A 승률 0.0~1.0 |
+| `team_b_win_probability` | `1 - team_a_win_probability` |
+| `team_a_roles` | 팀 A 역할군 카운트 dict |
+| `team_b_roles` | 팀 B 역할군 카운트 dict |
+| `feature_importance` | 상위 피처 중요도 리스트 |
+
+### 3.2 앙상블 계산
 
 ```
-로컬:       http://localhost:8000/docs
-ReDoc:      http://localhost:8000/redoc
-OpenAPI:    http://localhost:8000/openapi.json
+RF 예측     → 팀 A 승률 p_rf
+XGBoost 예측 → 팀 A 승률 p_xgb
+LightGBM 예측 → 팀 A 승률 p_lgb
+
+최종 승률 = (p_rf + p_xgb + p_lgb) / 3
 ```
 
 ---
 
-## 8. 관련 문서
+## 4. 관련 문서
 
 | 문서 | 내용 |
-|---|---|
+|------|------|
 | [02_request_flow.md](02_request_flow.md) | 예측 요청 처리 흐름 |
-| [../06_model_test/02_api_specification.md](../06_model_test/02_api_specification.md) | 테스트 케이스 포함 상세 스펙 |
-| [../06_model_test/06_error_handling.md](../06_model_test/06_error_handling.md) | 에러 코드 전체 목록 |
+| [../02_file_structure/04_frontend_files.md](../02_file_structure/04_frontend_files.md) | Streamlit UI 구조 |
+| [06_ml_pipeline_architecture.md](06_ml_pipeline_architecture.md) | ML 파이프라인 상세 |

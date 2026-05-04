@@ -1,3 +1,5 @@
+> ⚠️ **범위 외**: FastAPI 미사용. 본 프로젝트는 Streamlit 로컬 도구이며 API 엔드포인트 테스트는 적용되지 않는다. 본문은 참고용으로 보존된다.
+
 # 02. GET /agents 엔드포인트 완전 스펙
 
 ## 1. 기본 정보
@@ -34,13 +36,13 @@ curl http://localhost:8000/agents
     {"name": "Phoenix",   "role": "Duelist",    "role_kr": "타격대"},
     {"name": "Iso",       "role": "Duelist",    "role_kr": "타격대"},
     {"name": "Waylay",    "role": "Duelist",    "role_kr": "타격대"},
-    {"name": "Sova",      "role": "Initiator",  "role_kr": "척후병"},
-    {"name": "Breach",    "role": "Initiator",  "role_kr": "척후병"},
-    {"name": "Skye",      "role": "Initiator",  "role_kr": "척후병"},
-    {"name": "Fade",      "role": "Initiator",  "role_kr": "척후병"},
-    {"name": "Gekko",     "role": "Initiator",  "role_kr": "척후병"},
-    {"name": "KAY/O",     "role": "Initiator",  "role_kr": "척후병"},
-    {"name": "Tejo",      "role": "Initiator",  "role_kr": "척후병"},
+    {"name": "Sova",      "role": "Initiator",  "role_kr": "척후대"},
+    {"name": "Breach",    "role": "Initiator",  "role_kr": "척후대"},
+    {"name": "Skye",      "role": "Initiator",  "role_kr": "척후대"},
+    {"name": "Fade",      "role": "Initiator",  "role_kr": "척후대"},
+    {"name": "Gekko",     "role": "Initiator",  "role_kr": "척후대"},
+    {"name": "KAY/O",     "role": "Initiator",  "role_kr": "척후대"},
+    {"name": "Tejo",      "role": "Initiator",  "role_kr": "척후대"},
     {"name": "Viper",     "role": "Controller", "role_kr": "전략가"},
     {"name": "Omen",      "role": "Controller", "role_kr": "전략가"},
     {"name": "Brimstone", "role": "Controller", "role_kr": "전략가"},
@@ -62,7 +64,7 @@ curl http://localhost:8000/agents
       "count": 7
     },
     "Initiator": {
-      "name_kr": "척후병",
+      "name_kr": "척후대",
       "description": "정보 수집 및 진입 지원 역할",
       "count": 7
     },
@@ -166,7 +168,7 @@ AGENTS = {
 
 ROLES = {
     "Duelist":    {"name_kr": "타격대",   "description": "돌파구를 만드는 공격형 역할"},
-    "Initiator":  {"name_kr": "척후병",   "description": "정보 수집 및 진입 지원 역할"},
+    "Initiator":  {"name_kr": "척후대",   "description": "정보 수집 및 진입 지원 역할"},
     "Controller": {"name_kr": "전략가",   "description": "스모크와 구역 통제 역할"},
     "Sentinel":   {"name_kr": "감시자",   "description": "수비 및 팀 지원 역할"},
 }

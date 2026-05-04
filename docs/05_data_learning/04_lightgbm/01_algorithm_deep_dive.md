@@ -1,8 +1,11 @@
 # 01. LightGBM 알고리즘 심층 분석
 
+마지막 업데이트: 2026-05-04
+
 ## 개요
 
 LightGBM(Light Gradient Boosting Machine)은 Microsoft Research에서 개발한 Gradient Boosting 구현체다. XGBoost 대비 학습 속도 5~10배 향상, 메모리 사용량 절감이 핵심 특징이다. 내부 알고리즘인 GOSS, EFB, Leaf-wise 성장을 수식과 함께 상세히 설명한다.
+ValoPredictML에서 LightGBM은 RF + XGBoost + LightGBM 앙상블 구성원 중 하나다. 스케일링 불필요.
 
 ---
 
@@ -155,7 +158,7 @@ def goss_sampling(gradients, a=0.2, b=0.1, random_state=42):
           → 히스토그램에서 0~10은 A, 10~15는 B
 
 ValoPredictML 적용:
-    - 피처 15개, 대부분 수치형 카운트 → 희소성 낮음
+    - 피처 43개, 대부분 수치형 카운트 → 희소성 낮음
     - EFB 효과 제한적 (EFB는 희소 데이터에서 최대 효과)
     - 그러나 LightGBM이 자동으로 최적 판단
 ```
@@ -286,21 +289,21 @@ LightGBM: 0.2 * 5000 * 255 * d' ≈ 3.8M * d' 연산/트리 (d'≤15)
 ```python
 # ValoPredictML 데이터 특성 분석
 feature_analysis = {
-    "n_samples": 5000,           # VCT 2021-2023 경기 수
-    "n_features": 15,            # 역할군 카운트 피처
+    "n_samples": "~80K 맵 행",   # 중복 제거 후 약 80~100K 맵 행
+    "n_features": 43,            # 역할군·스탯·시너지·요원조합·맵 피처
     "feature_types": "numeric",  # 모두 정수형/수치형
     "sparsity": "low",           # 역할군 카운트는 항상 0~5 사이값
-    "class_balance": "near 50/50",  # 팀1 승/패 균형
+    "class_balance": "near 50/50",  # A/B swap 증강으로 균형 확보
 }
 
 # LightGBM 최적 설정 (ValoPredictML)
 lgb_valorant_params = {
     "num_leaves": 31,            # 2^5-1 = 31 (max_depth≈5 대응)
-    "min_child_samples": 20,     # N=5000에서 과적합 방지
+    "min_child_samples": 20,     # 과적합 방지
     "max_bin": 63,               # 카운트 피처는 값 범위 작음 (0~5)
                                   # → 63 bin으로 충분 (기본 255 불필요)
     "learning_rate": 0.05,
-    "n_estimators": 1000,
+    "n_estimators": 2000,        # Early Stopping으로 실제 수 결정
     "subsample": 0.8,
     "colsample_bytree": 0.8,
 }

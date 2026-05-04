@@ -1,3 +1,5 @@
+> ⚠️ **범위 외**: Next.js 미사용. UI는 Streamlit 로컬 도구로 대체. 본문은 참고용으로 보존된다.
+
 # 04. 기록 페이지 (`/history`)
 
 **파일:** `src/app/history/page.js` + `src/app/history/page.module.css`

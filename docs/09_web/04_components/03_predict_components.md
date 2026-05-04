@@ -1,3 +1,5 @@
+> ⚠️ **범위 외**: Next.js 미사용. UI는 Streamlit 로컬 도구로 대체. 본문은 참고용으로 보존된다.
+
 # 03. predict 도메인 컴포넌트
 
 `/predict` 페이지에서 요원 선택 입력 UI를 담당하는 컴포넌트 6개.
@@ -33,7 +35,7 @@ const [activeRole, setActiveRole] = useState('전체');
 ```js
 const ROLE_MAP = {
   '타격대': 'Duelist',
-  '척후병': 'Initiator',
+  '척후대': 'Initiator',
   '전략가': 'Controller',
   '감시자': 'Sentinel',
 };
@@ -158,7 +160,7 @@ import { getAgentIconUrl } from '@/lib/agentImage';
 ### 탭 구성
 
 ```js
-const ROLES = ['전체', '타격대', '척후병', '전략가', '감시자'];
+const ROLES = ['전체', '타격대', '척후대', '전략가', '감시자'];
 ```
 
 각 탭 버튼: `active === role` 이면 `styles.tabActive`, 아니면 `styles.tab`.

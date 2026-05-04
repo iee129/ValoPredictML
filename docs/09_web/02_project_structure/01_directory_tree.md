@@ -1,3 +1,5 @@
+> ⚠️ **범위 외**: Next.js 미사용. UI는 Streamlit 로컬 도구로 대체. 본문은 참고용으로 보존된다.
+
 # 01. 전체 디렉터리 트리
 
 실제 구현된 소스 파일 기준의 전체 디렉터리 구조.
@@ -67,7 +69,7 @@ valo_predict_system/
     │   │   ├── MapSelector.module.css
     │   │   ├── PredictButton.js 예측하기 버튼 (로딩 상태)
     │   │   ├── PredictButton.module.css
-    │   │   ├── RoleFilter.js   역할군 탭 필터 (전체/타격대/척후병/전략가/감시자)
+    │   │   ├── RoleFilter.js   역할군 탭 필터 (전체/타격대/척후대/전략가/감시자)
     │   │   ├── RoleFilter.module.css
     │   │   ├── TeamSlot.js     선택된 팀 요원 슬롯 미리보기
     │   │   └── TeamSlot.module.css

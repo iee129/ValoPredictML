@@ -1,8 +1,20 @@
-# 03. Soft Voting 앙상블 설계
+# 03. 앙상블 설계 (RF + XGBoost + LightGBM 단순 평균)
+
+마지막 업데이트: 2026-05-04
 
 ## 개요
 
-XGBoost와 LightGBM의 예측 확률을 가중 평균하는 Soft Voting 앙상블의 수식, 가중치 결정 방법, 완전한 구현 코드를 설명한다.
+Random Forest, XGBoost, LightGBM 세 모델의 예측 확률을 단순 평균하는 앙상블의 수식, 설계 근거, 구현 코드를 설명한다.
+세 모델의 확률을 평균 내어 최종 승률을 산출한다 — 가중치 없이 균등 평균.
+
+**앙상블 작동 방식:**
+```
+RF 예측      → 팀 A 승률 0.62
+XGBoost 예측 → 팀 A 승률 0.58
+LightGBM 예측 → 팀 A 승률 0.65
+
+최종 승률 = (0.62 + 0.58 + 0.65) / 3 = 0.617
+```
 
 ---
 
@@ -19,7 +31,7 @@ E[(y - ŷ)^2] = Bias^2 + Variance + Irreducible Noise
 ```
 Variance(ensemble) = (1/M^2) * Σ Variance(m) + (M-1)/M * Covariance(m, m')
 
-- M: 모델 수 (여기서 M=2)
+- M: 모델 수 (여기서 M=3 — RF, XGBoost, LightGBM)
 - 모델들의 예측이 상관관계가 낮을수록 (Covariance 작을수록)
 - 앙상블 분산이 개별 모델 분산보다 작아짐
 ```
@@ -30,46 +42,42 @@ Variance(ensemble) = (1/M^2) * Σ Variance(m) + (M-1)/M * Covariance(m, m')
 ```
 ŷ = argmax Σ I(ŷ_m = c)    (다수결)
 
-예시: XGB → 1 (승), LGBM → 0 (패)
-결과: 동점 → 불확실한 처리
+예시: RF → 1, XGB → 0, LGBM → 1
+결과: 2:1 → 1 (승) — 확률 정보 손실
 ```
 
-**Soft Voting (선택):**
+**Soft Voting (선택) — 단순 평균:**
 ```
-P(y=1|x) = Σ w_m * P_m(y=1|x)    (확률 가중 평균)
+P(y=1|x) = (P_RF(y=1|x) + P_XGB(y=1|x) + P_LGBM(y=1|x)) / 3
 
-예시: XGB → 0.65, LGBM → 0.58
-가중치: w_XGB=0.6, w_LGBM=0.4
-결과: 0.6*0.65 + 0.4*0.58 = 0.622 → 1 (승)
+예시: RF → 0.62, XGB → 0.58, LGBM → 0.65
+결과: (0.62 + 0.58 + 0.65) / 3 = 0.617 → 1 (승)
 ```
 
-Soft Voting이 우수한 이유:
+단순 평균 방식이 우수한 이유:
 - 확률 정보를 완전히 활용 (Hard Voting은 이진 정보만 사용)
-- 더 세밀한 불확실성 표현
-- 일반적으로 더 나은 ROC-AUC
+- 한 모델이 특정 경기에서 크게 틀려도 나머지 두 모델이 균형을 잡아줌
+- 가중치 최적화 없이도 안정적인 성능 — 구현 단순화
+- 일반적으로 단일 모델보다 높은 ROC-AUC
 
 ---
 
 ## 2. 수식 정의
 
-### 2.1 기본 Soft Voting 수식
+### 2.1 단순 평균 앙상블 수식
 
 ```
-P_ensemble(y=1|x) = w₁ * P_XGB(y=1|x) + w₂ * P_LGBM(y=1|x)
-
-제약 조건:
-- w₁ + w₂ = 1
-- w₁, w₂ ∈ [0, 1]
+P_ensemble(y=1|x) = (P_RF(y=1|x) + P_XGB(y=1|x) + P_LGBM(y=1|x)) / 3
 
 최종 예측:
 ŷ = I(P_ensemble(y=1|x) ≥ θ)    (θ: 결정 임계값, 기본값 0.5)
 ```
 
-### 2.2 일반화 수식 (M개 모델)
+### 2.2 일반화 수식 (M개 모델 균등 가중)
 
 ```
-P_ensemble = Σ_{m=1}^{M} w_m * P_m(y=1|x)
-           = w_XGB * P_XGB + w_LGBM * P_LGBM    (M=2)
+P_ensemble = (1/M) * Σ_{m=1}^{M} P_m(y=1|x)
+           = (P_RF + P_XGB + P_LGBM) / 3    (M=3)
 ```
 
 ### 2.3 확률 캘리브레이션 고려
@@ -100,96 +108,66 @@ for model, name, axis in [(xgb_model, "XGBoost", ax[0]),
 
 ---
 
-## 3. 가중치 결정 방법
+## 3. 앙상블 구현
 
-### 3.1 방법 1: Optuna 기반 가중치 최적화 (권장)
+### 3.1 단순 평균 앙상블 (권장)
 
 ```python
-import optuna
-from sklearn.model_selection import StratifiedKFold
-from sklearn.metrics import roc_auc_score
 import numpy as np
+from sklearn.metrics import accuracy_score, roc_auc_score, f1_score
 
-def objective_weights(trial, X, y, xgb_model, lgbm_model):
-    """앙상블 가중치를 최적화하는 Optuna objective."""
+def ensemble_predict_proba(rf_model, xgb_model, lgbm_model, X):
+    """RF + XGBoost + LightGBM 단순 평균 앙상블 예측 확률."""
+    rf_prob   = rf_model.predict_proba(X)[:, 1]
+    xgb_prob  = xgb_model.predict_proba(X)[:, 1]
+    lgbm_prob = lgbm_model.predict_proba(X)[:, 1]
+    return (rf_prob + xgb_prob + lgbm_prob) / 3
 
-    w_xgb = trial.suggest_float("w_xgb", 0.3, 0.8)
-    w_lgbm = 1.0 - w_xgb
-
-    skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
-    auc_scores = []
-
-    for fold_idx, (train_idx, val_idx) in enumerate(skf.split(X, y)):
-        X_val_fold = X.iloc[val_idx]
-        y_val_fold = y.iloc[val_idx]
-
-        xgb_probs = xgb_model.predict_proba(X_val_fold)[:, 1]
-        lgbm_probs = lgbm_model.predict_proba(X_val_fold)[:, 1]
-
-        ensemble_probs = w_xgb * xgb_probs + w_lgbm * lgbm_probs
-        auc = roc_auc_score(y_val_fold, ensemble_probs)
-        auc_scores.append(auc)
-
-    return np.mean(auc_scores)
-
-# 최적화 실행
-study = optuna.create_study(direction="maximize")
-study.optimize(
-    lambda trial: objective_weights(trial, X_val, y_val, xgb_model, lgbm_model),
-    n_trials=100
-)
-
-best_w_xgb = study.best_params["w_xgb"]
-best_w_lgbm = 1.0 - best_w_xgb
-print(f"최적 가중치: XGBoost={best_w_xgb:.3f}, LightGBM={best_w_lgbm:.3f}")
+def ensemble_evaluate(rf_model, xgb_model, lgbm_model, X, y):
+    """앙상블 평가 지표 계산."""
+    probs = ensemble_predict_proba(rf_model, xgb_model, lgbm_model, X)
+    preds = (probs >= 0.5).astype(int)
+    return {
+        "accuracy": accuracy_score(y, preds),
+        "roc_auc":  roc_auc_score(y, probs),
+        "f1":       f1_score(y, preds, average="binary"),
+    }
 ```
 
-### 3.2 방법 2: 검증 성능 기반 비례 가중치
-
-```python
-from sklearn.metrics import roc_auc_score
-
-# 각 모델의 검증 AUC
-xgb_auc = roc_auc_score(y_val, xgb_model.predict_proba(X_val)[:, 1])
-lgbm_auc = roc_auc_score(y_val, lgbm_model.predict_proba(X_val)[:, 1])
-
-# AUC에 비례한 가중치
-total_auc = xgb_auc + lgbm_auc
-w_xgb = xgb_auc / total_auc
-w_lgbm = lgbm_auc / total_auc
-
-print(f"AUC 기반 가중치: XGBoost={w_xgb:.3f}, LightGBM={w_lgbm:.3f}")
-```
-
-### 3.3 방법 3: sklearn VotingClassifier (기본값 동일 가중치)
+### 3.2 sklearn VotingClassifier (균등 가중치)
 
 ```python
 from sklearn.ensemble import VotingClassifier
 
-# 동일 가중치 (w=0.5, 0.5)
-ensemble_equal = VotingClassifier(
-    estimators=[("xgb", xgb_model), ("lgbm", lgbm_model)],
+ensemble = VotingClassifier(
+    estimators=[
+        ("rf",   rf_model),
+        ("xgb",  xgb_model),
+        ("lgbm", lgbm_model),
+    ],
     voting="soft",
-    weights=[1, 1]
-)
-
-# 사전 정의 가중치
-ensemble_weighted = VotingClassifier(
-    estimators=[("xgb", xgb_model), ("lgbm", lgbm_model)],
-    voting="soft",
-    weights=[6, 4]  # XGB 60%, LGBM 40%
+    weights=[1, 1, 1],   # 균등 — 단순 평균과 동일
 )
 ```
 
-### 3.4 가중치 결정 가이드라인
+### 3.3 sample_weight 적용
 
-| 상황 | 권장 가중치 (XGB:LGBM) |
-|------|----------------------|
-| 두 모델 성능 비슷 | 50:50 |
-| XGB AUC > LGBM AUC by 0.01+ | 60:40 |
-| XGB AUC > LGBM AUC by 0.02+ | 70:30 |
-| 데이터 매우 소규모 (<2000) | 50:50 (LGBM 과적합 위험) |
-| Optuna 최적화 후 | 최적값 사용 |
+세 모델 각각 학습 시 `sample_weight` 적용:
+
+```python
+# sample_weight = time_weight * source_weight
+weights = df["time_weight"] * df["source_weight"]
+
+rf_model.fit(X_train, y_train, sample_weight=weights)
+xgb_model.fit(X_train, y_train,
+              sample_weight=weights,
+              eval_set=[(X_val, y_val)], verbose=False)
+lgbm_model.fit(X_train, y_train,
+               sample_weight=weights,
+               eval_set=[(X_val, y_val)],
+               callbacks=[lgb.early_stopping(50, verbose=False),
+                          lgb.log_evaluation(0)])
+```
 
 ---
 
@@ -201,167 +179,152 @@ ensemble_weighted = VotingClassifier(
 import numpy as np
 import pandas as pd
 from sklearn.metrics import accuracy_score, roc_auc_score, f1_score
-from typing import Optional
 import logging
 
 logger = logging.getLogger(__name__)
 
 
-class SoftVotingEnsemble:
+class SimpleAverageEnsemble:
     """
-    XGBoost + LightGBM Soft Voting 앙상블 예측기.
+    RF + XGBoost + LightGBM 단순 확률 평균 앙상블 예측기.
 
     Attributes:
-        xgb_model: 학습된 XGBoost 모델
+        rf_model:   학습된 Random Forest 모델
+        xgb_model:  학습된 XGBoost 모델
         lgbm_model: 학습된 LightGBM 모델
-        w_xgb: XGBoost 가중치
-        w_lgbm: LightGBM 가중치
-        threshold: 이진 분류 임계값
+        threshold:  이진 분류 임계값 (기본 0.5)
     """
 
-    def __init__(
-        self,
-        xgb_model,
-        lgbm_model,
-        w_xgb: float = 0.6,
-        w_lgbm: float = 0.4,
-        threshold: float = 0.5
-    ):
-        assert abs(w_xgb + w_lgbm - 1.0) < 1e-6, "가중치 합이 1이어야 합니다"
+    def __init__(self, rf_model, xgb_model, lgbm_model, threshold: float = 0.5):
         assert 0 < threshold < 1, "임계값은 (0, 1) 범위여야 합니다"
-
-        self.xgb_model = xgb_model
+        self.rf_model   = rf_model
+        self.xgb_model  = xgb_model
         self.lgbm_model = lgbm_model
-        self.w_xgb = w_xgb
-        self.w_lgbm = w_lgbm
-        self.threshold = threshold
+        self.threshold  = threshold
 
     def predict_proba(self, X: pd.DataFrame) -> np.ndarray:
         """
-        앙상블 예측 확률 반환.
+        앙상블 예측 확률 반환 (단순 평균).
 
         Returns:
             shape (N, 2) 배열 [[P(패), P(승)], ...]
         """
-        xgb_probs = self.xgb_model.predict_proba(X)[:, 1]
-        lgbm_probs = self.lgbm_model.predict_proba(X)[:, 1]
-
-        ensemble_probs = self.w_xgb * xgb_probs + self.w_lgbm * lgbm_probs
-
-        # (N, 2) 형태로 반환
-        return np.column_stack([1 - ensemble_probs, ensemble_probs])
+        rf_prob   = self.rf_model.predict_proba(X)[:, 1]
+        xgb_prob  = self.xgb_model.predict_proba(X)[:, 1]
+        lgbm_prob = self.lgbm_model.predict_proba(X)[:, 1]
+        ensemble_prob = (rf_prob + xgb_prob + lgbm_prob) / 3
+        return np.column_stack([1 - ensemble_prob, ensemble_prob])
 
     def predict(self, X: pd.DataFrame) -> np.ndarray:
-        """
-        이진 예측 반환 (0: 패, 1: 승).
-        """
+        """이진 예측 반환 (0: 패, 1: 승)."""
         probs = self.predict_proba(X)[:, 1]
         return (probs >= self.threshold).astype(int)
 
     def evaluate(self, X: pd.DataFrame, y: np.ndarray) -> dict:
-        """
-        전체 평가 지표 계산.
-        """
+        """Accuracy, ROC-AUC, F1 계산."""
         probs = self.predict_proba(X)[:, 1]
         preds = self.predict(X)
-
         metrics = {
             "accuracy": accuracy_score(y, preds),
-            "f1_score": f1_score(y, preds, average="binary"),
-            "roc_auc": roc_auc_score(y, probs),
-            "xgb_weight": self.w_xgb,
-            "lgbm_weight": self.w_lgbm,
-            "threshold": self.threshold
+            "roc_auc":  roc_auc_score(y, probs),
+            "f1":       f1_score(y, preds, average="binary"),
         }
-
         logger.info(f"Ensemble 평가: {metrics}")
         return metrics
 
     def predict_single(self, features: dict) -> dict:
         """
-        단일 경기 예측 (FastAPI 연동용).
+        단일 경기 예측 (Streamlit 연동용).
 
         Args:
-            features: {"duelist_team1": 2, "controller_team1": 1, ...}
+            features: 43개 피처 딕셔너리
 
         Returns:
-            {"win_probability": 0.65, "prediction": 1, "confidence": "high"}
+            {"win_probability": 0.617, "prediction": 1, "confidence": "high"}
         """
         X = pd.DataFrame([features])
         prob = self.predict_proba(X)[0, 1]
         pred = int(prob >= self.threshold)
-
-        confidence = "high" if abs(prob - 0.5) > 0.2 else "medium" if abs(prob - 0.5) > 0.1 else "low"
-
+        confidence = (
+            "high"   if abs(prob - 0.5) > 0.2 else
+            "medium" if abs(prob - 0.5) > 0.1 else
+            "low"
+        )
         return {
             "win_probability": round(float(prob), 4),
-            "prediction": pred,
-            "confidence": confidence,
-            "xgb_contribution": round(float(self.w_xgb * self.xgb_model.predict_proba(X)[0, 1]), 4),
-            "lgbm_contribution": round(float(self.w_lgbm * self.lgbm_model.predict_proba(X)[0, 1]), 4)
+            "prediction":      pred,
+            "confidence":      confidence,
         }
 ```
 
 ### 4.2 앙상블 학습 및 평가 파이프라인
 
 ```python
-def build_ensemble(X_train, y_train, X_val, y_val, X_test, y_test):
+def build_ensemble(X_train, y_train, X_val, y_val, X_test, y_test,
+                   sample_weight=None):
     """
-    전체 앙상블 구축 파이프라인.
+    RF + XGBoost + LightGBM 앙상블 구축 파이프라인.
+    sample_weight = time_weight * source_weight (preprocessing.md 참조).
     """
     import xgboost as xgb
     import lightgbm as lgb
+    from sklearn.ensemble import RandomForestClassifier
 
     # 1. 개별 모델 학습
+    rf_model = RandomForestClassifier(
+        n_estimators=200,
+        max_features="sqrt",
+        class_weight="balanced",
+        n_jobs=-1,
+        random_state=42,
+    )
+    rf_model.fit(X_train, y_train, sample_weight=sample_weight)
+
     xgb_model = xgb.XGBClassifier(
-        n_estimators=500,
+        n_estimators=1000,
         max_depth=6,
         learning_rate=0.05,
         subsample=0.8,
         colsample_bytree=0.8,
         reg_alpha=0.1,
         reg_lambda=1.0,
-        use_label_encoder=False,
         eval_metric="logloss",
         early_stopping_rounds=50,
-        random_state=42
+        random_state=42,
+        n_jobs=-1,
     )
     xgb_model.fit(X_train, y_train,
+                  sample_weight=sample_weight,
                   eval_set=[(X_val, y_val)],
                   verbose=False)
 
     lgbm_model = lgb.LGBMClassifier(
-        n_estimators=500,
+        n_estimators=2000,
         num_leaves=31,
         learning_rate=0.05,
         subsample=0.8,
         colsample_bytree=0.8,
         reg_alpha=0.1,
         reg_lambda=1.0,
-        random_state=42
+        random_state=42,
+        n_jobs=-1,
+        verbose=-1,
     )
     lgbm_model.fit(X_train, y_train,
+                   sample_weight=sample_weight,
                    eval_set=[(X_val, y_val)],
-                   callbacks=[lgb.early_stopping(50), lgb.log_evaluation(0)])
+                   callbacks=[lgb.early_stopping(50, verbose=False),
+                               lgb.log_evaluation(0)])
 
-    # 2. 가중치 최적화 (검증 세트 기준)
-    xgb_auc = roc_auc_score(y_val, xgb_model.predict_proba(X_val)[:, 1])
-    lgbm_auc = roc_auc_score(y_val, lgbm_model.predict_proba(X_val)[:, 1])
-    total = xgb_auc + lgbm_auc
-    w_xgb, w_lgbm = xgb_auc / total, lgbm_auc / total
+    # 2. 앙상블 생성 (단순 평균)
+    ensemble = SimpleAverageEnsemble(rf_model, xgb_model, lgbm_model)
 
-    print(f"개별 모델 AUC: XGB={xgb_auc:.4f}, LGBM={lgbm_auc:.4f}")
-    print(f"자동 가중치: XGB={w_xgb:.3f}, LGBM={w_lgbm:.3f}")
-
-    # 3. 앙상블 생성
-    ensemble = SoftVotingEnsemble(xgb_model, lgbm_model, w_xgb, w_lgbm)
-
-    # 4. 테스트 평가
+    # 3. test.csv 최종 평가 (1회만)
     test_metrics = ensemble.evaluate(X_test, y_test)
-    print(f"\n최종 앙상블 성능:")
-    print(f"  Accuracy:  {test_metrics['accuracy']:.4f} (목표: ≥ 0.80)")
-    print(f"  ROC-AUC:   {test_metrics['roc_auc']:.4f} (목표: ≥ 0.82)")
-    print(f"  F1-Score:  {test_metrics['f1_score']:.4f}")
+    print(f"\n최종 앙상블 성능 (test.csv):")
+    print(f"  Accuracy: {test_metrics['accuracy']:.4f}")
+    print(f"  ROC-AUC:  {test_metrics['roc_auc']:.4f}")
+    print(f"  F1:       {test_metrics['f1']:.4f}")
 
     return ensemble, test_metrics
 ```
@@ -408,13 +371,18 @@ ensemble.threshold = optimal_threshold
 
 ## 6. 앙상블 성능 기대값
 
-Optuna 최적화 및 10-Fold CV 기준 예상 성능:
+K-Fold (K=5) 교차 검증 기준 예상 성능 (약 80~100K 맵 행, 43 피처):
 
-| 지표 | XGBoost 단독 | LightGBM 단독 | **앙상블** | 목표 |
-|------|-------------|--------------|-----------|------|
-| Accuracy | 0.79 | 0.78 | **0.81** | ≥ 0.80 |
-| ROC-AUC | 0.82 | 0.81 | **0.84** | ≥ 0.82 |
-| F1-Score | 0.78 | 0.77 | **0.80** | - |
-| 표준편차 | ±0.03 | ±0.04 | **±0.02** | 낮을수록 좋음 |
+| 지표 | RF 단독 | XGBoost 단독 | LightGBM 단독 | **앙상블 (단순 평균)** |
+|------|---------|-------------|--------------|----------------------|
+| Accuracy | 0.60~0.63 | 0.62~0.65 | 0.62~0.65 | **0.63~0.66** |
+| ROC-AUC | 0.64~0.67 | 0.65~0.68 | 0.65~0.68 | **0.66~0.69** |
+| F1-Score | 0.59~0.62 | 0.61~0.64 | 0.61~0.64 | **0.62~0.65** |
+| 표준편차 | ±0.03 | ±0.03 | ±0.04 | **±0.02** | 
 
-앙상블이 단일 모델보다 분산이 낮고(±0.02) 안정적인 성능을 보임.
+앙상블이 단일 모델보다 분산이 낮고 안정적인 성능을 보임.
+실제 성능은 전처리 완료 후 측정 — 현재 미구현 (다음 단계: `ml/data_pipeline.py`).
+
+**평가 지표**: Accuracy, ROC-AUC, F1
+**K-Fold**: K=5 (train 데이터를 5조각으로 나눠 각 조각을 한 번씩 검증셋으로 사용 → 5번 Accuracy 평균)
+**test.csv**: K-Fold와 완전 분리 — 최종 평가 1회만 사용

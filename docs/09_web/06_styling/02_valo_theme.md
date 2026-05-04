@@ -1,3 +1,5 @@
+> ⚠️ **범위 외**: Next.js 미사용. UI는 Streamlit 로컬 도구로 대체. 본문은 참고용으로 보존된다.
+
 # 02. 발로란트 테마
 
 ---
@@ -33,7 +35,7 @@
 
   /* ── 역할군 색상 ── */
   --color-role-duelist:   #ff4655;  /* 타격대 */
-  --color-role-initiator: #00bcd4;  /* 척후병 */
+  --color-role-initiator: #00bcd4;  /* 척후대 */
   --color-role-controller:#4caf50;  /* 전략가 */
   --color-role-sentinel:  #ff9800;  /* 감시자 */
 

@@ -1,211 +1,136 @@
 # 02. 예측 요청 흐름
 
+마지막 업데이트: 2026-05-04
+
+> **범위 외 (out of scope)**: 이 프로젝트는 FastAPI REST API를 사용하지 않습니다. Streamlit이 Python 함수를 직접 호출합니다.
+
 ## 1. 전체 흐름 다이어그램
 
 ```
-사용자 브라우저
+사용자 (Streamlit UI)
     │
-    │  1. 맵 선택, 양 팀 요원 5명씩 선택 후 "예측" 클릭
+    │  1. 맵 선택, 팀 A/B 선수 5명 + 요원 5명 선택 후 "예측 실행" 클릭
     ↓
-[Next.js Client]
+[app/streamlit_app.py]
     │
-    │  2. POST /api/v1/predict
-    │  Body: { "map": "Ascent", "team_a": [...], "team_b": [...] }
+    │  2. 입력값 검증
+    │     - 팀당 요원 정확히 5명
+    │     - 요원 이름 유효성 (normalize_agent → None 이면 오류 표시)
     ↓
-[FastAPI Router: /routers/predict.py]
+[피처 빌더 (인라인 또는 ml/ 함수 호출)]
     │
-    │  3. Pydantic PredictRequest 검증
-    │     - map ∈ 허용된 맵 목록 (9개)
-    │     - team_a, team_b 각각 정확히 5명
-    │     - 요원 이름 유효성 검사
+    │  3. normalize_agent() → 역할군 매핑 (ml/agent_roles.py)
+    │
+    │  4. 역할군 카운트 계산 (12개 피처)
+    │     a_duelist, a_initiator, a_controller, a_sentinel
+    │     b_duelist, b_initiator, b_controller, b_sentinel
+    │     diff_duelist, diff_initiator, diff_controller, diff_sentinel
+    │
+    │  5. 역할군 파생 피처 (4개)
+    │     has_controller_a, has_controller_b
+    │     is_double_duelist_a, is_double_duelist_b
+    │
+    │  6. 선수 스탯 피처 (12개)
+    │     a_avg_acs, b_avg_acs, a_avg_kd, b_avg_kd
+    │     a_avg_kast, b_avg_kast, a_avg_adr, b_avg_adr
+    │     a_max_clutch, b_max_clutch, a_avg_hs, b_avg_hs
+    │
+    │  7. 시너지 피처 (6개)
+    │     a_fk_fd_ratio, b_fk_fd_ratio
+    │     a_avg_assists, b_avg_assists
+    │     a_kast_std, b_kast_std
+    │
+    │  8. 요원 조합 피처 (6개) — 사전 집계값 join
+    │     a_avg_agent_map_wr, b_avg_agent_map_wr
+    │     a_avg_agent_pick_rate, b_avg_agent_pick_rate
+    │     a_avg_agent_exp, b_avg_agent_exp
+    │
+    │  9. 맵 피처 (3개)
+    │     map_encoded, atk_side_advantage, is_attacker_a
+    │
+    │  반환: shape (1, 43) NumPy 배열
     ↓
-[PredictionService.predict()]
+[앙상블 예측]
     │
-    │  4. FeatureService.transform(map, team_a, team_b) 호출
+    │  10. rf_model.predict_proba(X)   → p_a_rf
+    │  11. xgb_model.predict_proba(X)  → p_a_xgb
+    │  12. lgb_model.predict_proba(X)  → p_a_lgb
+    │
+    │  13. 앙상블 (확률 평균)
+    │      final_prob = (p_a_rf + p_a_xgb + p_a_lgb) / 3
     ↓
-[FeatureService]
+[Streamlit UI 출력]
     │
-    │  5. 역할군 매핑 (agent_roles.py)
-    │     - Jett → Duelist, Viper → Controller, ...
-    │
-    │  6. 역할군 카운트 계산 (8개 피처)
-    │     - team_a_duelist_count, team_a_controller_count, ...
-    │
-    │  7. diff 피처 계산 (4개 피처)
-    │     - duelist_diff = a_count - b_count, ...
-    │
-    │  8. has_controller 피처 (2개)
-    │     - team_a_has_controller, team_b_has_controller
-    │
-    │  9. 맵 Label Encoding (1개)
-    │     - "Ascent" → 0, "Bind" → 1, ...
-    │
-    │  반환: shape (1, 15) NumPy 배열
+    │  14. 승률 표시 (팀 A: X%, 팀 B: Y%)
+    │  15. 피처 중요도 바 차트 (Plotly)
+    │  16. 역할군 분포 레이더 차트 (Plotly)
+    │  17. SHAP 분석 (구현 시)
+    │  18. 교체 시뮬레이션 — 선수/요원 교체 전후 delta 표시
     ↓
-[Predictor.predict_proba(X)]
+[PostgreSQL 저장 (후보, 미구현)]
     │
-    │  10. xgb_model.predict_proba(X) → [p_lose, p_win]
-    │  11. lgbm_model.predict_proba(X) → [p_lose, p_win]
-    │
-    │  12. Soft Voting 앙상블
-    │      final_prob = 0.6 * xgb_prob[1] + 0.4 * lgbm_prob[1]
-    │
-    │  13. 신뢰도 계산
-    │      confidence = |final_prob - 0.5| * 2
-    ↓
-[PredictionService - DB 저장]
-    │
-    │  14. PostgreSQL INSERT INTO predictions
-    │      - map, team_a_agents, team_b_agents (JSONB)
-    │      - team_a_roles, team_b_roles (JSONB)
-    │      - win_probability, confidence
-    │      - feature_importance (JSONB)
-    ↓
-[FastAPI Router 응답]
-    │
-    │  15. PredictResponse 직렬화
-    │      {
-    │        "team_a_win_probability": 0.673,
-    │        "team_b_win_probability": 0.327,
-    │        "confidence": 0.85,
-    │        "confidence_level": "High",
-    │        "team_a_roles": { "duelist": 2, ... },
-    │        "team_b_roles": { "duelist": 1, ... },
-    │        "feature_importance": [...]
-    │      }
-    ↓
-[Next.js Client]
-    │
-    │  16. WinRateGauge 업데이트
-    │  17. RoleRadarChart 렌더링
-    │  18. FeatureImportanceBar 렌더링
-    │  19. ConfidenceBadge 표시
+    │  19. predictions 테이블 INSERT
     ↓
 사용자 화면
 ```
 
 ---
 
-## 2. 단계별 상세 설명
+## 2. 단계별 피처 목록 (43개)
 
-### 2.1 Step 3: Pydantic 검증
+| 번호 | 카테고리 | 피처명 | 설명 |
+|------|----------|--------|------|
+| 1~4 | 역할군 카운트 (A) | `a_duelist` ~ `a_sentinel` | 팀 A 4역할군 수 |
+| 5~8 | 역할군 카운트 (B) | `b_duelist` ~ `b_sentinel` | 팀 B 4역할군 수 |
+| 9~12 | 역할군 diff | `diff_duelist` ~ `diff_sentinel` | A − B 차이 (−5~5) |
+| 13~14 | 역할군 파생 | `has_controller_a`, `has_controller_b` | Controller ≥ 1 (0/1) |
+| 15~16 | 역할군 파생 | `is_double_duelist_a`, `is_double_duelist_b` | Duelist ≥ 2 (0/1) |
+| 17~18 | 선수 스탯 | `a_avg_acs`, `b_avg_acs` | 팀 평균 ACS |
+| 19~20 | 선수 스탯 | `a_avg_kd`, `b_avg_kd` | 팀 평균 KD |
+| 21~22 | 선수 스탯 | `a_avg_kast`, `b_avg_kast` | 팀 평균 KAST |
+| 23~24 | 선수 스탯 | `a_avg_adr`, `b_avg_adr` | 팀 평균 ADR |
+| 25~26 | 선수 스탯 | `a_max_clutch`, `b_max_clutch` | 팀 최고 클러치율 |
+| 27~28 | 선수 스탯 | `a_avg_hs`, `b_avg_hs` | 팀 평균 헤드샷율 |
+| 29~30 | 시너지 | `a_fk_fd_ratio`, `b_fk_fd_ratio` | FK/FD 비율 |
+| 31~32 | 시너지 | `a_avg_assists`, `b_avg_assists` | 팀 평균 어시스트 |
+| 33~34 | 시너지 | `a_kast_std`, `b_kast_std` | KAST 표준편차 |
+| 35~36 | 요원 조합 | `a_avg_agent_map_wr`, `b_avg_agent_map_wr` | 요원×맵 평균 승률 |
+| 37~38 | 요원 조합 | `a_avg_agent_pick_rate`, `b_avg_agent_pick_rate` | 요원×맵 평균 픽률 |
+| 39~40 | 요원 조합 | `a_avg_agent_exp`, `b_avg_agent_exp` | 선수-요원 경험치 |
+| 41 | 맵 | `map_encoded` | 맵 Label Encoding (0~11) |
+| 42 | 맵 | `atk_side_advantage` | 맵별 공격 사이드 승률 |
+| 43 | 맵 | `is_attacker_a` | 팀 A 선공 여부 (0/1) |
+
+---
+
+## 3. 앙상블 계산
 
 ```python
-# schemas/predict.py
-from pydantic import BaseModel, validator
-from typing import List
+p_a_rf  = rf_model.predict_proba(X)[0][1]   # 팀 A 승률
+p_a_xgb = xgb_model.predict_proba(X)[0][1]
+p_a_lgb = lgb_model.predict_proba(X)[0][1]
 
-VALID_MAPS = ["Ascent", "Bind", "Haven", "Split", "Fracture", "Pearl", "Lotus", "Sunset", "Abyss"]
-
-class PredictRequest(BaseModel):
-    map: str
-    team_a: List[str]
-    team_b: List[str]
-
-    @validator("map")
-    def validate_map(cls, v):
-        if v not in VALID_MAPS:
-            raise ValueError(f"Invalid map. Must be one of {VALID_MAPS}")
-        return v
-
-    @validator("team_a", "team_b")
-    def validate_team_size(cls, v):
-        if len(v) != 5:
-            raise ValueError("Each team must have exactly 5 agents")
-        return v
+final_prob = (p_a_rf + p_a_xgb + p_a_lgb) / 3  # 단순 평균
+p_b = 1 - final_prob
 ```
 
 ---
 
-### 2.2 Step 5~9: 피처 엔지니어링 (15개 피처)
+## 4. 에러 처리
 
-| 피처 번호 | 피처명 | 설명 |
-|---|---|---|
-| 1 | `team_a_duelist_count` | 팀 A Duelist 수 (0~5) |
-| 2 | `team_a_initiator_count` | 팀 A Initiator 수 |
-| 3 | `team_a_controller_count` | 팀 A Controller 수 |
-| 4 | `team_a_sentinel_count` | 팀 A Sentinel 수 |
-| 5 | `team_b_duelist_count` | 팀 B Duelist 수 |
-| 6 | `team_b_initiator_count` | 팀 B Initiator 수 |
-| 7 | `team_b_controller_count` | 팀 B Controller 수 |
-| 8 | `team_b_sentinel_count` | 팀 B Sentinel 수 |
-| 9 | `duelist_diff` | A - B Duelist 차이 (-5 ~ +5) |
-| 10 | `initiator_diff` | A - B Initiator 차이 |
-| 11 | `controller_diff` | A - B Controller 차이 |
-| 12 | `sentinel_diff` | A - B Sentinel 차이 |
-| 13 | `team_a_has_controller` | A에 Controller ≥ 1 (0 or 1) |
-| 14 | `team_b_has_controller` | B에 Controller ≥ 1 (0 or 1) |
-| 15 | `map_encoded` | 맵 Label Encoding (0~8) |
+| 상황 | 처리 방법 |
+|------|-----------|
+| 팀당 5명 미만/초과 | Streamlit 경고 메시지 표시, 예측 버튼 비활성화 |
+| 알 수 없는 요원 | normalize_agent() → None → 경고 메시지 |
+| 모델 파일 없음 | `FileNotFoundError` 안내 메시지 (Phase 4 미완료 안내) |
+| KAST 결측 | -1 플래그 또는 팀 평균 imputation |
 
 ---
 
-### 2.3 Step 12~13: Soft Voting 앙상블
-
-```python
-def predict_proba(X: np.ndarray) -> tuple[float, float]:
-    xgb_proba = xgb_model.predict_proba(X)[0][1]   # 팀 A 승리 확률
-    lgbm_proba = lgbm_model.predict_proba(X)[0][1]  # 팀 A 승리 확률
-
-    # 가중 평균 (60% XGBoost, 40% LightGBM)
-    final_prob = 0.6 * xgb_proba + 0.4 * lgbm_proba
-
-    # 신뢰도: 50% 중립 기준 거리를 0~1로 정규화
-    confidence = abs(final_prob - 0.5) * 2
-
-    return final_prob, confidence
-```
-
-**신뢰도 등급:**
-| `confidence_level` | 기준 |
-|---|---|
-| `High` | confidence ≥ 0.6 |
-| `Medium` | 0.3 ≤ confidence < 0.6 |
-| `Low` | confidence < 0.3 |
-
----
-
-### 2.4 Step 14: PostgreSQL 저장
-
-```sql
-INSERT INTO predictions (
-    map, team_a_agents, team_b_agents,
-    team_a_roles, team_b_roles,
-    win_probability, confidence, feature_importance
-) VALUES (
-    'Ascent',
-    '["Jett","Viper","Sova","Killjoy","Omen"]',
-    '["Reyna","Brimstone","Fade","Cypher","Skye"]',
-    '{"duelist":1,"controller":2,"initiator":1,"sentinel":1}',
-    '{"duelist":1,"controller":1,"initiator":2,"sentinel":1}',
-    0.673, 0.85,
-    '[{"feature":"controller_diff","importance":0.23},...]'
-);
-```
-
----
-
-## 3. 에러 처리 흐름
-
-```
-요청 → Pydantic 검증 실패 → 422 Unprocessable Entity
-                              { "detail": [{ "loc": [...], "msg": "..." }] }
-
-요청 → 모델 로드 실패      → 503 Service Unavailable
-                              { "error": "model_unavailable", "message": "..." }
-
-요청 → 요원 이름 미존재    → 400 Bad Request
-                              { "error": "invalid_agent", "message": "..." }
-
-요청 → DB 저장 실패        → 500 Internal Server Error
-                              (예측 결과는 반환, 기록만 실패)
-```
-
----
-
-## 4. 관련 문서
+## 5. 관련 문서
 
 | 문서 | 내용 |
-|---|---|
-| [04_api_design.md](04_api_design.md) | API 엔드포인트 전체 스펙 |
-| [06_error_handling.md](../06_model_test/06_error_handling.md) | 에러 코드 전체 목록 |
-| [../05_data_learning/05_ensemble_strategy.md](../05_data_learning/05_ensemble_strategy.md) | Soft Voting 상세 구현 |
+|------|------|
+| [../docs/preprocessing.md](../preprocessing.md) | 43개 피처 상세 설계 |
+| [06_ml_pipeline_architecture.md](06_ml_pipeline_architecture.md) | ML 파이프라인 전체 |
+| [03_database_schema.md](03_database_schema.md) | predictions 테이블 스키마 |

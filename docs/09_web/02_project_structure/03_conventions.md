@@ -1,3 +1,5 @@
+> ⚠️ **범위 외**: Next.js 미사용. UI는 Streamlit 로컬 도구로 대체. 본문은 참고용으로 보존된다.
+
 # 03. 명명 규칙 및 코드 컨벤션
 
 ---
@@ -68,7 +70,7 @@ import { fetchAgents } from '@/lib/api';
 import styles from './AgentPicker.module.css';
 
 // 7. 상수 (컴포넌트 밖)
-const ROLES = ['전체', '타격대', '척후병', '전략가', '감시자'];
+const ROLES = ['전체', '타격대', '척후대', '전략가', '감시자'];
 
 // 8. 컴포넌트 함수 (default export)
 export default function AgentPicker({ ... }) { ... }

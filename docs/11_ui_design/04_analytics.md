@@ -1,256 +1,74 @@
-# 04. 분석 대시보드 화면 설계 (`/analytics`)
+# 04. 분석 화면 설계
 
-> **URL:** `/analytics`  
-> **파일:** `src/app/analytics/page.js` + `src/app/analytics/page.module.css`  
-> **렌더링:** CSR (Client-Side Rendering) — `'use client'`, 마운트 시 단일 API 호출
+> Streamlit 기반 — FastAPI/Next.js 사용 안 함
+> 마지막 업데이트: 2026-05-04
 
 ---
 
 ## 1. 화면 목적
 
-모든 예측 기록을 집계한 통계를 시각화한다. 에이전트 사용 빈도, 맵별 예측 횟수, 전체 예측 건수, 평균 승률 등을 한눈에 파악할 수 있는 대시보드.
+모델 성능, 피처 중요도, 조합 실험 결과를 분석가가 검토하는 화면.
+
+**왜 분석 화면이 별도로 필요한가?**
+예측 화면은 특정 조합의 승률을 확인하는 데 최적화되어 있다. 분석 화면은 "어떤 피처가 모델 전체에서 가장 중요한가", "RF와 XGBoost 중 어느 모델이 더 정확한가", "어떤 조합이 역사적으로 가장 높은 승률을 기록했는가"처럼 모델 전체 행동을 이해하기 위한 화면이다. 발표나 프로젝트 검증 시 이 화면의 결과를 근거로 사용한다.
+
+**왜 Accuracy만 쓰지 않고 ROC-AUC, F1도 함께 보는가?**
+- **Accuracy**: 전체 예측 중 맞춘 비율. 데이터에 승/패가 50:50이면 충분하지만, 실제로 비율이 치우쳐 있으면 항상 한쪽만 예측해도 높게 나올 수 있다.
+- **ROC-AUC**: 모델이 "이 경기는 팀 A가 이길 가능성이 더 높다"는 확률적 판단을 얼마나 잘 하는지 측정한다. 0.5는 랜덤과 같고, 1.0은 완벽한 분류다.
+- **F1**: 정밀도(맞다고 한 것 중 진짜 맞은 비율)와 재현율(실제 맞는 것 중 맞다고 한 비율)의 조화 평균. 하나만 높고 하나만 낮은 상황을 균형 있게 측정한다.
 
 ---
 
-## 2. 전체 레이아웃 다이어그램
-
-### 2-1. 로딩 중
+## 2. 레이아웃
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│ Navbar                                                          │
-├─────────────────────────────────────────────────────────────────┤
-│ PageWrapper                                                     │
-│                                                                 │
-│                    [LoadingSpinner]                             │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
+[분석 화면]
 
-### 2-2. 로드 완료
+┌──────────────┬──────────────┬──────────────┬──────────────┐
+│ 총 예측 횟수  │  평균 승률   │  현재 모델   │  평가 지표   │
+│   st.metric  │  st.metric   │  st.metric   │  Acc/AUC/F1  │
+└──────────────┴──────────────┴──────────────┴──────────────┘
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│ Navbar                                                          │
-├─────────────────────────────────────────────────────────────────┤
-│ PageWrapper                                                     │
-│                                                                 │
-│  h1  "분석 대시보드"                                            │
-│                                                                 │
-│  ┌── StatCard Grid (auto-fit, min 180px) ───────────────────┐  │
-│  │  ┌──────────────┐ ┌──────────────┐ ┌───────┐ ┌────────┐  │  │
-│  │  │ 총 예측 횟수  │ │  평균 승률  │ │자주 쓴│ │많이 예측│  │  │
-│  │  │    1,234     │ │    52%      │ │에이전트│ │  맵    │  │  │
-│  │  └──────────────┘ └──────────────┘ └───────┘ └────────┘  │  │
-│  └──────────────────────────────────────────────────────────┘  │
-│                                                                 │
-│  ┌── charts 2열 ─────────────────────────────────────────────┐  │
-│  │  ┌── chartCard (좌) ──────────────────────────────────┐   │  │
-│  │  │  에이전트 사용 빈도 Top 10                           │   │  │
-│  │  │  ┌ Jett    ████████████████████████████████ 234 ┐  │   │  │
-│  │  │  │ Phoenix ████████████████████           189 │  │   │  │
-│  │  │  │ ...     ...                                │  │   │  │
-│  │  │  └─────────────────────────────────────────────┘  │   │  │
-│  │  └────────────────────────────────────────────────────┘   │  │
-│  │  ┌── chartCard (우) ──────────────────────────────────┐   │  │
-│  │  │  맵별 예측 횟수                                      │   │  │
-│  │  │  ┌ Ascent  ██████████████████████████████ 320  ┐  │   │  │
-│  │  │  │ Bind    ████████████████████           270  │  │   │  │
-│  │  │  │ Icebox  ████████████████               245  │  │   │  │
-│  │  │  │ ...     ...                                 │  │   │  │
-│  │  │  └─────────────────────────────────────────────┘  │   │  │
-│  │  └────────────────────────────────────────────────────┘   │  │
-│  └──────────────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────────┘
+Feature importance (SHAP / 모델 내장)
+- st.bar_chart 또는 Plotly 수평 바
+
+모델 비교 (RF / XGBoost / LightGBM)
+- st.dataframe: Accuracy, ROC-AUC, F1 행별 비교
+
+리포트 출력
+- st.download_button → eval_summary.json / reports/
 ```
 
 ---
 
-## 3. 컴포넌트 트리
+## 3. 요약 카드
 
-```
-AnalyticsPage (page.js)                        [Client Component]
-├── [loading] → PageWrapper > LoadingSpinner
-├── [error]   → PageWrapper > ErrorMessage
-└── [데이터 있음]
-    └── PageWrapper
-        ├── h1.pageTitle
-        ├── div.grid (StatCard × 4)
-        │   ├── StatCard  (총 예측 횟수)
-        │   ├── StatCard  (평균 승률)
-        │   ├── StatCard  (가장 많이 쓴 에이전트)
-        │   └── StatCard  (가장 많이 예측한 맵)
-        └── div.charts (2-col grid)
-            ├── div.chartCard  (에이전트 빈도)
-            │   ├── p.chartTitle
-            │   └── div.barRow × 10
-            │       ├── span.barLabel  에이전트명
-            │       ├── div.barTrack
-            │       │   └── div.barFill  (width: % 동적)
-            │       └── span.barValue  횟수
-            └── div.chartCard  (맵별 횟수)
-                ├── p.chartTitle
-                └── div.barRow × N
-                    ├── span.barLabel  맵명
-                    ├── div.barTrack
-                    │   └── div.barFill  (width: % 동적)
-                    └── span.barValue  횟수
-```
+| 카드 | 내용 | 컴포넌트 |
+|------|------|---------|
+| 총 예측 횟수 | PostgreSQL 저장 기록 수 | `st.metric` |
+| 평균 예측 승률 | 기록 기준 평균 | `st.metric` |
+| 현재 모델 | 선택된 모델명 | `st.metric` |
+| 평가 지표 | Accuracy, ROC-AUC, F1 | `st.metric` × 3 |
 
 ---
 
-## 4. 컴포넌트 명세
+## 4. 차트
 
-### 4-1. StatCard 요약 그리드
-
-| StatCard | title | value | desc |
-|----------|-------|-------|------|
-| 1 | 총 예측 횟수 | `data.total_predictions` | 누적 예측 기록 |
-| 2 | 평균 승률 | `round(data.avg_win_probability * 100)%` | 팀 A 기준 |
-| 3 | 가장 많이 쓴 에이전트 | `topAgents[0].name` | `{count}회` |
-| 4 | 가장 많이 예측한 맵 | `topMaps[0].map` | `{count}회` |
-
-**그리드:**
-```css
-.grid {
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 1rem;
-  margin-bottom: 1.5rem;
-}
-```
-
-### 4-2. 가로 바차트 (커스텀)
-
-Recharts 없이 순수 CSS로 구현된 커스텀 바차트.
-
-**바 너비 계산:**
-```js
-maxAgentCount = topAgents[0]?.count ?? 1
-barWidth = (agent.count / maxAgentCount) * 100 + '%'
-```
-→ 가장 많은 에이전트/맵을 100%로 하여 상대적 비율로 표현
-
-**레이아웃:**
-```
-.chartCard  → p-5 rounded-xl, background: panel, border: valo-border
-.chartTitle → text-sm font-bold, color: valo-text, mb-4
-.barRow     → flex items-center gap-3, mb-2
-.barLabel   → text-xs w-20 text-right shrink-0, color: muted
-.barTrack   → flex-1 h-2 rounded-full, background: valo-border
-.barFill    → h-full rounded-full, background: valo-red, transition: width
-.barValue   → text-xs w-10 shrink-0, color: muted
-```
-
-**에이전트 차트:** 상위 10개 (`topAgents.slice(0, 10)`)  
-**맵 차트:** 전체 맵 목록 (`topMaps` 전체)
+| 차트 | 내용 | 컴포넌트 |
+|------|------|---------|
+| Feature importance | 피처별 중요도 (SHAP 또는 모델 내장) | `st.bar_chart` / Plotly |
+| 선수-요원 적합도 Top | 상위 선수-요원 조합 점수 | `st.dataframe` |
+| 교체 delta Top | 교체 실험 중 승률 변화량 최대 항목 | `st.bar_chart` |
+| 모델 비교 | RF / XGBoost / LightGBM Accuracy, ROC-AUC, F1 | `st.dataframe` |
 
 ---
 
-## 5. 상태 흐름
+## 5. 리포트 출력 후보
 
-```
-[초기화]
-loading = true, error = null, data = null
+`st.download_button` 으로 다음 파일 다운로드 제공:
 
-[마운트]
-useEffect([]) → fetchAnalytics()
-  성공: setData(res)
-  실패: setError(e.message)
-  finally: setLoading(false)
-
-[렌더 분기]
-loading === true  → <PageWrapper><LoadingSpinner /></PageWrapper>
-error !== null    → <PageWrapper><ErrorMessage message={error} /></PageWrapper>
-data !== null     → 실제 대시보드 렌더
-
-데이터 파생:
-  topAgents = data?.top_agents ?? []
-  topMaps   = data?.map_stats ?? []
-  maxAgentCount = topAgents[0]?.count ?? 1  ← 바 너비 기준값
-  maxMapCount   = topMaps[0]?.count ?? 1
-```
-
----
-
-## 6. 인터랙션 정의
-
-| 사용자 액션 | 반응 |
-|-------------|------|
-| 페이지 진입 | API 호출 → 로딩 스피너 표시 |
-| 로드 완료 | 스피너 → 대시보드 렌더링 |
-| API 실패 | 스피너 → ErrorMessage 표시 |
-
-> 이 화면은 사용자 인터랙션이 없는 순수 읽기 전용 대시보드.  
-> 향후 날짜 범위 필터, 새로고침 버튼 추가 가능.
-
----
-
-## 7. CSS 변수 사용 목록
-
-| 변수 | 사용 위치 |
-|------|----------|
-| `--color-valo-red` | 바차트 `.barFill` 배경색 |
-| `--color-valo-panel` | chartCard 배경 |
-| `--color-valo-border` | chartCard 테두리, `.barTrack` 배경 (트랙 색상) |
-| `--color-valo-text` | `.chartTitle`, StatCard value |
-| `--color-valo-muted` | `.barLabel`, `.barValue`, StatCard title/desc |
-
----
-
-## 8. 반응형 처리
-
-| 요소 | 데스크탑 (>768px) | 모바일 (<768px) |
-|------|-------------------|----------------|
-| StatCard 그리드 | 4열 (auto-fit) | 1~2열 (minmax 180px) |
-| `.charts` | 2컬럼 (1fr 1fr) | 1컬럼 |
-
-```css
-@media (max-width: 768px) {
-  .charts {
-    grid-template-columns: 1fr;
-  }
-}
-```
-
----
-
-## 9. API 연동
-
-**엔드포인트:** `GET /analytics`
-
-**응답:**
-```json
-{
-  "total_predictions": 1234,
-  "avg_win_probability": 0.52,
-  "top_agents": [
-    { "name": "Jett", "count": 234 },
-    { "name": "Phoenix", "count": 189 },
-    ...
-  ],
-  "map_stats": [
-    { "map": "Ascent", "count": 320 },
-    { "map": "Bind", "count": 270 },
-    ...
-  ]
-}
-```
-
-**Null 방어:**
-```js
-topAgents[0]?.name ?? '-'
-topAgents[0] ? `${topAgents[0].count}회` : ''
-```
-→ 데이터가 없는 초기 상태에서도 UI 깨지지 않음
-
----
-
-## 10. 향후 개선 아이디어
-
-| 기능 | 설명 |
-|------|------|
-| 날짜 범위 필터 | 특정 기간의 통계만 조회 |
-| 역할군별 분포 차트 | 전체 에이전트 선택 중 각 역할군 비율 파이차트 |
-| 승률 분포 히스토그램 | 예측 결과 승률 구간별 빈도 |
-| 새로고침 버튼 | 수동으로 데이터 갱신 |
-| 에이전트 클릭 → 상세 | 특정 에이전트 포함 기록 필터링 |
+- 성능 지표 요약 (`reports/eval_summary.json`)
+- 주요 피처 목록
+- 슈퍼팀 후보 조합
+- 리스크 큰 조합
+- 교체 추천 근거

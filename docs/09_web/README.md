@@ -1,3 +1,5 @@
+> ⚠️ **범위 외**: Next.js 미사용. UI는 Streamlit 로컬 도구로 대체. 본문은 참고용으로 보존된다.
+
 # 09. 웹 대시보드 — 문서 인덱스
 
 ValoPredictML 웹 프론트엔드(Next.js 16 + Tailwind CSS v4)에 관한 모든 설계 및 구현 문서.

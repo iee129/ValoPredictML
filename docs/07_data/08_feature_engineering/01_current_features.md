@@ -1,209 +1,160 @@
-# 01. 현재 피처 엔지니어링 (15개)
+# 01. 현재 피처 엔지니어링 (43개)
 
-## 1. 현재 피처 파이프라인 전체 흐름
-
-```
-원본 경기 데이터
-    │ (플레이어 단위 행)
-    ▼
-집계 (match_level_aggregation)
-    │ (경기 단위 행)
-    ▼
-역할군 카운트 피처 (8개)
-    │
-    ▼
-Diff 피처 (4개)
-    │
-    ▼
-맵 인코딩 (1개)
-    │
-    ▼
-이진 피처 (2개)
-    │
-    ▼
-최종 피처 벡터 (15개)
-```
+마지막 업데이트: 2026-05-04
 
 ---
 
-## 2. 피처 생성 코드 (현재 구현)
+## 1. 피처 카테고리 개요
 
-### 2.1 경기 단위 집계
-
-```python
-import pandas as pd
-from typing import Optional
-
-AGENT_ROLE_MAP = {
-    "Jett": "Duelist", "Reyna": "Duelist", "Phoenix": "Duelist",
-    "Raze": "Duelist", "Yoru": "Duelist", "Neon": "Duelist",
-    "ISO": "Duelist", "Waylay": "Duelist",
-    "Sova": "Initiator", "Breach": "Initiator", "Skye": "Initiator",
-    "KAY/O": "Initiator", "Fade": "Initiator", "Gekko": "Initiator",
-    "Tejo": "Initiator",
-    "Viper": "Controller", "Omen": "Controller", "Brimstone": "Controller",
-    "Astra": "Controller", "Harbor": "Controller", "Clove": "Controller",
-    "Killjoy": "Sentinel", "Cypher": "Sentinel", "Sage": "Sentinel",
-    "Chamber": "Sentinel", "Deadlock": "Sentinel", "Vyse": "Sentinel",
-}
-
-def aggregate_to_match_level(df_player: pd.DataFrame) -> pd.DataFrame:
-    """
-    플레이어 단위 DataFrame → 경기 단위 DataFrame 집계
-    
-    입력 컬럼 필수: match_id, map, team_a, team_b, team (선수 소속), agent, winner
-    """
-    records = []
-    
-    for match_id, group in df_player.groupby("match_id"):
-        maps = group["map"].unique()
-        for map_name in maps:
-            map_group = group[group["map"] == map_name]
-            
-            team_a = map_group["team_a"].iloc[0]
-            team_b = map_group["team_b"].iloc[0]
-            
-            team_a_agents = map_group[map_group["team"] == team_a]["agent"].tolist()
-            team_b_agents = map_group[map_group["team"] == team_b]["agent"].tolist()
-            
-            winner = map_group["winner"].iloc[0]
-            label = 1 if winner == team_a else 0
-            
-            records.append({
-                "match_id": f"{match_id}_{map_name}",
-                "map": map_name,
-                "team_a": team_a,
-                "team_b": team_b,
-                "team_a_agents": ",".join(team_a_agents),
-                "team_b_agents": ",".join(team_b_agents),
-                "label": label,
-            })
-    
-    return pd.DataFrame(records)
-```
-
-### 2.2 역할군 카운트 피처 (8개)
-
-```python
-def add_role_count_features(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    team_a_agents, team_b_agents 컬럼 → 역할군 카운트 8개 피처
-    """
-    for prefix, agents_col in [("a", "team_a_agents"), ("b", "team_b_agents")]:
-        for role in ["duelist", "initiator", "controller", "sentinel"]:
-            df[f"{prefix}_{role}"] = df[agents_col].apply(
-                lambda x: sum(1 for a in str(x).split(",")
-                              if AGENT_ROLE_MAP.get(a.strip(), "").lower() == role)
-            )
-    return df
-```
-
-### 2.3 Diff 피처 (4개)
-
-```python
-def add_diff_features(df: pd.DataFrame) -> pd.DataFrame:
-    """역할군 카운트 → diff 피처 4개 추가"""
-    for role in ["duelist", "initiator", "controller", "sentinel"]:
-        df[f"{role}_diff"] = df[f"a_{role}"] - df[f"b_{role}"]
-    return df
-```
-
-### 2.4 맵 인코딩 (1개)
-
-```python
-from sklearn.preprocessing import LabelEncoder
-
-VALID_MAPS = [
-    "Ascent", "Bind", "Breeze", "Drift", "Fracture", "Haven",
-    "Icebox", "Lotus", "Pearl", "Split", "Sunset", "Abyss",
-]
-
-def add_map_encoding(df: pd.DataFrame) -> tuple[pd.DataFrame, LabelEncoder]:
-    """맵 이름 → 정수 인코딩"""
-    le = LabelEncoder()
-    le.fit(VALID_MAPS)
-    
-    df["map_encoded"] = df["map"].apply(
-        lambda x: le.transform([x])[0] if x in VALID_MAPS else -1
-    )
-    # 인코딩 실패(맵 미인식) 행 제거
-    df = df[df["map_encoded"] >= 0].reset_index(drop=True)
-    return df, le
-```
-
-### 2.5 이진 피처 (2개)
-
-```python
-def add_binary_features(df: pd.DataFrame) -> pd.DataFrame:
-    """Controller 보유 여부 이진 피처"""
-    df["has_controller_a"] = (df["a_controller"] >= 1).astype(int)
-    df["has_controller_b"] = (df["b_controller"] >= 1).astype(int)
-    return df
-```
+| 카테고리 | 피처 수 | 소스 |
+|----------|---------|------|
+| 역할군 카운트 | 12 | 요원 → AGENT_ROLE_MAP |
+| 역할군 파생 | 4 | 역할군 카운트 → boolean |
+| 선수 스탯 | 12 | overview.csv / player_stats.csv |
+| 시너지 | 6 | 선수 스탯 집계 |
+| 요원 조합 | 6 | 요원+맵 통계, 경기 이력 집계 |
+| 맵 | 3 | MAP_TO_INDEX, 공수 기록 |
+| **합계** | **43 + 1 레이블** | |
 
 ---
 
-## 3. 전체 파이프라인 실행
+## 2. 역할군 카운트 피처 (12개)
 
-```python
-def build_features(df_player: pd.DataFrame) -> tuple[pd.DataFrame, LabelEncoder]:
-    """전체 피처 엔지니어링 파이프라인"""
-    print("[STEP 1] 경기 단위 집계...")
-    df = aggregate_to_match_level(df_player)
-    
-    print("[STEP 2] 역할군 카운트 피처...")
-    df = add_role_count_features(df)
-    
-    print("[STEP 3] Diff 피처...")
-    df = add_diff_features(df)
-    
-    print("[STEP 4] 맵 인코딩...")
-    df, le = add_map_encoding(df)
-    
-    print("[STEP 5] 이진 피처...")
-    df = add_binary_features(df)
-    
-    print(f"[INFO] 최종 데이터: {len(df)} 경기, 15개 피처")
-    return df, le
-
-FEATURE_COLUMNS = [
-    "a_duelist", "a_initiator", "a_controller", "a_sentinel",
-    "b_duelist", "b_initiator", "b_controller", "b_sentinel",
-    "duelist_diff", "initiator_diff", "controller_diff", "sentinel_diff",
-    "map_encoded",
-    "has_controller_a", "has_controller_b",
-]
-```
+| 피처명 | 타입 | 설명 | 범위 |
+|--------|------|------|------|
+| `a_duelist` | int | 팀 A Duelist 수 | 0~5 |
+| `a_initiator` | int | 팀 A Initiator 수 | 0~5 |
+| `a_controller` | int | 팀 A Controller 수 | 0~5 |
+| `a_sentinel` | int | 팀 A Sentinel 수 | 0~5 |
+| `b_duelist` | int | 팀 B Duelist 수 | 0~5 |
+| `b_initiator` | int | 팀 B Initiator 수 | 0~5 |
+| `b_controller` | int | 팀 B Controller 수 | 0~5 |
+| `b_sentinel` | int | 팀 B Sentinel 수 | 0~5 |
+| `diff_duelist` | int | a_duelist − b_duelist | −5~5 |
+| `diff_initiator` | int | a_initiator − b_initiator | −5~5 |
+| `diff_controller` | int | a_controller − b_controller | −5~5 |
+| `diff_sentinel` | int | a_sentinel − b_sentinel | −5~5 |
 
 ---
 
-## 4. 피처 분포 검증
+## 3. 역할군 파생 피처 (4개)
 
-```python
-import matplotlib.pyplot as plt
-
-def check_feature_distributions(df: pd.DataFrame):
-    """피처별 분포 통계 출력"""
-    print("\n=== 피처 분포 ===")
-    print(df[FEATURE_COLUMNS].describe())
-    
-    print("\n=== 레이블 분포 ===")
-    print(df["label"].value_counts(normalize=True))
-    
-    print("\n=== 맵 분포 ===")
-    print(df["map"].value_counts())
-    
-    print("\n=== 역할군 카운트 (팀 A) ===")
-    print(df[["a_duelist", "a_initiator", "a_controller", "a_sentinel"]].mean())
-```
+| 피처명 | 타입 | 조건 |
+|--------|------|------|
+| `has_controller_a` | 0/1 | 팀 A Controller >= 1 |
+| `has_controller_b` | 0/1 | 팀 B Controller >= 1 |
+| `is_double_duelist_a` | 0/1 | 팀 A Duelist >= 2 |
+| `is_double_duelist_b` | 0/1 | 팀 B Duelist >= 2 |
 
 ---
 
-## 5. 알려진 피처 한계
+## 4. 선수 스탯 피처 (12개)
 
-| 한계 | 영향 | 해결 방법 |
-|------|------|---------|
-| 같은 역할군 카운트라도 요원이 다름 | 피처가 너무 거칠음 | 요원 원-핫 인코딩 (08-02) |
-| 맵 인코딩이 순서 없는 LabelEncoding | 트리 기반 모델에서 OK, 선형 모델에서 문제 | OneHotEncoding 또는 유지 |
-| Controller 보유 이진은 수 고려 안 함 | 2 Controller vs 1 Controller 구분 안 됨 | controller_diff로 보완됨 |
-| 데이터 크기 (~2,000경기) 부족 | 일반화 어려움 | 데이터 수집 확장 |
+팀 5명의 개인 스탯을 집계한 팀 단위 피처.
+
+| 피처명 | 집계 | 원본 컬럼 |
+|--------|------|---------|
+| `a_avg_acs` | mean(5명) | `acs` |
+| `b_avg_acs` | mean(5명) | `acs` |
+| `a_avg_kd` | mean(5명) | `kd` |
+| `b_avg_kd` | mean(5명) | `kd` |
+| `a_avg_kast` | mean(5명) | `kast` |
+| `b_avg_kast` | mean(5명) | `kast` |
+| `a_avg_adr` | mean(5명) | `adr` |
+| `b_avg_adr` | mean(5명) | `adr` |
+| `a_max_clutch` | max(5명) | `clutch_%` |
+| `b_max_clutch` | max(5명) | `clutch_%` |
+| `a_avg_hs` | mean(5명) | `hs` / `hs_percent` / `HS%` |
+| `b_avg_hs` | mean(5명) | `hs` / `hs_percent` / `HS%` |
+
+---
+
+## 5. 시너지 피처 (6개)
+
+| 피처명 | 계산식 | 소스 |
+|--------|--------|------|
+| `a_fk_fd_ratio` | sum(fk_a) / sum(fd_a) | overview.csv |
+| `b_fk_fd_ratio` | sum(fk_b) / sum(fd_b) | overview.csv |
+| `a_avg_assists` | mean(assists_a) | overview.csv |
+| `b_avg_assists` | mean(assists_b) | overview.csv |
+| `a_kast_std` | std(kast_a) | 전 소스 |
+| `b_kast_std` | std(kast_b) | 전 소스 |
+
+---
+
+## 6. 요원 조합 피처 (6개)
+
+사전 집계는 train.csv 기준 (val/test 누수 방지).
+
+| 피처명 | 계산식 | 설명 |
+|--------|--------|------|
+| `a_avg_agent_map_wr` | mean(각 요원의 해당 맵 승률) | 팀 A 5요원의 해당 맵 평균 승률 |
+| `b_avg_agent_map_wr` | 동일 | 팀 B |
+| `a_avg_agent_pick_rate` | mean(각 요원의 해당 맵 픽률) | 팀 A 메타 적합성 |
+| `b_avg_agent_pick_rate` | 동일 | 팀 B |
+| `a_avg_agent_exp` | mean(각 선수의 해당 요원 과거 플레이 횟수) | 팀 A 선수-요원 숙련도 |
+| `b_avg_agent_exp` | 동일 | 팀 B |
+
+신규 조합: winrate → 0.5(중립), experience → 0.
+
+---
+
+## 7. 맵 피처 (3개)
+
+| 피처명 | 타입 | 계산식 |
+|--------|------|--------|
+| `map_encoded` | int | `MAP_TO_INDEX[map]` (0~11) |
+| `atk_side_advantage` | float | global_atk_wins / global_total (train 기준 집계) |
+| `is_attacker_a` | 0/1 | 사용자 입력 (선공/후공) |
+
+`atk_side_advantage` 집계 소스: ryanluong challengers `maps_scores.csv`의 `Attacker Score`/`Defender Score`.
+
+---
+
+## 8. 레이블
+
+| 피처명 | 타입 | 값 |
+|--------|------|-----|
+| `label` | int | 1 = 팀 A 승, 0 = 팀 B 승 |
+
+---
+
+## 9. 최종 피처 목록
+
+```
+역할군 카운트 (12):
+  a_duelist, a_initiator, a_controller, a_sentinel
+  b_duelist, b_initiator, b_controller, b_sentinel
+  diff_duelist, diff_initiator, diff_controller, diff_sentinel
+
+역할군 파생 (4):
+  has_controller_a, has_controller_b
+  is_double_duelist_a, is_double_duelist_b
+
+선수 스탯 (12):
+  a_avg_acs, b_avg_acs
+  a_avg_kd,  b_avg_kd
+  a_avg_kast, b_avg_kast
+  a_avg_adr,  b_avg_adr
+  a_max_clutch, b_max_clutch
+  a_avg_hs,  b_avg_hs
+
+시너지 (6):
+  a_fk_fd_ratio, b_fk_fd_ratio
+  a_avg_assists, b_avg_assists
+  a_kast_std, b_kast_std
+
+요원 조합 (6):
+  a_avg_agent_map_wr, b_avg_agent_map_wr
+  a_avg_agent_pick_rate, b_avg_agent_pick_rate
+  a_avg_agent_exp, b_avg_agent_exp
+
+맵 (3):
+  map_encoded, atk_side_advantage, is_attacker_a
+
+레이블 (1): label
+```
+
+**총 43개 피처 + 1개 레이블**
+
+Team_Shared_Exp(시너지, 동반 출전 횟수)는 visualize25 데이터셋 보류로 미구현 — 추가 시 44개.

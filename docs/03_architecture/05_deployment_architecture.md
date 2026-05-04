@@ -1,182 +1,105 @@
 # 05. 배포 아키텍처
 
-## 1. 전체 배포 구조
+마지막 업데이트: 2026-05-04
+
+> **범위 외 (out of scope)**: 이 프로젝트는 클라우드 배포를 사용하지 않습니다. Vercel, Railway, Fly.io, Docker, Nginx, GitHub Actions CI/CD, FastAPI 서버 배포는 이 프로젝트의 범위 밖입니다. 본 프로젝트는 **Streamlit 로컬 도구**로 로컬 머신에서만 실행됩니다.
+
+---
+
+## 1. 실행 환경
 
 ```
-GitHub Repository
-        │
-        │ git push
-        ↓
-┌───────────────────────────────────────────────────────────┐
-│                      Vercel                               │
-│                                                           │
-│  ┌──────────────────────────────────────────────────┐    │
-│  │             Next.js 16 앱                         │    │
-│  │  (자동 빌드 · 자동 배포 · Edge CDN)               │    │
-│  │  https://valo-predict.vercel.app                 │    │
-│  └──────────────────────────────────────────────────┘    │
-│                         │                                  │
-│  ┌──────────────────────────────────────────────────┐    │
-│  │         Vercel Postgres (PostgreSQL 18)          │    │
-│  │  Connection Pool · TLS 자동 적용                  │    │
-│  │  환경변수: POSTGRES_URL 자동 주입                 │    │
-│  └──────────────────────────────────────────────────┘    │
-└───────────────────────────────────────────────────────────┘
-                          │
-                          │ HTTPS (CORS 허용)
-                          │
-┌─────────────────────────────────────────────────────────┐
-│              FastAPI 백엔드 서버                          │
-│                                                         │
-│  ┌──────────────────────────────────────────────────┐  │
-│  │  uvicorn backend.main:app --host 0.0.0.0 --port 8000│
-│  │  (로컬 또는 클라우드 VM)                           │  │
-│  └──────────────────────────────────────────────────┘  │
-│                                                         │
-│  - XGBoost, LightGBM 모델 메모리 로드                  │
-│  - PostgreSQL 연결 (Vercel Postgres로 직접 연결)        │
-└─────────────────────────────────────────────────────────┘
+로컬 머신
+    │
+    ├── Python 3.14.4 가상환경 (.venv)
+    ├── data/raw/kaggle/       ← Kaggle 데이터셋 (2.3GB, git 제외)
+    ├── data/processed/        ← 전처리 결과물 (git 제외)
+    ├── models/                ← 학습된 모델 (git 제외)
+    └── app/streamlit_app.py   ← Streamlit UI 진입점 (구현 예정)
 ```
 
 ---
 
-## 2. Vercel 배포 설정
+## 2. 로컬 실행 방법
 
-### 2.1 프로젝트 구조 지정
-
-Vercel은 `valo_predict_system/` 폴더를 루트로 인식해야 한다.
-
-```json
-// vercel.json (리포지토리 루트)
-{
-  "buildCommand": "cd valo_predict_system && npm run build",
-  "outputDirectory": "valo_predict_system/.next",
-  "framework": "nextjs",
-  "installCommand": "cd valo_predict_system && npm install"
-}
-```
-
-### 2.2 환경변수 설정 (Vercel Dashboard)
-
-| 변수명 | 범위 | 설명 |
-|---|---|---|
-| `NEXT_PUBLIC_API_URL` | Production, Preview | FastAPI 서버 URL |
-| `POSTGRES_URL` | Production | Vercel Postgres 연결 문자열 (자동 주입) |
-| `POSTGRES_HOST` | Production | (자동 주입) |
-| `POSTGRES_USER` | Production | (자동 주입) |
-| `POSTGRES_PASSWORD` | Production | (자동 주입) |
-| `POSTGRES_DATABASE` | Production | (자동 주입) |
-
-**Vercel Postgres 추가 방법:**
-1. Vercel 대시보드 → Storage → Create Database
-2. PostgreSQL 선택 → 리전 선택 (ap-northeast-1 권장)
-3. 프로젝트에 연결 → 환경변수 자동 주입
-
----
-
-## 3. FastAPI 백엔드 서버 배포
-
-FastAPI는 직접 서버에서 실행해야 한다. (Vercel은 Python 서버 미지원)
-
-### 3.1 로컬 개발 실행
+### 2.1 환경 설정
 
 ```bash
-cd /path/to/ValoPredictML
-uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
+# 가상환경 생성 및 활성화
+python -m venv .venv
+source .venv/bin/activate   # macOS/Linux
+# .venv\Scripts\activate    # Windows
+
+# 의존성 설치
+pip install -r requirements.txt
 ```
 
-### 3.2 프로덕션 배포 옵션
-
-#### 옵션 A: Railway (권장, 무료 티어 있음)
+### 2.2 데이터 수집 (구현 완료)
 
 ```bash
-# railway.toml
-[build]
-builder = "nixpacks"
-buildCommand = "pip install -r requirements.txt"
-
-[deploy]
-startCommand = "uvicorn backend.main:app --host 0.0.0.0 --port $PORT"
+# Kaggle 인증 필요: ~/.kaggle/kaggle.json
+python dataload.py
 ```
 
-#### 옵션 B: Fly.io
-
-```dockerfile
-# Dockerfile
-FROM python:3.11-slim
-WORKDIR /app
-COPY requirements.txt .
-RUN pip install -r requirements.txt
-COPY . .
-CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8080"]
-```
-
-#### 옵션 C: VPS (Ubuntu)
+### 2.3 전처리 파이프라인 실행 (구현 예정)
 
 ```bash
-# Nginx + Gunicorn
-sudo apt install nginx
-pip install gunicorn
-gunicorn backend.main:app -w 4 -k uvicorn.workers.UvicornWorker -b 0.0.0.0:8000
+python -m ml.data_pipeline \
+  --input data/raw/kaggle \
+  --output data/processed \
+  --reports reports
+
+# dry-run (원본 무수정)
+python -m ml.data_pipeline \
+  --input data/raw/kaggle \
+  --output /tmp/valo_out \
+  --reports /tmp/valo_reports
+```
+
+### 2.4 모델 학습 (구현 예정)
+
+```bash
+python -m ml.train_model
+```
+
+### 2.5 Streamlit UI 실행 (구현 예정)
+
+```bash
+streamlit run app/streamlit_app.py
+# 브라우저에서 http://localhost:8501 접속
 ```
 
 ---
 
-## 4. 환경별 설정 비교
+## 3. 환경별 설정
 
-| 항목 | 로컬 개발 | Vercel (프로덕션) |
-|---|---|---|
-| 프론트엔드 | `http://localhost:3000` | `https://valo-predict.vercel.app` |
-| API URL | `http://localhost:8000` | `https://api.your-domain.com` |
-| PostgreSQL | 로컬 PostgreSQL 18 | Vercel Postgres |
-| DB 연결 | 환경변수 분리 변수 | `POSTGRES_URL` |
-| 모델 경로 | `./models/` | 서버의 절대 경로 |
-
----
-
-## 5. CI/CD 파이프라인
-
-```
-개발자 로컬
-    │ git push origin main
-    ↓
-GitHub Repository
-    ├──→ Vercel (자동 감지, 자동 배포)
-    │       ├── `cd valo_predict_system && npm run build`
-    │       ├── Edge 네트워크에 배포
-    │       └── Preview URL 생성 (PR 브랜치)
-    └──→ (선택) GitHub Actions → 백엔드 서버 배포
-```
+| 항목 | 로컬 개발 |
+|------|-----------|
+| UI | `http://localhost:8501` (Streamlit) |
+| DB | 로컬 PostgreSQL (후보, 미구현) |
+| 모델 경로 | `./models/` |
+| 데이터 경로 | `./data/raw/kaggle/` |
 
 ---
 
-## 6. 보안 설정
+## 4. 의존성 설치 단계
 
-### 6.1 CORS
-```python
-# 허용 오리진만 화이트리스트
-allow_origins=[
-    "http://localhost:3000",
-    "https://*.vercel.app",
-    "https://valo-predict.vercel.app",
-]
-```
+Phase별 추가 의존성:
 
-### 6.2 환경변수 보안
-- `.env` 파일은 `.gitignore`에 등록
-- Vercel 환경변수는 암호화되어 저장
-- `NEXT_PUBLIC_` 접두사는 클라이언트에 노출되므로 민감 정보 금지
-
-### 6.3 PostgreSQL TLS
-- Vercel Postgres는 TLS 강제 적용
-- 로컬 개발 시 `sslmode=prefer`
+| Phase | 추가 패키지 |
+|-------|------------|
+| 1 (완료) | `kagglehub`, `pandas`, `numpy` |
+| 2-3 (예정) | `scikit-learn` |
+| 4 (예정) | `xgboost`, `lightgbm`, `shap`, `joblib` |
+| 5 (예정) | `streamlit`, `plotly` |
+| DB 후보 | `sqlalchemy`, `psycopg2-binary` |
 
 ---
 
-## 7. 관련 문서
+## 5. 관련 문서
 
 | 문서 | 내용 |
-|---|---|
+|------|------|
 | [../02_file_structure/05_config_and_env.md](../02_file_structure/05_config_and_env.md) | 환경변수 전체 목록 |
 | [03_database_schema.md](03_database_schema.md) | PostgreSQL DDL |
-| [../06_model_test/05_local_development.md](../06_model_test/05_local_development.md) | 로컬 개발 실행 가이드 |
+| [01_system_overview.md](01_system_overview.md) | 시스템 아키텍처 전체 |

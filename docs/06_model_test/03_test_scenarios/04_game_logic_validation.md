@@ -1,3 +1,5 @@
+> ⚠️ **범위 외**: FastAPI 미사용. 본 프로젝트는 Streamlit 로컬 도구이며 API 엔드포인트 테스트는 적용되지 않는다. 본문은 참고용으로 보존된다.
+
 # 04. 발로란트 게임 로직 검증
 
 ## 개요
@@ -73,7 +75,7 @@ print('팀 B 역할:', d['team_b_role_counts'])
 ### TC-GL-003: 전략가 없는 팀 vs. 전략가 있는 팀
 
 ```bash
-# 팀 A: 전략가 없음 (타격대 + 척후병 + 감시자)
+# 팀 A: 전략가 없음 (타격대 + 척후대 + 감시자)
 # 팀 B: 전략가 포함 (표준 구성)
 curl -s -X POST http://localhost:8000/predict \
   -H "Content-Type: application/json" \

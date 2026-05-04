@@ -1,3 +1,5 @@
+> ⚠️ **범위 외**: Next.js 미사용. UI는 Streamlit 로컬 도구로 대체. 본문은 참고용으로 보존된다.
+
 # 02. 파일/폴더 역할 상세
 
 각 파일과 폴더의 역할을 상세히 설명한다.
@@ -123,7 +125,7 @@ props: maps, selected, onChange
 ### `predict/RoleFilter.js`
 
 ```
-역할: 역할군 탭 필터 (전체/타격대/척후병/전략가/감시자)
+역할: 역할군 탭 필터 (전체/타격대/척후대/전략가/감시자)
 props: active, onChange
 ```
 

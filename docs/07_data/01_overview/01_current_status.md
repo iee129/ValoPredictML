@@ -1,126 +1,71 @@
-# 01. 현재 데이터셋 현황 및 한계
+# 01. 현재 데이터셋 현황
 
-## 1. 현재 사용 중인 데이터셋
-
-### 1.1 전체 현황
-
-| # | 데이터셋 | 출처 | 유형 | 예상 경기 수 | 상태 |
-|---|---------|------|------|------------|------|
-| 1 | VCT 2021-2023 | Kaggle `ryanluong1/valorant-champion-tour-2021-2023-data` | 프로 경기 CSV | ~2,000 경기 | ✅ 사용 중 |
-| 2 | HenrikDev API v4 | `api.henrikdev.xyz` | REST API (일반 랭크 매치) | ~5,000 경기 목표 | ✅ 사용 중 |
-| 3 | VLR.gg | 웹 스크래핑 | 프로 메타 통계 | 미정 | 🔄 미구현 |
-| 4 | valclient | 로컬 클라이언트 소켓 | 실시간 픽창 | 실시간 | 🔄 확장 기능 |
-
-### 1.2 데이터 볼륨 요약
-
-```
-현재 수집 가능한 경기 수:
-  Kaggle VCT 2021-2023:  ~2,000 경기 (프로 전용)
-  HenrikDev API (목표):  ~5,000 경기 (일반 유저, 미수집)
-  ─────────────────────────────────────────────
-  합계:                  ~7,000 경기 (예상)
-  
-피처 엔지니어링 후 실제 학습 샘플:
-  경기 단위 집계 기준:   ~6,000~7,000 샘플 (1경기 = 1행)
-  현재 피처 수:          15개
-```
+마지막 업데이트: 2026-05-04
 
 ---
 
-## 2. 현재 데이터의 구조적 한계
+## 1. 채택 데이터셋 전체 현황
 
-### 2.1 볼륨 부족
+본 프로젝트는 Kaggle 7개 데이터셋만 사용한다. 외부 API·스크래핑은 방침상 미사용.
 
-| 항목 | 현재 | 80% 달성에 필요한 수준 | 부족량 |
-|------|------|----------------------|--------|
-| 학습 샘플 수 | ~6,000 | ≥ 50,000 | -44,000 |
-| 프로 경기 수 | ~2,000 | ≥ 10,000 | -8,000 |
-| 일반 유저 경기 수 | 0 (미수집) | ≥ 30,000 | -30,000 |
+| # | 등급 | Kaggle ID | 용량 | 파서 | 소스 가중치 | 행 수 (추정) |
+|---|------|-----------|------|------|------------|------------|
+| 1 | 핵심 | `ryanluong1/valorant-champion-tour-2021-2023-data` | 1.2GB | ryanluong | 1.0 | ~600K (선수행) |
+| 2 | 핵심 | `ryanluong1/valorant-challengers-league-data` | 1.0GB | ryanluong | **1.8** | ~412K (선수행) |
+| 3 | 핵심 | `qualidea1217/valorant-pro-matches-since-april-2021` | ~35MB | qualidea | 1.0 | ~250K (선수행) |
+| 4 | piyush | `piyush86kumar/valorant-champions-tour-2024-all-events` | ~15MB | piyush | **1.5** | ~30K (선수행) |
+| 5 | piyush | `piyush86kumar/valorant-vct-2025-all-events` | — | piyush | **1.5** | ~15K (선수행) |
+| 6 | 보조 | `ediashtarevin/vct-champions-2023-stats` | — | ediashtarevin | 0.9 | ~6K (선수행) |
+| 7 | 보조 | `kierru/vctpacific-2023` | — | kierru | 0.9 | ~5K (선수행) |
 
-> **근거:** XGBoost / LightGBM 앙상블에서 복잡한 패턴 학습을 위해 최소 10,000+ 샘플 필요.  
-> 30개 이상의 피처를 사용할 경우 50,000+ 샘플이 권장됨.
-
-### 2.2 프로 경기 편향 (Pro Bias)
-
-현재 Kaggle VCT 데이터는 **프로 선수 경기만** 포함되어 있습니다.
-
-**문제점:**
-- 프로 팀은 일반 유저와 완전히 다른 픽 패턴을 보임
-- 예: 프로 씬 메타 → 특정 요원 조합 집중 (Viper + Initiator 2인 등)
-- 일반 유저가 웹 UI에서 입력하는 조합과 분포가 크게 다름
-- **모델이 일반 유저 조합에 대해 부정확한 예측을 낼 가능성 높음**
-
-```python
-# 예상 분포 차이
-pro_controller_rate = 0.95    # 프로: 거의 항상 Controller 포함
-casual_controller_rate = 0.65  # 일반: 약 65%만 Controller 포함
-
-pro_sentinel_rate = 0.90      # 프로: 대부분 Sentinel 포함
-casual_sentinel_rate = 0.55   # 일반: 55% 수준
-```
-
-### 2.3 시간적 범위 한계
-
-| 문제 | 설명 | 영향 |
-|------|------|------|
-| 최신 메타 미반영 | VCT 2021-2023 데이터에 2024 패치 변경 미포함 | 신규 요원(Waylay, Tejo, Clove) 학습 불가 |
-| 맵 로테이션 변화 | 일부 맵이 로테이션에서 제거/추가됨 | 비활성 맵 데이터 노이즈 |
-| 밸런스 패치 영향 | 요원 픽률이 패치마다 급변 | 2021년 데이터가 현재 메타와 다를 수 있음 |
-
-### 2.4 피처 빈약 (Feature Poverty)
-
-현재 모델이 사용하는 15개 피처:
-```
-역할군 카운트 8개 + 맵 인코딩 1개 + diff 4개 + 이진 2개
-```
-
-**누락된 잠재적 중요 피처:**
-- 팀별 평균 KDA, ACS (개인 스탯)
-- 최근 N경기 승률 (팀 폼)
-- 맵별 역할군 픽률 통계
-- 시즌/패치 버전
-- 개별 요원별 원-핫 인코딩 또는 임베딩
-
-### 2.5 레이블 불균형 가능성
-
-```python
-# VCT 데이터에서 팀 A / 팀 B 정의가 임의적이므로
-# 이론적으로 50:50에 가까워야 하나
-# 실제로는 대회 시드 팀이 team_a에 배정될 경우 편향 가능
-
-# 검증 필요
-df['label'].value_counts(normalize=True)
-# 목표: 0.45 ~ 0.55 범위
-```
+**총 용량**: 2.3GB (`data/raw/kaggle/`, git 제외)
 
 ---
 
-## 3. 현재 데이터로 달성 가능한 성능 예측
+## 2. 데이터 볼륨 추정
 
-| 모델 | 현재 데이터로 예상 정확도 | 목표 | 갭 |
-|------|------------------------|------|-----|
-| Logistic Regression | ~60-63% | 65%+ | -2~5%p |
-| Random Forest | ~64-67% | 70%+ | -3~6%p |
-| XGBoost | ~66-70% | 80%+ | **-10~14%p** |
-| XGB + LGBM Ensemble | ~67-72% | 80%+ | **-8~13%p** |
+```
+선수 행 합계 (7개 소스): ~1,318K 행
+경기 단위로 환산 (÷10): ~130K 맵 행
+중복 제거 후 예상:       80~100K 맵 행
+train/val/test 분할:    70/15/15
+```
 
-> **결론:** 현재 데이터로는 **80% 달성이 매우 어렵다.** 데이터 확장과 피처 추가가 필수적이다.
+소스 가중치 정책: 동일 경기가 두 소스에 존재할 때 가중치가 높은 소스의 행을 보존.
+동점이면 컬럼 수가 더 많은 행 보존.
 
 ---
 
-## 4. 즉시 해결 가능한 문제
+## 3. 파이프라인 역할 매핑
 
-| 문제 | 해결 방법 | 예상 효과 |
-|------|---------|---------|
-| Kaggle VCT 2024 미포함 | 추가 다운로드 | +~1,000 샘플 |
-| HenrikDev 미수집 | 수집 스크립트 실행 | +수천 샘플 |
-| Riot VCT S3 미활용 | S3 다운로드 | **+수십만 샘플** |
-| 추가 Kaggle 데이터셋 미사용 | 카탈로그 조사 후 채택 | +수만 샘플 |
+| 파이프라인 단계 | 사용 데이터셋 |
+|----------------|-------------|
+| 파서 — ryanluong | `vct_2021_2023`, `ryanluong1__valorant-challengers-league-data` |
+| 파서 — piyush | `piyush86kumar__2024-all-events`, `piyush86kumar__2025-all-events` |
+| 파서 — qualidea | `qualidea1217__valorant-pro-matches-since-april-2021` |
+| 보조 스탯 보강 | `ediashtarevin__vct-champions-2023-stats`, `kierru__vctpacific-2023` |
+| atk_side_advantage 집계 | `ryanluong1__challengers` (`maps_scores.csv`) |
+| role_agent 직접 추출 | `kierru__vctpacific-2023` (`role_agent` 컬럼) |
+| 공수 분리 스탯 | `qualidea1217__*` (`acs-t`, `acs-ct`, `kd-t`, `kd-ct`) |
+
+---
+
+## 4. 구현 현황
+
+| 항목 | 상태 |
+|------|------|
+| 데이터 다운로드 (`dataload.py`) | ✅ 완료 |
+| 요원·맵 참조 테이블 (`ml/agent_roles.py`) | 미구현 |
+| 전처리 파이프라인 (`ml/data_pipeline.py`) | 미구현 |
+| 모델 학습 (`ml/train_model.py`) | 미구현 |
+| Streamlit UI (`app/streamlit_app.py`) | 미구현 |
+
+전처리 계획 상세: `.omc/plans/preprocessing.md`
 
 ---
 
 ## 5. 참고 문서
 
-- [02_data_gap_analysis.md](./02_data_gap_analysis.md) — 상세 갭 분석
-- [03_collection_strategy.md](./03_collection_strategy.md) — 수집 전략 및 로드맵
-- [../10_data_volume/03_accuracy_requirements.md](../10_data_volume/03_accuracy_requirements.md) — 80% 달성 요구사항
+- [02_data_gap_analysis.md](./02_data_gap_analysis.md)
+- [03_collection_strategy.md](./03_collection_strategy.md)
+- [../10_data_volume/01_current_volume.md](../10_data_volume/01_current_volume.md)

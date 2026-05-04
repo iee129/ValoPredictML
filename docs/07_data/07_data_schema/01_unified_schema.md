@@ -1,8 +1,75 @@
 # 01. 통합 데이터 스키마
 
-## 1. 표준 컬럼 정의
+마지막 업데이트: 2026-05-04
 
-모든 소스의 데이터는 아래 스키마로 변환 후 `data/processed/combined.csv`에 저장.
+## 1. 파서 공통 출력 스키마
+
+모든 소스(ryanluong·qualidea·piyush·ediashtarevin·kierru)의 파서는 아래 공통 스키마의 행 리스트를 반환한다.
+
+```python
+{
+    "source":     str,            # 소스 식별자 (dedup 가중치 판단용)
+    "match_key":  str,            # 16자 SHA-1 (경기 단위 grouping, train/val/test 분할)
+    "dedup_key":  str,            # 24자 SHA-1 (중복 제거 키)
+    "date":       str,            # YYYY-MM-DD (시간 가중치용)
+    "event":      str,
+    "map":        str,
+    "team_a":     str,
+    "team_b":     str,
+    "players_a":  list[dict],     # 5명 × {player, agent, acs, kd, kast, adr, fk, fd, assists}
+    "players_b":  list[dict],
+    "score_a":    int,
+    "score_b":    int,
+    "atk_a":      int | None,     # 공격 라운드 승리 수 (ryanluong만 보유)
+    "def_a":      int | None,
+    "label":      int,            # 1 = team_a 승, 0 = team_b 승
+}
+```
+
+---
+
+## 2. 전처리 출력 파일
+
+> 모두 로컬 생성, git 제외 (`.gitignore`에 포함)
+
+| 경로 | 내용 |
+|------|------|
+| `data/processed/matches_clean.csv` | 품질 게이트·dedup 통과한 맵 행 전체 |
+| `data/processed/features_base.csv` | 피처 테이블 (43개 + 레이블) |
+| `data/processed/train.csv` | 학습셋 (A/B swap 증강 포함) |
+| `data/processed/val.csv` | 검증셋 |
+| `data/processed/test.csv` | 테스트셋 (최종 평가 전용) |
+| `reports/preprocess_summary.json` | 파이프라인 실행 요약 |
+| `reports/rejected_matches.csv` | 품질 게이트 탈락 행 및 사유 |
+
+---
+
+## 3. dedup_key / match_key 생성
+
+```python
+import hashlib
+
+def make_dedup_key(date, event, map_, team_a, team_b, agents_a, agents_b, score_a, score_b):
+    canonical = "|".join([
+        str(date), event.lower().strip(), map_.lower(),
+        team_a.lower(), team_b.lower(),
+        ",".join(sorted(agents_a)), ",".join(sorted(agents_b)),
+        str(score_a), str(score_b)
+    ])
+    return hashlib.sha1(canonical.encode()).hexdigest()[:24]
+
+def make_match_key(date, event, team_a, team_b):
+    canonical = "|".join([str(date), event.lower(), team_a.lower(), team_b.lower()])
+    return hashlib.sha1(canonical.encode()).hexdigest()[:16]
+```
+
+---
+
+## 4. 참고 문서
+
+- [02_agent_role_mapping.md](./02_agent_role_mapping.md) — AGENT_ROLE_MAP 27종
+- [03_map_database.md](./03_map_database.md) — MAP_ORDER 12개
+- [04_column_definitions.md](./04_column_definitions.md) — 소스별 컬럼 매핑
 
 ### 1.1 필수 컬럼 (학습 피처)
 
@@ -57,7 +124,7 @@ FEATURE_COLUMNS = [
     # 이진 피처
     "has_controller_a", "has_controller_b",
 ]
-# 총 15개 피처 (현재 설계 기준)
+# 기본 역할군 피처 15개 (베이스라인; 확정 설계는 43개)
 
 LABEL_COLUMN = "label"
 META_COLUMNS = ["match_id", "map", "team_a", "team_b", "team_a_agents", "team_b_agents",

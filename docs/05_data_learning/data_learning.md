@@ -1,31 +1,34 @@
 # 05. 데이터 학습 전략
 
+마지막 업데이트: 2026-05-04
+
 ## 1. 모델 선택 전략
 
 ### 1.1 모델 비교표
 
 | 모델 | 장점 | 단점 | 역할 |
 |---|---|---|---|
-| **Logistic Regression** | 빠름, 해석 쉬움 | 복잡한 패턴 학습 불가 | Baseline |
-| **Random Forest** | 과적합 강함, 안정적 | 메모리 사용 많음 | Baseline+ |
-| **XGBoost** | 높은 정확도, 빠름 | 하이퍼파라미터 많음 | ✅ **메인** |
-| **LightGBM** | 매우 빠름, 메모리 효율 | 소규모 데이터에서 불안정 | ✅ **서브** |
-| **CatBoost** | 범주형 처리 내장 | 느린 학습 | ⬜ 선택적 |
-| **MLP (Neural Net)** | 복잡한 패턴 학습 | 데이터 수가 적으면 과적합 | ⬜ 선택적 |
+| **Logistic Regression** | 빠름, 해석 쉬움 | 복잡한 패턴 학습 불가 | Baseline 비교용 |
+| **Random Forest** | 과적합 강함, 안정적 | 메모리 사용 많음 | 앙상블 메인 |
+| **XGBoost** | 높은 정확도, 빠름 | 하이퍼파라미터 많음 | 앙상블 메인 |
+| **LightGBM** | 매우 빠름, 메모리 효율 | 소규모 데이터에서 불안정 | 앙상블 메인 |
+| **CatBoost** | 범주형 처리 내장 | 느린 학습 | 미사용 |
+| **MLP (Neural Net)** | 복잡한 패턴 학습 | 딥러닝 금지 (트리 모델 전용) | 미사용 |
 
 ### 1.2 채택 모델
 
-**XGBoost + LightGBM Soft Voting 앙상블**
+**RF + XGBoost + LightGBM 단순 평균 앙상블**
 
-- 이유: 두 모델의 강점을 합쳐 개별 모델보다 안정적인 성능
-- Soft Voting: 각 모델의 확률값 평균으로 최종 예측
-- 앙상블 비율: XGBoost 60% + LightGBM 40% (Optuna로 최적화)
+- 이유: 세 모델의 다양성을 합쳐 개별 모델보다 안정적인 성능
+- 단순 평균: 각 모델의 확률값을 동일 가중치로 평균 → 최종 예측
+- 딥러닝(PyTorch/TensorFlow) 금지 — 트리 기반 모델 전용
 
 ```python
 # 앙상블 예측 예시
+rf_prob = rf_model.predict_proba(X)[:, 1]
 xgb_prob = xgb_model.predict_proba(X)[:, 1]
 lgbm_prob = lgbm_model.predict_proba(X)[:, 1]
-ensemble_prob = 0.6 * xgb_prob + 0.4 * lgbm_prob
+ensemble_prob = (rf_prob + xgb_prob + lgbm_prob) / 3
 predictions = (ensemble_prob >= 0.5).astype(int)
 ```
 
@@ -73,7 +76,7 @@ def evaluate_model(model, X, y):
     }
 ```
 
-**Baseline 목표:** Logistic Regression ≥ 0.65, Random Forest ≥ 0.70
+**Baseline 역할:** Logistic Regression — 하한선 확인용 (메인 모델 후보 아님). StandardScaler 필요. Random Forest — 앙상블 메인 모델 중 하나.
 
 ---
 
@@ -258,29 +261,32 @@ def run_optimization(X_train, y_train, n_trials: int = 100):
 | 설정 | 값 | 설명 |
 |---|---|---|
 | `n_trials` | 100 | 탐색 횟수 (많을수록 좋지만 시간 증가) |
-| CV | 5-Fold | 탐색 중에는 5겹, 최종 평가는 10겹 |
+| CV | 5-Fold | K=5 고정 (train.csv 내에서만) |
 | Sampler | TPE (기본값) | Tree-structured Parzen Estimator |
 | Pruner | MedianPruner | 성능 낮은 trial 조기 종료 |
 
 ---
 
-## 6. Stratified K-Fold 교차검증
+## 6. Stratified K-Fold (K=5) 교차검증
 
-### 6.1 최종 성능 평가 (10-Fold)
+### 6.1 최종 성능 평가 (5-Fold)
 
 ```python
 # ml/evaluate.py
-from sklearn.model_selection import StratifiedKFold
+from sklearn.model_selection import GroupKFold
 from sklearn.metrics import accuracy_score, f1_score, roc_auc_score
 import numpy as np
 
-def kfold_evaluate(model, X, y, n_splits: int = 10) -> dict:
-    """Stratified K-Fold 교차검증으로 최종 성능 평가"""
-    skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=42)
+def kfold_evaluate(model, X, y, df, n_splits: int = 5) -> dict:
+    """Group K-Fold (K=5) 교차검증으로 최종 성능 평가.
+    match_key 단위로 폴드를 분할해 경기 누수를 방지한다.
+    train.csv를 5개 폴드로 분할하며, test.csv는 최종 평가 1회에만 사용한다.
+    """
+    gkf = GroupKFold(n_splits=n_splits)
     
     acc_scores, f1_scores, auc_scores = [], [], []
     
-    for fold, (train_idx, val_idx) in enumerate(skf.split(X, y), 1):
+    for fold, (train_idx, val_idx) in enumerate(gkf.split(X, y, groups=df["match_key"]), 1):
         X_fold_train, X_fold_val = X.iloc[train_idx], X.iloc[val_idx]
         y_fold_train, y_fold_val = y.iloc[train_idx], y.iloc[val_idx]
         
@@ -370,7 +376,7 @@ def save_models(xgb_model, lgbm_model, le_map, metrics: dict):
         "kfold_roc_auc_mean": metrics.get("kfold_roc_auc_mean"),
         "xgb_params": xgb_model.get_params(),
         "lgbm_params": lgbm_model.get_params(),
-        "ensemble_weights": {"xgb": 0.6, "lgbm": 0.4},
+        "ensemble_weights": {"rf": 1/3, "xgb": 1/3, "lgbm": 1/3},  # 단순 평균
     }
     
     with open("models/model_metadata.json", "w") as f:
@@ -381,18 +387,17 @@ def save_models(xgb_model, lgbm_model, le_map, metrics: dict):
 
 ---
 
-## 9. 성능 목표 달성 확인
+## 9. 성능 검증 체크리스트
 
-학습 완료 후 아래 기준을 모두 통과해야 합니다.
+학습 완료 후 아래 항목을 확인한다.
 
-| 지표 | 목표 | 실패 시 |
-|---|---|---|
-| K-Fold Accuracy (10겹) | ≥ 0.80 | 하이퍼파라미터 재조정 |
-| K-Fold F1-Score | ≥ 0.78 | 클래스 불균형 확인 |
-| K-Fold ROC-AUC | ≥ 0.82 | 피처 추가 검토 |
-| Test Accuracy | ≥ 0.78 | 데이터 누수 확인 |
-| Train-Val 격차 | ≤ 0.03 | 정규화 강화 |
-| K-Fold Std | ≤ 0.03 | 데이터 품질 확인 |
+| 확인 항목 | 점검 방법 |
+|---|---|
+| K-Fold (K=5) 지표 안정성 | Accuracy / ROC-AUC / F1 평균 및 표준편차 확인 |
+| Train-Val 격차 | > 3%p이면 정규화 강화 |
+| test.csv 분리 | K-Fold 중 test.csv 미사용 확인 |
+| 클래스 불균형 | 팀1/팀2 승률 50:50 여부 확인 |
+| 피처 중요도 | RF importances → XGB gain → Permutation → Ablation 순으로 검증 |
 
 ---
 

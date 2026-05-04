@@ -1,8 +1,11 @@
 # 02. XGBoost 하이퍼파라미터 상세 가이드
 
+마지막 업데이트: 2026-05-04
+
 ## 개요
 
 XGBoost의 모든 주요 하이퍼파라미터를 역할, 영향, 권장 범위와 함께 설명한다. ValoPredictML Optuna 탐색 공간 설계의 근거를 제공한다.
+XGBoost는 RF + XGBoost + LightGBM 앙상블 구성원 중 하나다. 스케일링 불필요.
 
 ---
 
@@ -19,11 +22,11 @@ XGBoost의 모든 주요 하이퍼파라미터를 역할, 영향, 권장 범위�
 | 값 | 효과 | 사용 시기 |
 |----|------|---------|
 | 3~4 | 단순 모델, 과적합 저항, 빠름 | 소규모 데이터, 피처 수 적을 때 |
-| 5~7 | 균형 (기본값 6 권장) | **ValoPredictML (피처 15개)** |
+| 5~7 | 균형 (기본값 6 권장) | **ValoPredictML (피처 43개)** |
 | 8~10 | 복잡한 패턴, 과적합 위험 | 피처 수 많고 데이터 클 때 |
 
 ```python
-# ValoPredictML: 피처 15개, 샘플 ~5000
+# ValoPredictML: 피처 43개, 샘플 ~80K 맵 행
 # max_depth=6: 2^6=64개 리프 가능 → 피처 간 6단계 상호작용 포착
 # max_depth > 8: 과적합 위험 높음
 param_xgb = {"max_depth": 6}
@@ -116,7 +119,7 @@ xgb_model = xgb.XGBClassifier(
 권장 범위: 0 ~ 1.0
 
 높은 값: 일부 피처 계수를 0으로 만드는 효과
-ValoPredictML: 피처 15개, L1 과도하면 정보 손실 위험
+ValoPredictML: 피처 43개, L1 과도하면 정보 손실 위험
 ```
 
 ### 3.2 reg_lambda (L2 정규화)
@@ -155,7 +158,7 @@ lambda 크면 → 리프 점수 작아짐 → 모델 보수적
 기본값: 1.0
 권장 범위: 0.5 ~ 1.0
 
-ValoPredictML (d=15): colsample_bytree=0.8 → 12개 피처 사용
+ValoPredictML (d=43): colsample_bytree=0.8 → 34개 피처 사용
 ```
 
 ### 4.3 colsample_bylevel / colsample_bynode

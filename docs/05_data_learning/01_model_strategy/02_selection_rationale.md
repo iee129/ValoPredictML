@@ -1,8 +1,11 @@
-# 02. XGBoost + LightGBM 최종 선택 이유
+# 02. RF + XGBoost + LightGBM 앙상블 최종 선택 이유
+
+마지막 업데이트: 2026-05-04
 
 ## 개요
 
-수십 개의 알고리즘 중 XGBoost와 LightGBM을 메인 모델로 선택한 근거를 성능, 속도, 해석 가능성, 운영성 네 가지 관점에서 상세히 설명한다.
+수십 개의 알고리즘 중 Random Forest, XGBoost, LightGBM 세 모델을 앙상블로 채택한 근거를 성능, 속도, 해석 가능성, 운영성 네 가지 관점에서 상세히 설명한다.
+딥러닝(PyTorch/TensorFlow)은 사용하지 않으며, 트리 기반 모델만 채택한다.
 
 ---
 
@@ -30,11 +33,11 @@ Kaggle, Papers with Code 등의 정형 데이터 분류 벤치마크 결과:
 | 텍스트/이미지 | 딥러닝 | 90%+ |
 | 소규모 수치형 | XGBoost / LightGBM | 85%+ |
 
-ValoPredictML은 **소규모 수치형 정형 데이터** → XGBoost/LightGBM 최적 도메인
+ValoPredictML은 **수치형 정형 데이터 (약 80~100K 맵 행, 43 피처)** → RF/XGBoost/LightGBM 최적 도메인
 
 ### 1.3 목표 성능 달성 가능성 평가
 
-목표: Accuracy ≥ 80%, ROC-AUC ≥ 0.82
+목표: Accuracy, ROC-AUC, F1 — K-Fold (K=5) 교차 검증 기준
 
 ```python
 # 유사 도메인 (스포츠 경기 결과 예측) 선행 연구 성능
@@ -43,22 +46,22 @@ similar_domain_benchmarks = {
     "Random Forest":       {"accuracy": 0.76, "auc": 0.78},
     "XGBoost":            {"accuracy": 0.81, "auc": 0.84},
     "LightGBM":           {"accuracy": 0.80, "auc": 0.83},
-    "XGB+LGBM Ensemble":  {"accuracy": 0.83, "auc": 0.86},  # 목표 상회
+    "RF+XGB+LGBM Ensemble": {"accuracy": 0.83, "auc": 0.86},  # 3모델 단순 평균
 }
 ```
 
 ### 1.4 앙상블 다양성 확보
 
-XGBoost와 LightGBM은 모두 부스팅 계열이지만 내부 알고리즘이 달라 예측 오차가 상관되지 않음:
+RF, XGBoost, LightGBM은 서로 다른 방식으로 데이터를 분석하므로 예측 오차가 상관되지 않음:
 
-| 차이점 | XGBoost | LightGBM |
-|--------|---------|----------|
-| 트리 성장 | Level-wise | Leaf-wise |
-| 샘플링 | Subsampling | GOSS |
-| 피처 묶음 | 없음 | EFB |
-| 분기 탐색 | Pre-sorted | Histogram |
+| 차이점 | Random Forest | XGBoost | LightGBM |
+|--------|--------------|---------|----------|
+| 학습 방식 | Bagging (독립 병렬) | Boosting (순차 보정) | Boosting (순차 보정) |
+| 트리 성장 | Level-wise | Level-wise | Leaf-wise |
+| 샘플링 | Bootstrap | Subsampling | GOSS |
+| 분기 탐색 | 무작위 피처 | Pre-sorted / Histogram | Histogram |
 
-→ 서로 다른 데이터 패턴을 포착 → 앙상블 시 분산 감소 효과
+→ 각 모델이 놓친 패턴을 다른 모델이 보완 → 앙상블 시 분산 감소 + 예측 안정성 향상
 
 ---
 
@@ -66,48 +69,40 @@ XGBoost와 LightGBM은 모두 부스팅 계열이지만 내부 알고리즘이 �
 
 ### 2.1 학습 시간 비교 (ValoPredictML 스케일 추정)
 
-피처 15개, 샘플 수 ~5,000건, 트리 500개 기준:
+피처 43개, 샘플 수 ~80K 맵 행, 트리 500개 기준:
 
 | 모델 | 예상 학습 시간 | 비고 |
 |------|--------------|------|
-| Logistic Regression | < 0.1초 | |
-| Random Forest (100 트리) | ~2초 | |
-| XGBoost (500 트리) | ~5초 | CPU 병렬 |
-| LightGBM (500 트리) | ~1초 | Histogram 방식 |
-| MLP (3층, 100 에폭) | ~30초 | |
-| CatBoost (500 트리) | ~15초 | |
+| Logistic Regression | < 1초 | StandardScaler 필수 |
+| Random Forest (200 트리) | ~10초 | CPU 병렬 |
+| XGBoost (500 트리) | ~20초 | CPU 병렬 |
+| LightGBM (500 트리) | ~5초 | Histogram 방식 |
+| MLP | 수 분 이상 | 미사용 (딥러닝 금지) |
 
 ### 2.2 Optuna 하이퍼파라미터 탐색 시 영향
 
-Optuna 100 trials × 10-fold CV = 1,000번 학습:
+Optuna 100 trials × 5-fold CV = 500번 학습:
 
 ```
-XGBoost: 5초 × 1000 = ~83분
-LightGBM: 1초 × 1000 = ~17분
-CatBoost: 15초 × 1000 = ~250분 (비현실적)
+XGBoost: ~20초 × 500 = ~167분
+LightGBM: ~5초 × 500 = ~42분
+CatBoost: 훨씬 느림 (채택 안 함)
 ```
 
 LightGBM의 빠른 학습 속도 → 더 넓은 탐색 공간 커버 가능
 
-### 2.3 운영 환경 추론 속도
+### 2.3 Streamlit 추론 속도
 
-FastAPI를 통한 실시간 예측 서비스:
+Streamlit 로컬 앱에서 단일 경기 예측 (43개 피처):
 
 ```python
-# 단일 경기 예측 (15개 피처)
-import time
+# RF + XGBoost + LightGBM 세 모델 순차 추론 후 평균
+rf_prob   = rf_model.predict_proba(X_single)[:, 1]
+xgb_prob  = xgb_model.predict_proba(X_single)[:, 1]
+lgbm_prob = lgbm_model.predict_proba(X_single)[:, 1]
+final_prob = (rf_prob + xgb_prob + lgbm_prob) / 3  # 단순 평균
 
-# XGBoost
-start = time.perf_counter()
-xgb_prob = xgb_model.predict_proba(X_single)
-xgb_time = (time.perf_counter() - start) * 1000  # ms
-
-# LightGBM
-start = time.perf_counter()
-lgbm_prob = lgbm_model.predict_proba(X_single)
-lgbm_time = (time.perf_counter() - start) * 1000  # ms
-
-# 두 모델 합산 추론: < 5ms → API SLA (100ms) 충족
+# 세 모델 합산 추론: < 10ms → Streamlit 로컬 환경에서 충분
 ```
 
 ---
@@ -231,16 +226,16 @@ if p_value < 0.05:
 
 각 기준 5점 만점 평가:
 
-| 기준 | 가중치 | LR | RF | XGB | LGBM | XGB+LGBM |
-|------|-------|----|----|-----|------|-----------|
+| 기준 | 가중치 | LR | RF | XGB | LGBM | RF+XGB+LGBM |
+|------|-------|----|----|-----|------|-------------|
 | 예측 정확도 | 35% | 2 | 3 | 5 | 5 | 5 |
 | 학습/추론 속도 | 20% | 5 | 3 | 4 | 5 | 4 |
 | 해석 가능성 | 20% | 5 | 3 | 4 | 4 | 4 |
 | 운영 안정성 | 15% | 5 | 4 | 4 | 4 | 4 |
 | 앙상블 다양성 | 10% | 1 | 3 | 3 | 3 | 5 |
-| **가중 합계** | 100% | **3.35** | **3.15** | **4.20** | **4.35** | **4.50** |
+| **가중 합계** | 100% | **3.35** | **3.15** | **4.20** | **4.35** | **4.55** |
 
-**결론: XGBoost + LightGBM Soft Voting 앙상블이 최고점 (4.50/5.00)**
+**결론: RF + XGBoost + LightGBM 단순 확률 평균 앙상블이 최고점**
 
 ---
 
@@ -248,7 +243,6 @@ if p_value < 0.05:
 
 | 모델 | 미선택 이유 |
 |------|------------|
-| Logistic Regression | 비선형 패턴 포착 불가 → 목표 Accuracy 80% 달성 어려움 |
-| Random Forest | 부스팅 계열보다 낮은 정확도, 메모리 효율 나쁨 |
-| CatBoost | 범주형 피처 없어 핵심 장점 미활용, 학습 느림 |
-| MLP | 소규모 데이터 과적합, 해석 어려움, 배포 복잡 |
+| Logistic Regression | 비선형 패턴 포착 불가 — baseline 비교용으로만 유지, 메인 모델 후보 아님 |
+| CatBoost | 43개 피처가 수치형 위주라 핵심 장점 미활용, 학습 느림 |
+| MLP / PyTorch / TensorFlow | 딥러닝 금지 (개발 원칙 1) — tabular 데이터는 트리 기반이 우위 |

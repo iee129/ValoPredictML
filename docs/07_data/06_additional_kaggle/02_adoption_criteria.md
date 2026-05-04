@@ -1,124 +1,49 @@
-# 02. Kaggle 데이터셋 채택 기준 및 통합 전략
+# 02. 데이터셋 채택 기준
 
-## 1. 채택 기준 (5-point 스코어링)
-
-| 기준 | 점수 | 설명 |
-|------|------|------|
-| 요원 정보 포함 | 2점 | `agent` 또는 `composition` 컬럼 필수 |
-| 경기 결과 포함 | 2점 | `winner`, `result`, `label` 컬럼 필수 |
-| 맵 정보 포함 | 1점 | `map` 컬럼 (없어도 채택 가능) |
-| 최소 5,000 행 이상 | 1점 | 통계적 유의미성 |
-| 2022년 이후 데이터 | 1점 | 현재 메타 반영 |
-| 중복 없음 | 1점 | 이미 채택된 데이터셋과 중복 최소화 |
-| **최소 채택 점수** | **4점 이상** | |
+마지막 업데이트: 2026-05-04
 
 ---
 
-## 2. 통합 전략
+## 1. 채택 기준 (확정)
 
-### 2.1 소스 우선순위
+본 프로젝트의 데이터 소스는 Kaggle 7개 데이터셋으로 확정되어 있다.
+신규 소스 추가는 방침 외. 아래 기준은 최초 선정 시 적용한 기준이다.
 
-```
-1. Riot VCT S3 (공식, 무결점)
-2. Kaggle VCT 시리즈 (ryanluong1)
-3. HenrikDev API 수집
-4. 기타 Kaggle 랭크 매치 데이터셋
-5. VLR.gg 스크래핑 (최후 수단)
-```
+| 기준 | 설명 |
+|------|------|
+| `agent` + `map` + 승패 레이블 | 3개 필수 컬럼 보유 |
+| K·D·A 개별 분리 | 집계 스탯이 아닌 개별 컬럼 |
+| 선수-경기-맵 1행 단위 | 경기 단위 집계가 가능한 구조 |
+| 핵심 스탯 결측률 < 30% | ACS·KD 기준 |
+| 프로·준프로 경기 | VCT / Challengers / 공식 이벤트 |
 
-### 2.2 데이터 흐름
+---
 
-```
-각 소스 → 원본 저장 (data/raw/) → 파싱 → 표준 스키마 → data/processed/ → 학습
-```
+## 2. 소스별 채택 이유
 
-### 2.3 표준 스키마 (모든 소스 공통)
+| 소스 | 채택 이유 |
+|------|---------|
+| `vct_2021_2023` | 6년치 T1 프로 경기, 1.2GB 대용량 |
+| `challengers` | T2 대용량, 공수 분리 스탯, 가중치 최고(1.8) |
+| `qualidea` | 249K행, 공수 분리 스탯 유일, 조인 불필요 |
+| `piyush 2024` | 2024 VCT 전 지역, 최신 메타, 레이블 직접 포함 |
+| `piyush 2025` | 2025 전체 시즌, 현재 메타(Tejo·Waylay·Drift) |
+| `ediashtarevin` | 2023 Champions 특화, 교차 검증 용도 |
+| `kierru` | Pacific 지역 보강, `role_agent` 컬럼 직접 제공 |
+
+---
+
+## 3. 중복 제거 전략
 
 ```python
-STANDARD_SCHEMA = {
-    "match_id": str,       # 경기 고유 ID
-    "map": str,            # 맵 이름 (표준화)
-    "team_a_agents": str,  # 쉼표 구분 요원 목록 (예: "Jett,Sova,Viper,Omen,Killjoy")
-    "team_b_agents": str,  # 동일
-    "a_duelist": int,      # 팀 A 역할군 카운트
-    "a_initiator": int,
-    "a_controller": int,
-    "a_sentinel": int,
-    "b_duelist": int,
-    "b_initiator": int,
-    "b_controller": int,
-    "b_sentinel": int,
-    "duelist_diff": int,   # diff 피처
-    "initiator_diff": int,
-    "controller_diff": int,
-    "sentinel_diff": int,
-    "map_encoded": int,    # 맵 정수 인코딩
-    "label": int,          # 0 or 1
-    "source": str,         # 데이터 출처
-    "data_type": str,      # "pro" or "ranked"
-}
+def make_dedup_key(date, event, map_, team_a, team_b, agents_a, agents_b, score_a, score_b):
+    canonical = "|".join([
+        str(date), event.lower().strip(), map_.lower(),
+        team_a.lower(), team_b.lower(),
+        ",".join(sorted(agents_a)), ",".join(sorted(agents_b)),
+        str(score_a), str(score_b)
+    ])
+    return hashlib.sha1(canonical.encode()).hexdigest()[:24]
 ```
 
----
-
-## 3. 중복 경기 제거
-
-```python
-import pandas as pd
-
-def remove_duplicates(df: pd.DataFrame) -> pd.DataFrame:
-    """다중 소스 병합 후 중복 경기 제거"""
-    
-    # match_id 기반 1차 제거
-    df_dedup = df.drop_duplicates(subset=["match_id"], keep="first")
-    
-    # match_id가 없는 경우: 팀 조합 + 맵 + 결과 기반 2차 제거
-    mask_no_id = df_dedup["match_id"].isna() | (df_dedup["match_id"] == "")
-    
-    if mask_no_id.sum() > 0:
-        df_no_id = df_dedup[mask_no_id].copy()
-        df_no_id["_dedup_key"] = (
-            df_no_id["team_a_agents"].str.lower() + "|" +
-            df_no_id["team_b_agents"].str.lower() + "|" +
-            df_no_id["map"].str.lower() + "|" +
-            df_no_id["label"].astype(str)
-        )
-        df_no_id = df_no_id.drop_duplicates(subset=["_dedup_key"]).drop(columns=["_dedup_key"])
-        
-        df_dedup = pd.concat([df_dedup[~mask_no_id], df_no_id], ignore_index=True)
-    
-    removed = len(df) - len(df_dedup)
-    print(f"[INFO] 중복 제거: {removed}개 → 최종 {len(df_dedup)}개")
-    return df_dedup
-```
-
----
-
-## 4. 소스별 가중치 (학습 시)
-
-```python
-# 프로 경기 데이터에 더 높은 신뢰도 부여
-SOURCE_WEIGHTS = {
-    "riot_s3": 2.5,       # 공식 프로 경기 (가장 신뢰)
-    "kaggle_vct": 2.0,    # Kaggle VCT (신뢰)
-    "vlrgg": 1.5,         # VLR.gg 스크래핑 (신뢰)
-    "henrikdev": 1.0,     # 랭크 매치 (일반)
-    "kaggle_ranked": 0.8, # 기타 Kaggle (검증 필요)
-}
-
-df["sample_weight"] = df["source"].map(SOURCE_WEIGHTS).fillna(1.0)
-```
-
----
-
-## 5. 최종 데이터셋 구성 목표
-
-| 데이터 타입 | 비율 | 목표 경기 수 |
-|-----------|------|-----------|
-| 프로 경기 (VCT) | 20% | 10,000 |
-| 이머탈+ 랭크 | 30% | 15,000 |
-| 플레~다이아 랭크 | 35% | 17,500 |
-| 골드 이하 랭크 | 15% | 7,500 |
-| **총계** | **100%** | **50,000** |
-
-> 50,000 경기 달성 시 XGBoost+LightGBM 앙상블 기대 정확도: **80~84%**
+동일 dedup_key 중 소스 가중치가 가장 높은 행만 보존. 동점이면 컬럼 수가 더 많은 행 보존.

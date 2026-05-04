@@ -1,8 +1,11 @@
 # 02. LightGBM 하이퍼파라미터 상세 가이드
 
+마지막 업데이트: 2026-05-04
+
 ## 개요
 
 LightGBM의 핵심 하이퍼파라미터를 XGBoost와 대응 관계로 비교하며 설명한다. num_leaves와 min_child_samples가 LightGBM에서 가장 중요한 두 파라미터임을 강조한다.
+LightGBM은 RF + XGBoost + LightGBM 앙상블 구성원 중 하나다. 스케일링 불필요.
 
 ---
 

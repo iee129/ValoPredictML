@@ -1,3 +1,5 @@
+> ⚠️ **범위 외**: FastAPI 미사용. 본 프로젝트는 Streamlit 로컬 도구이며 API 엔드포인트 테스트는 적용되지 않는다. 본문은 참고용으로 보존된다.
+
 # 01. POST /predict 엔드포인트 완전 스펙
 
 ## 1. 기본 정보
@@ -170,7 +172,7 @@ def calculate_confidence(prob: float) -> str:
 ```python
 class RoleCounts(BaseModel):
     duelist: int      # 타격대 (Jett, Reyna, Neon, Yoru, Phoenix, Iso, Deadlock 중 Duelist)
-    initiator: int    # 척후병 (Sova, Breach, Skye, Fade, Gekko, KAY/O)
+    initiator: int    # 척후대 (Sova, Breach, Skye, Fade, Gekko, KAY/O)
     controller: int   # 전략가 (Viper, Omen, Brimstone, Astra, Harbor, Clove)
     sentinel: int     # 감시자 (Killjoy, Cypher, Sage, Chamber, Deadlock)
     unknown: int = 0  # 매핑에 없는 신규/미지원 요원

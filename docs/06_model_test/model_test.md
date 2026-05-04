@@ -1,3 +1,5 @@
+> ⚠️ **범위 외**: FastAPI 미사용. 본 프로젝트는 Streamlit 로컬 도구이며 API 엔드포인트 테스트는 적용되지 않는다. 본문은 참고용으로 보존된다.
+
 # 06. 모델 테스트 설계 (웹 환경)
 
 ## 1. 테스트 환경 개요
@@ -155,12 +157,12 @@ GET /agents
   "agents": [
     {"name": "Jett", "role": "Duelist", "role_kr": "타격대"},
     {"name": "Reyna", "role": "Duelist", "role_kr": "타격대"},
-    {"name": "Sova", "role": "Initiator", "role_kr": "척후병"},
+    {"name": "Sova", "role": "Initiator", "role_kr": "척후대"},
     ...
   ],
   "roles": {
     "Duelist": {"name_kr": "타격대", "count": 8},
-    "Initiator": {"name_kr": "척후병", "count": 7},
+    "Initiator": {"name_kr": "척후대", "count": 7},
     "Controller": {"name_kr": "전략가", "count": 6},
     "Sentinel": {"name_kr": "감시자", "count": 6}
   }
@@ -379,7 +381,7 @@ class PredictionService:
 
 | 시나리오 | 입력 | 기대 결과 |
 |---|---|---|
-| 균형 잡힌 조합 | 양 팀 모두 1타격대 + 1척후병 + 1전략가 + 2감시자 | 50% 근처 확률 |
+| 균형 잡힌 조합 | 양 팀 모두 1타격대 + 1척후대 + 1전략가 + 2감시자 | 50% 근처 확률 |
 | 전략가 없는 팀 | 팀 A에 전략가 없음 | 팀 A 승률 낮음 |
 | 타격대 과다 | 팀 A에 타격대 5명 | 팀 A 승률 낮음 |
 | 맵별 차이 | 같은 조합, 맵만 변경 | 맵에 따라 확률 변화 |
