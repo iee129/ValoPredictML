@@ -9,7 +9,7 @@
 ## 1. 폴더 전체 구조
 
 ```
-app/                                # Streamlit UI (구현 예정)
+app/                                # Streamlit UI (Phase 5, 미구현)
 └── streamlit_app.py                # Streamlit 앱 진입점
 ```
 

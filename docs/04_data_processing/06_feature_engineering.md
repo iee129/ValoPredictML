@@ -1,6 +1,8 @@
 # 06. 피처 엔지니어링
 
-마지막 업데이트: 2026-05-04
+마지막 업데이트: 2026-05-05
+
+> **구현 완료** — `ml/data_pipeline.py`의 `build_features_phase1()` + `_add_phase2_features()`로 구현.
 
 ## 1. 피처 설계 철학
 
@@ -13,15 +15,27 @@
 
 ## 2. 피처 카테고리 개요
 
-| 카테고리 | 피처 수 | 소스 |
+피처는 두 단계로 생성된다. Phase 1(`build_features_phase1`)은 파싱 직후 역할군·맵 피처를 생성하고, Phase 2(`_add_phase2_features`)는 train 기준 집계값을 join해 선수 스탯·시너지·요원 조합 피처를 추가한다.
+
+**FEATURE_COLS_P1 (19개)**:
+
+| 카테고리 | 피처 수 | 컬럼 |
 |----------|---------|------|
-| 역할군 카운트 | 12 | 요원 → AGENT_ROLE_MAP |
-| 역할군 파생 | 4 | 역할군 카운트 → boolean |
-| 선수 스탯 | 12 | overview.csv / player_stats.csv |
-| 시너지 | 6 | 선수 스탯 집계 |
-| 요원 조합 | 6 | 요원+맵 통계, 경기 이력 집계 |
-| 맵 | 3 | MAP_TO_INDEX, 공수 기록 |
-| **합계** | **43 + 1 레이블** | |
+| 역할군 카운트 (a/b 각 4) | 8 | `a_duelist`, `a_initiator`, `a_controller`, `a_sentinel`, `b_duelist`, `b_initiator`, `b_controller`, `b_sentinel` |
+| 역할군 차이 (diff) | 4 | `diff_duelist`, `diff_initiator`, `diff_controller`, `diff_sentinel` |
+| 역할군 파생 | 4 | `has_controller_a`, `has_controller_b`, `is_double_duelist_a`, `is_double_duelist_b` |
+| 맵 | 3 | `map_encoded`, `atk_side_advantage`, `is_attacker_a` |
+
+**FEATURE_COLS_P2 (24개)**:
+
+| 카테고리 | 피처 수 | 컬럼 |
+|----------|---------|------|
+| 선수 스탯 | 10 | `a_avg_acs`, `b_avg_acs`, `a_avg_kd`, `b_avg_kd`, `a_avg_kast`, `b_avg_kast`, `a_avg_adr`, `b_avg_adr`, `a_avg_hs`, `b_avg_hs` |
+| 클러치 | 2 | `a_max_clutch`, `b_max_clutch` |
+| 시너지 | 6 | `a_fk_fd_ratio`, `b_fk_fd_ratio`, `a_avg_assists`, `b_avg_assists`, `a_kast_std`, `b_kast_std` |
+| 요원 조합 | 6 | `a_avg_agent_map_wr`, `b_avg_agent_map_wr`, `a_avg_agent_pick_rate`, `b_avg_agent_pick_rate`, `a_avg_agent_exp`, `b_avg_agent_exp` |
+
+**합계: FEATURE_COLS_P1(19) + FEATURE_COLS_P2(24) = 43개 피처 + 1 레이블**
 
 ---
 
@@ -183,22 +197,31 @@ agent_experience[player][agent] = count(*)
 ## 10. 최종 피처 목록 (43개 + 1 레이블)
 
 ```
-역할군 카운트 (12):
+# FEATURE_COLS_P1 (19개) — build_features_phase1() 생성
+역할군 카운트 (8):
   a_duelist, a_initiator, a_controller, a_sentinel
   b_duelist, b_initiator, b_controller, b_sentinel
+
+역할군 diff (4):
   diff_duelist, diff_initiator, diff_controller, diff_sentinel
 
 역할군 파생 (4):
   has_controller_a, has_controller_b
   is_double_duelist_a, is_double_duelist_b
 
-선수 스탯 (12):
+맵 (3):
+  map_encoded, atk_side_advantage, is_attacker_a
+
+# FEATURE_COLS_P2 (24개) — _add_phase2_features() 생성 (train 집계 기반)
+선수 스탯 (10):
   a_avg_acs, b_avg_acs
   a_avg_kd,  b_avg_kd
   a_avg_kast, b_avg_kast
   a_avg_adr,  b_avg_adr
-  a_max_clutch, b_max_clutch
   a_avg_hs,  b_avg_hs
+
+클러치 (2):
+  a_max_clutch, b_max_clutch
 
 시너지 (6):
   a_fk_fd_ratio, b_fk_fd_ratio
@@ -210,13 +233,8 @@ agent_experience[player][agent] = count(*)
   a_avg_agent_pick_rate, b_avg_agent_pick_rate
   a_avg_agent_exp, b_avg_agent_exp
 
-맵 (3):
-  map_encoded, atk_side_advantage, is_attacker_a
-
 레이블 (1): label
 ```
-
-Team_Shared_Exp(시너지, 동반 출전 횟수)는 visualize25 데이터셋 보류로 미구현 — 추가 시 44개.
 
 ---
 
@@ -261,12 +279,11 @@ def get_time_weight(date_str: str) -> float:
 
 SOURCE_WEIGHT = {
     "ryanluong_challengers": 1.8,
-    "piyush_2024": 1.5,
-    "piyush_2025": 1.5,
+    # 제거됨: "piyush_2024": 1.5,
+    # 제거됨: "piyush_2025": 1.5,
     "vct_2021_2023": 1.0,
     "qualidea": 1.0,
     "ediashtarevin": 0.9,
-    "kierru": 0.9,
 }
 
 sample_weight = get_time_weight(row["date"]) * SOURCE_WEIGHT[row["source"]]

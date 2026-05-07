@@ -4,7 +4,7 @@
 
 ## 1. 파서 공통 출력 스키마
 
-모든 소스(ryanluong·qualidea·piyush·ediashtarevin·kierru)의 파서는 아래 공통 스키마의 행 리스트를 반환한다.
+모든 소스(ryanluong·qualidea·ediashtarevin, ~~piyush~~(제거됨), ~~kierru~~(제거됨))의 파서는 아래 공통 스키마의 행 리스트를 반환한다. kierru는 리젝션율 80%로 파이프라인에서 제거됨. piyush는 파이프라인에서 제거됨.
 
 ```python
 {

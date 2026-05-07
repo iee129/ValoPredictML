@@ -12,7 +12,10 @@
 ```
 docs/06_model_test/
 ├── README.md                            ← 이 파일 (범위 외)
-├── model_test.md                        ← 범위 외
+├── model_test.md                        ← 범위 외 (§8에 신규 검증 문서 참조 포함)
+├── ml_concept_validation.md             ← ML 개념 검증 (GroupKFold, 앙상블, SHAP, 증강)
+├── project_differentiation.md          ← 프로젝트 차별점 (5개 차별점 + 기술 스택 점검표)
+├── verification_summary.md             ← 검증 결과 종합 (AUC=0.935, gap=0.004, +29.13%p)
 ├── 01_test_strategy/                    ← 범위 외
 ├── 02_api_specification/                ← 범위 외
 ├── 03_test_scenarios/                   ← 범위 외

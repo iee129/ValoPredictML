@@ -41,7 +41,7 @@ def aggregate_to_map_level(rows: list[dict]) -> list[dict]:
     return result
 ```
 
-ryanluong 파서는 `overview.csv`와 `maps_scores.csv` 조인 시 이미 팀 단위로 집계. qualidea / piyush / ediashtarevin / kierru는 선수 행을 파서 내부에서 5명씩 그룹핑.
+ryanluong 파서는 `overview.csv`와 `maps_scores.csv` 조인 시 이미 팀 단위로 집계. qualidea / piyush / ediashtarevin는 선수 행을 파서 내부에서 5명씩 그룹핑.
 
 ---
 

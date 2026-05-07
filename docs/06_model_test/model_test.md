@@ -328,7 +328,8 @@ class PredictionService:
     def _load_models(self):
         import os
         model_path = os.environ.get("MODEL_PATH", "./models")
-        self.xgb_model = joblib.load(f"{model_path}/xgboost_model.joblib")
+        self.rf_model   = joblib.load(f"{model_path}/rf_model.joblib")
+        self.xgb_model  = joblib.load(f"{model_path}/xgboost_model.joblib")
         self.lgbm_model = joblib.load(f"{model_path}/lgbm_model.joblib")
         self.le_map = joblib.load(f"{model_path}/label_encoder_map.joblib")
         
@@ -342,11 +343,12 @@ class PredictionService:
     def predict(self, map_name: str, team_a: list, team_b: list) -> dict:
         features = self.engineer.transform(map_name, team_a, team_b)
         
-        xgb_prob = self.xgb_model.predict_proba(features)[0, 1]
+        rf_prob   = self.rf_model.predict_proba(features)[0, 1]
+        xgb_prob  = self.xgb_model.predict_proba(features)[0, 1]
         lgbm_prob = self.lgbm_model.predict_proba(features)[0, 1]
         
-        # Soft Voting (60:40)
-        win_prob = float(0.6 * xgb_prob + 0.4 * lgbm_prob)
+        # 단순 평균 (RF + XGBoost + LightGBM, 1/3씩)
+        win_prob = float((rf_prob + xgb_prob + lgbm_prob) / 3.0)
         
         # 피처 중요도 (XGBoost 기준)
         importance = dict(zip(
@@ -472,3 +474,15 @@ curl -X POST http://localhost:8000/predict \
 | 500 | `MODEL_NOT_LOADED` | 모델 파일 없음 |
 | 500 | `PREDICTION_FAILED` | 예측 중 내부 오류 |
 | 503 | `SERVICE_UNAVAILABLE` | 서버 초기화 중 |
+
+---
+
+## 8. 검증 문서 참조
+
+이번 세션에서 추가된 ML 검증 문서:
+
+| 문서 | 경로 | 내용 |
+|------|------|------|
+| ML 개념 검증 | [`ml_concept_validation.md`](./ml_concept_validation.md) | GroupKFold, 앙상블, SHAP, 증강 방법론 검증 |
+| 프로젝트 차별점 | [`project_differentiation.md`](./project_differentiation.md) | 5개 차별점 + 기술 스택 점검표 |
+| 검증 결과 종합 | [`verification_summary.md`](./verification_summary.md) | AUC=0.935, gap=0.004, +29.13%p 결과 종합 |

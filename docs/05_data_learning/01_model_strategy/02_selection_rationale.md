@@ -1,6 +1,6 @@
 # 02. RF + XGBoost + LightGBM 앙상블 최종 선택 이유
 
-마지막 업데이트: 2026-05-04
+마지막 업데이트: 2026-05-05
 
 ## 개요
 
@@ -35,20 +35,20 @@ Kaggle, Papers with Code 등의 정형 데이터 분류 벤치마크 결과:
 
 ValoPredictML은 **수치형 정형 데이터 (약 80~100K 맵 행, 43 피처)** → RF/XGBoost/LightGBM 최적 도메인
 
-### 1.3 목표 성능 달성 가능성 평가
+### 1.3 실제 측정 성능
 
-목표: Accuracy, ROC-AUC, F1 — K-Fold (K=5) 교차 검증 기준
+K-Fold (K=5) 교차 검증 및 test 세트 최종 결과:
 
-```python
-# 유사 도메인 (스포츠 경기 결과 예측) 선행 연구 성능
-similar_domain_benchmarks = {
-    "Logistic Regression": {"accuracy": 0.72, "auc": 0.74},
-    "Random Forest":       {"accuracy": 0.76, "auc": 0.78},
-    "XGBoost":            {"accuracy": 0.81, "auc": 0.84},
-    "LightGBM":           {"accuracy": 0.80, "auc": 0.83},
-    "RF+XGB+LGBM Ensemble": {"accuracy": 0.83, "auc": 0.86},  # 3모델 단순 평균
-}
-```
+| 모델 | K-Fold Acc | K-Fold AUC | Test Acc | Test AUC |
+|------|-----------|-----------|---------|---------|
+| Random Forest | 0.8652±0.0017 | 0.9449±0.0012 | 0.8595 | 0.9378 |
+| XGBoost | 0.8488±0.0028 | 0.9343±0.0019 | 0.8443 | 0.9281 |
+| LightGBM | 0.8494±0.0027 | 0.9353±0.0019 | 0.8480 | 0.9292 |
+| **앙상블** | **0.8580±0.0034** | **0.9414±0.0017** | **0.8540** | **0.9355** |
+
+- RF OOB Score: **0.8713** (별도 validation 없이 일반화 성능 추정)
+- 다수 클래스 baseline 56.9% 대비 앙상블 **+29.13%p** 개선
+- K-Fold vs Test 갭: **0.004** — 과적합 없음 확인
 
 ### 1.4 앙상블 다양성 확보
 

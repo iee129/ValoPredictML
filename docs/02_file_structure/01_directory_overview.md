@@ -17,8 +17,14 @@ ValoPredictML/
 ├── data/                           # 데이터 저장소
 ├── notebooks/                      # Jupyter 실험 노트북
 ├── models/                         # 학습된 모델
-├── ml/                             # ML 파이프라인 (구현 예정)
-└── app/                            # Streamlit UI (구현 예정)
+├── ml/                             # ML 파이프라인 (구현 완료)
+│   ├── __init__.py
+│   ├── agent_roles.py              # AGENT_ROLE_MAP(27개 요원), MAP_ORDER(12개 맵), 정규화 함수
+│   ├── data_pipeline.py            # 전처리 파이프라인: 파서 → 품질 게이트 → 피처 → 분할
+│   ├── train_model.py              # RF + XGBoost + LightGBM 학습, Optuna HPO, 앙상블
+│   ├── evaluate_model.py           # GroupKFold(n=5) 교차 검증, SHAP TreeExplainer
+│   └── validate_metrics.py         # baseline 비교, generalization 검증, SHAP 일관성
+└── app/                            # Streamlit UI (Phase 5, 미구현)
 ```
 
 **범위 외 (out of scope)**: `backend/` (FastAPI), `valo_predict_system/` (Next.js) 폴더는 이 프로젝트에 존재하지 않습니다. 본 프로젝트는 Streamlit 로컬 도구입니다.
@@ -33,7 +39,7 @@ ValoPredictML/
 | `data/` | 원본/전처리 데이터 저장 | Phase 1-3 |
 | `notebooks/` | EDA, 피처 실험, 모델 비교 노트북 | Phase 2-4 |
 | `models/` | joblib 모델, 메타데이터 저장 | Phase 4 |
-| `ml/` | 파서, 전처리 파이프라인, 학습, 평가 스크립트 | Phase 2-4 |
+| `ml/` | 파서, 전처리 파이프라인, 학습, 평가 스크립트 (구현 완료) | Phase 2-4 |
 | `app/` | Streamlit 앱 | Phase 5 |
 
 ---
@@ -76,11 +82,8 @@ data/
 │       ├── vct_2021_2023/
 │       ├── ryanluong1__valorant-challengers-league-data/
 │       ├── qualidea1217__valorant-pro-matches-since-april-2021/
-│       ├── piyush86kumar__valorant-champions-tour-2024-all-events/
-│       ├── piyush86kumar__valorant-vct-2025-all-events/
-│       ├── ediashtarevin__vct-champions-2023-stats/
-│       └── kierru__vctpacific-2023/
-└── processed/              # 전처리 스크립트 실행 결과물 (git 제외, 구현 예정)
+│       └── ediashtarevin__vct-champions-2023-stats/
+└── processed/              # 전처리 스크립트 실행 결과물 (git 제외)
     ├── matches_clean.csv   # 품질 게이트·dedup 통과한 맵 행 전체
     ├── features_base.csv   # 피처 테이블 (43개 피처 + 레이블)
     ├── train.csv           # 학습용 (70%)
@@ -99,11 +102,11 @@ data/
 
 ```
 models/
-├── rf_model.joblib             # 학습된 Random Forest 모델 (구현 예정)
-├── xgboost_model.joblib        # 학습된 XGBoost 모델 (구현 예정)
-├── lgbm_model.joblib           # 학습된 LightGBM 모델 (구현 예정)
-├── label_encoder_map.joblib    # 맵 이름 LabelEncoder (구현 예정)
-└── model_metadata.json         # 학습 날짜, 성능 지표, 파라미터 (구현 예정)
+├── rf_model.joblib             # 학습된 Random Forest 모델
+├── xgboost_model.joblib        # 학습된 XGBoost 모델
+├── lgbm_model.joblib           # 학습된 LightGBM 모델
+├── label_encoder_map.joblib    # 맵 이름 LabelEncoder
+└── model_metadata.json         # 학습 날짜, 성능 지표, 파라미터
 ```
 
 - 모든 `.joblib` 파일은 `.gitignore` 처리 (용량)
@@ -114,7 +117,7 @@ models/
 ## 6. `reports/` 폴더 구조
 
 ```
-reports/                        # 파이프라인 실행 결과 리포트 (git 제외, 구현 예정)
+reports/                        # 파이프라인 실행 결과 리포트 (git 제외)
 ├── preprocess_summary.json     # 소스별 행수·제거율·최종 분포 등 실행 통계
 └── rejected_matches.csv        # 품질 게이트 탈락 행 및 탈락 사유
 ```

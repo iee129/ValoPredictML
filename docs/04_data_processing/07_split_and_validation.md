@@ -1,6 +1,9 @@
 # 07. 데이터 분할 및 검증
 
-마지막 업데이트: 2026-05-04
+마지막 업데이트: 2026-05-05
+
+> **구현 완료** — `ml/data_pipeline.py`의 `split_features()` + `augment_swap()`으로 구현.
+> 실행 결과: clean 66,485행 → train 93,078행 / val 9,973행 / test 9,973행 (seed=42).
 
 ## 1. 분할 전략 — match_key 단위 GroupShuffleSplit
 
@@ -30,13 +33,16 @@ test  = df.iloc[temp_idx].iloc[test_idx]
 
 ---
 
-## 2. 분할 결과 예시
+## 2. 분할 결과 (실측, seed=42)
 
-| 세트 | 비율 | 예상 맵 행 수 | 비고 |
-|------|------|-------------|------|
-| Train | 70% | ~56K~70K | A/B swap 증강 후 2x |
-| Val | 15% | ~12K~15K | 증강 없음 |
-| Test | 15% | ~12K~15K | 최종 평가 전용, 열람 금지 |
+| 세트 | 비율 | 맵 행 수 | 비고 |
+|------|------|---------|------|
+| Train (증강 전) | 70% | 66,485 × 0.70 ≈ 32,590 | A/B swap 적용 전 |
+| Train (증강 후) | — | **93,078** | A/B swap 2x, 클래스 50:50 균형 |
+| Val | 15% | **9,973** | 증강 없음 |
+| Test | 15% | **9,973** | 최종 평가 전용, 열람 금지 |
+
+test 세트 label 분포: mean=0.569 (imbalance_ratio=1.32, label=1이 56.9%).
 
 ---
 
@@ -140,7 +146,7 @@ def validate_splits(train, val, test):
     assert train_keys.isdisjoint(test_keys), "train-test match_key 누수"
     assert val_keys.isdisjoint(test_keys),   "val-test match_key 누수"
 
-    # 3. 피처 수 확인
+    # 3. 피처 수 확인 (FEATURE_COLS_P1=19 + FEATURE_COLS_P2=24 = 43)
     feature_cols = [c for c in train.columns if c not in ["match_key", "label"]]
     assert len(feature_cols) == 43, f"피처 수 오류: {len(feature_cols)}"
 

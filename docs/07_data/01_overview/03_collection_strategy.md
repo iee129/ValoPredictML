@@ -7,7 +7,7 @@
 ## 1. 전략 개요
 
 데이터 소스는 Kaggle 7개 데이터셋으로 확정. 외부 API·스크래핑은 방침상 미사용.
-수집은 `dataload.py`로 이미 완료(2.3GB). 다음 단계는 전처리 파이프라인 구현.
+수집은 `dataload.py`로 이미 완료(2.3GB). 전처리 파이프라인(`ml/data_pipeline.py`) 및 ML 모델 학습 완료.
 
 ---
 
@@ -18,10 +18,10 @@
 | vct_2021_2023 | `ryanluong1/valorant-champion-tour-2021-2023-data` | ✅ 완료 |
 | challengers | `ryanluong1/valorant-challengers-league-data` | ✅ 완료 |
 | qualidea | `qualidea1217/valorant-pro-matches-since-april-2021` | ✅ 완료 |
-| piyush 2024 | `piyush86kumar/valorant-champions-tour-2024-all-events` | ✅ 완료 |
-| piyush 2025 | `piyush86kumar/valorant-vct-2025-all-events` | ✅ 완료 |
+| ~~piyush 2024~~ | `piyush86kumar/valorant-champions-tour-2024-all-events` | ❌ 제거됨 (데이터셋 폴더 및 파서 삭제) |
+| ~~piyush 2025~~ | `piyush86kumar/valorant-vct-2025-all-events` | ❌ 제거됨 (데이터셋 폴더 및 파서 삭제) |
 | ediashtarevin | `ediashtarevin/vct-champions-2023-stats` | ✅ 완료 |
-| kierru | `kierru/vctpacific-2023` | ✅ 완료 |
+| kierru | `kierru/vctpacific-2023` | ❌ 제거됨 (다운로드는 완료되었으나 파이프라인에서 제거 — 리젝션율 80%, 26행만 통과) |
 
 ---
 
@@ -33,10 +33,9 @@
 parse_ryanluong("data/raw/kaggle/vct_2021_2023")
 parse_ryanluong("data/raw/kaggle/ryanluong1__valorant-challengers-league-data")
 parse_qualidea ("data/raw/kaggle/qualidea1217__*")
-parse_piyush   ("data/raw/kaggle/piyush86kumar__*2024*")
-parse_piyush   ("data/raw/kaggle/piyush86kumar__*2025*")
 parse_edia     ("data/raw/kaggle/ediashtarevin__*")
-parse_kierru   ("data/raw/kaggle/kierru__*")
+# parse_piyush("data/raw/kaggle/piyush86kumar__*")  # 제거됨 — 데이터셋 폴더 및 파서 삭제
+# parse_kierru("data/raw/kaggle/kierru__*")  # 제거됨 — 리젝션율 80%, 26행만 통과
 → 공통 스키마 행 리스트로 병합
 ```
 

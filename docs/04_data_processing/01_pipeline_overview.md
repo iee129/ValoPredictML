@@ -1,6 +1,9 @@
 # 01. 데이터 전처리 파이프라인 개요
 
-마지막 업데이트: 2026-05-04
+마지막 업데이트: 2026-05-05
+
+> **구현 완료** — `ml/data_pipeline.py` 전체 파이프라인 구현 완료.
+> 실행 결과: clean 66,485행 → train 93,078행 / val 9,973행 / test 9,973행.
 
 ## 1. 파이프라인 전체 흐름
 
@@ -9,15 +12,12 @@
   vct_2021_2023 (ryanluong, 소스 가중치 1.0)
   ryanluong1__challengers (소스 가중치 1.8)
   qualidea1217__* (소스 가중치 1.0)
-  piyush86kumar__2024 (소스 가중치 1.5)
-  piyush86kumar__2025 (소스 가중치 1.5)
   ediashtarevin__* (소스 가중치 0.9)
-  kierru__vctpacific-2023 (소스 가중치 0.9)
          |
          v
-  [Phase 1: 파싱 — 소스별 파서 5종]
-    parse_ryanluong / parse_qualidea / parse_piyush
-    parse_ediashtarevin / parse_kierru
+  [Phase 1: 파싱 — 소스별 파서 3종]
+    parse_ryanluong / parse_qualidea
+    parse_ediashtarevin
     → 공통 스키마 행 리스트 (match_key 16자, dedup_key 24자 SHA-1)
          |
          v
@@ -48,8 +48,9 @@
          |
          v
   [Phase 7: 피처 엔지니어링]
-    역할군 카운트 12 + 역할군 파생 4 + 선수 스탯 12
-    + 시너지 6 + 요원 조합 6 + 맵 3 = 43개 피처 + 1 레이블
+    FEATURE_COLS_P1(19): 역할군 카운트 8 + diff 4 + 파생 4 + 맵 3
+    FEATURE_COLS_P2(24): 선수 스탯 10 + 시너지 6 + 요원 조합 6 + kast_std 2
+    = 43개 피처 + 1 레이블
          |
          v
   [Phase 8: A/B swap 증강 — train 한정]
@@ -79,24 +80,22 @@
 | dedup | `ml/data_pipeline.py` | 소스 중복 제거 | matches_clean.csv |
 | 분할 | `ml/data_pipeline.py` | 경기 단위 그룹 분할 | train/val/test |
 | 피처 집계 | `ml/data_pipeline.py` | train 기준 통계 집계 | 집계 테이블 |
-| 피처 생성 | `ml/data_pipeline.py` | 43개 피처 생성 | features_base.csv |
-| 증강 | `ml/data_pipeline.py` | A/B swap (train 전용) | train 행 수 2× |
+| 피처 생성 | `ml/data_pipeline.py` | P1(19) + P2(24) = 43개 피처 생성 | features_base.csv |
+| 증강 | `ml/data_pipeline.py` | A/B swap (train 전용) | 66,485 → 93,078행 |
 
 ---
 
-## 3. 데이터 볼륨 목표
+## 3. 데이터 볼륨 (실측)
 
-| 소스 | 예상 행 (선수 단위) | 소스 가중치 |
-|------|-------------------|------------|
-| vct_2021_2023 | ~600K | 1.0 |
-| ryanluong challengers | ~412K | 1.8 |
-| qualidea1217 | ~250K | 1.0 |
-| piyush 2024 | ~30K | 1.5 |
-| piyush 2025 | ~15K | 1.5 |
-| ediashtarevin | ~6K | 0.9 |
-| kierru | ~5K | 0.9 |
+| 소스 | 소스 식별자 | 소스 가중치 |
+|------|------------|------------|
+| vct_2021_2023 | `kaggle_vct` | 1.0 |
+| ryanluong challengers | `kaggle_challengers` | 1.8 |
+| qualidea1217 | `kaggle_qualidea` | 1.0 |
+| ediashtarevin | `kaggle_ediashtarevin` | 0.9 |
 
-선수행 ÷ 10 → 약 130K 맵 행 → 중복 제거 후 **80~100K 맵** 예상.
+품질 게이트 + dedup 통과: **66,485 맵 행**.
+A/B swap 증강 후 train: **93,078행** / val: **9,973행** / test: **9,973행**.
 
 ---
 

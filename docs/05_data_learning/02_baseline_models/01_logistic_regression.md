@@ -395,4 +395,4 @@ def save_baseline_results(metrics: dict, filepath: str = "results/baseline_lr.js
 
 **결론**: 로지스틱 회귀는 메인 모델 후보가 아님 — baseline 하한선 설정 용도. 비선형 패턴 포착 불가로 앙상블 대비 성능 차이가 명확히 드러난다. 평가 지표: Accuracy, ROC-AUC, F1.
 
-다음 단계: `02_random_forest.md`에서 RF 베이스라인 구축 후 성능 비교.
+Random Forest 구현 완료 — `02_random_forest.md` 참조.

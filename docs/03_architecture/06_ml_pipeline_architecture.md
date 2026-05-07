@@ -9,13 +9,11 @@
 │                       데이터 수집 단계 (완료)                  │
 │                                                             │
 │  ┌──────────────────────────────────────────────────────┐  │
-│  │  Kaggle 7개 데이터셋 (kagglehub)                      │  │
+│  │  Kaggle 데이터셋 (kagglehub)                          │  │
 │  │  - vct_2021_2023          (1.2GB, ryanluong)         │  │
 │  │  - ryanluong challengers  (1.0GB, ryanluong, w=1.8)  │  │
 │  │  - qualidea1217           (~35MB, qualidea)          │  │
-│  │  - piyush 2024/2025       (~30MB, piyush, w=1.5)     │  │
 │  │  - ediashtarevin          (~6K행, 보조)               │  │
-│  │  - kierru vctpacific-2023 (~5K행, 보조)               │  │
 │  └──────────────────────────────────────────────────────┘  │
 │           ↓ python dataload.py                              │
 │      data/raw/kaggle/                                       │
@@ -23,16 +21,13 @@
                           │
                           ↓
 ┌─────────────────────────────────────────────────────────────┐
-│                   파싱 단계 (구현 예정)                        │
+│                         파싱 단계                              │
 │         [ml/parsers/*.py]                                   │
 │                                                             │
 │  parse_ryanluong("vct_2021_2023")        → 공통 스키마 행    │
 │  parse_ryanluong("ryanluong challengers") → 공통 스키마 행   │
 │  parse_qualidea ("qualidea1217__*")       → 공통 스키마 행   │
-│  parse_piyush   ("piyush__*2024*")        → 공통 스키마 행   │
-│  parse_piyush   ("piyush__*2025*")        → 공통 스키마 행   │
 │  parse_edia     ("ediashtarevin__*")      → 공통 스키마 행   │
-│  parse_kierru   ("kierru__*")             → 공통 스키마 행   │
 │                                                             │
 │  공통 스키마: source, match_key, dedup_key, date, event,    │
 │              map, team_a, team_b, players_a, players_b,     │
@@ -130,19 +125,22 @@
                           │
                           ↓
 ┌─────────────────────────────────────────────────────────────┐
-│                   모델 학습 단계 (구현 예정)                   │
+│                       모델 학습 단계                          │
 │         [ml/train_model.py]                                 │
 │                                                             │
-│  K-Fold (K=5), GroupKFold(match_key 단위)                  │
+│  GroupKFold(n=5, match_key 단위), Optuna HPO                │
 │                                                             │
 │  ┌───────────────┐ ┌───────────────┐ ┌───────────────┐    │
 │  │ Random Forest │ │   XGBoost     │ │   LightGBM    │    │
+│  │ train_rf()    │ │ train_xgb()   │ │ train_lgbm()  │    │
 │  │ (scikit-learn)│ │ Early Stopping│ │ Early Stopping│    │
 │  └───────┬───────┘ └───────┬───────┘ └───────┬───────┘    │
 │          └────────────────┬──────────────────┘             │
 │                           ↓                                 │
-│               앙상블 (확률 평균)                             │
+│        ensemble_predict_proba() — 확률 단순 평균             │
 │      final = (p_rf + p_xgb + p_lgb) / 3                    │
+│                                                             │
+│  성능: AUC=0.935, Acc=0.854, 베이스라인 대비 +29.13%p       │
 │                                                             │
 │  출력: models/rf_model.joblib                               │
 │        models/xgboost_model.joblib                          │
@@ -153,20 +151,17 @@
                           │
                           ↓
 ┌─────────────────────────────────────────────────────────────┐
-│                   평가 단계 (구현 예정)                        │
+│                         평가 단계                              │
 │         [ml/evaluate_model.py]                              │
 │                                                             │
+│  kfold_evaluate() — GroupKFold(n=5)                         │
+│  shap_analyze()  — SHAP TreeExplainer                       │
+│                                                             │
 │  평가 지표:                                                  │
-│  - Accuracy (예상: 58~65%)                                  │
-│  - ROC-AUC  (예상: 0.62~0.68)                              │
+│  - Accuracy: 0.854                                          │
+│  - ROC-AUC:  0.935                                          │
 │  - F1-Score                                                 │
 │  - Confusion Matrix                                         │
-│                                                             │
-│  피처 중요도 검증:                                           │
-│  1. RF feature_importances_ (빠른 스크리닝)                 │
-│  2. XGBoost gain/cover                                      │
-│  3. Permutation importance                                  │
-│  4. Ablation study (카테고리 단위 제거)                      │
 │                                                             │
 │  출력: reports/training_report.json                         │
 │        reports/rejected_matches.csv                         │
@@ -174,7 +169,17 @@
                           │
                           ↓
 ┌─────────────────────────────────────────────────────────────┐
-│                   서빙 단계 (구현 예정)                        │
+│                   검증 단계                                    │
+│         [ml/validate_metrics.py]                            │
+│                                                             │
+│  baseline_compare()       — 랜덤/다수결 베이스라인 대비 검증  │
+│  generalization_check()   — Train-Test 갭 과적합 진단        │
+│  shap_analysis()          — SHAP 값 일관성·방향성 검증       │
+└─────────────────────────────────────────────────────────────┘
+                          │
+                          ↓
+┌─────────────────────────────────────────────────────────────┐
+│                   서빙 단계 (Phase 5, 미구현)                  │
 │         [app/streamlit_app.py]                              │
 │                                                             │
 │  @st.cache_resource 로 모델 1회 로드                        │

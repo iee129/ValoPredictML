@@ -15,7 +15,7 @@
     ├── data/raw/kaggle/       ← Kaggle 데이터셋 (2.3GB, git 제외)
     ├── data/processed/        ← 전처리 결과물 (git 제외)
     ├── models/                ← 학습된 모델 (git 제외)
-    └── app/streamlit_app.py   ← Streamlit UI 진입점 (구현 예정)
+    └── app/streamlit_app.py   ← Streamlit UI 진입점 (미구현)
 ```
 
 ---
@@ -41,7 +41,7 @@ pip install -r requirements.txt
 python dataload.py
 ```
 
-### 2.3 전처리 파이프라인 실행 (구현 예정)
+### 2.3 전처리 파이프라인 실행 (구현 완료)
 
 ```bash
 python -m ml.data_pipeline \
@@ -56,13 +56,13 @@ python -m ml.data_pipeline \
   --reports /tmp/valo_reports
 ```
 
-### 2.4 모델 학습 (구현 예정)
+### 2.4 모델 학습 (구현 완료)
 
 ```bash
 python -m ml.train_model
 ```
 
-### 2.5 Streamlit UI 실행 (구현 예정)
+### 2.5 Streamlit UI 실행 (미구현)
 
 ```bash
 streamlit run app/streamlit_app.py

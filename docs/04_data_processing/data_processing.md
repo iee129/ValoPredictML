@@ -1,6 +1,9 @@
 # 04. 데이터 로드 및 전처리 전략
 
-마지막 업데이트: 2026-05-04
+마지막 업데이트: 2026-05-05
+
+> **구현 완료** — `ml/data_pipeline.py` 전체 파이프라인 구현 완료.
+> 실행 결과: clean 66,485행 → train 93,078행(A/B swap 증강) / val 9,973행 / test 9,973행.
 
 ## 1. 전처리 파이프라인 개요
 
@@ -27,14 +30,8 @@ DATASETS = [
      "data/raw/kaggle/ryanluong1__valorant-challengers-league-data"),
     ("qualidea1217/valorant-pro-matches-since-april-2021",
      "data/raw/kaggle/qualidea1217__valorant-pro-matches-since-april-2021"),
-    ("piyush86kumar/valorant-champions-tour-2024-all-events",
-     "data/raw/kaggle/piyush86kumar__valorant-champions-tour-2024-all-events"),
-    ("piyush86kumar/valorant-vct-2025-all-events",
-     "data/raw/kaggle/piyush86kumar__valorant-vct-2025-all-events"),
     ("ediashtarevin/vct-champions-2023-stats",
      "data/raw/kaggle/ediashtarevin__vct-champions-2023-stats"),
-    ("kierru/vctpacific-2023",
-     "data/raw/kaggle/kierru__vctpacific-2023"),
 ]
 ```
 
@@ -76,9 +73,7 @@ python dataload.py
 |------|------|----------|
 | ryanluong | vct_2021_2023, challengers | 필요 (Match Name + Map) |
 | qualidea | qualidea1217 | 불필요 |
-| piyush | piyush 2024/2025 | 불필요 |
 | ediashtarevin | ediashtarevin | 불필요 |
-| kierru | kierru | 불필요 |
 
 ---
 
@@ -136,11 +131,9 @@ def make_dedup_key(date, event, map_, team_a, team_b, agents_a, agents_b, score_
 | 소스 | 가중치 |
 |------|--------|
 | ryanluong challengers | 1.8 |
-| piyush 2024/2025 | 1.5 |
 | vct_2021_2023 | 1.0 |
 | qualidea | 1.0 |
 | ediashtarevin | 0.9 |
-| kierru | 0.9 |
 
 동일 dedup_key 중 소스 가중치가 가장 높은 행 보존. 동점 시 컬럼 수 많은 행 보존.
 
@@ -148,7 +141,7 @@ def make_dedup_key(date, event, map_, team_a, team_b, agents_a, agents_b, score_
 
 ## 7. 데이터 분할
 
-match_key 단위 GroupShuffleSplit (seed=42):
+match_key 단위 GroupShuffleSplit (seed=42) — 구현 완료:
 
 ```python
 from sklearn.model_selection import GroupShuffleSplit
@@ -255,9 +248,8 @@ def get_time_weight(date_str: str) -> float:
 
 SOURCE_WEIGHT = {
     "ryanluong_challengers": 1.8,
-    "piyush_2024": 1.5, "piyush_2025": 1.5,
     "vct_2021_2023": 1.0, "qualidea": 1.0,
-    "ediashtarevin": 0.9, "kierru": 0.9,
+    "ediashtarevin": 0.9,
 }
 
 sample_weight = get_time_weight(row["date"]) * SOURCE_WEIGHT[row["source"]]
@@ -275,10 +267,7 @@ if __name__ == "__main__":
     rows += parse_ryanluong("data/raw/kaggle/vct_2021_2023")
     rows += parse_ryanluong("data/raw/kaggle/ryanluong1__valorant-challengers-league-data")
     rows += parse_qualidea ("data/raw/kaggle/qualidea1217__valorant-pro-matches-since-april-2021")
-    rows += parse_piyush   ("data/raw/kaggle/piyush86kumar__valorant-champions-tour-2024-all-events")
-    rows += parse_piyush   ("data/raw/kaggle/piyush86kumar__valorant-vct-2025-all-events")
     rows += parse_edia     ("data/raw/kaggle/ediashtarevin__vct-champions-2023-stats")
-    rows += parse_kierru   ("data/raw/kaggle/kierru__vctpacific-2023")
 
     # 2. 정규화
     rows = [normalize_row(r) for r in rows]
@@ -317,15 +306,18 @@ if __name__ == "__main__":
 
 ## 10. 데이터 품질 검증 체크리스트
 
-| 체크 항목 | 확인 방법 | 기준 |
-|----------|----------|------|
-| 맵 행 총수 | `len(matches_clean)` | 80K~100K 예상 |
-| 클래스 균형 | `df["label"].mean()` | 0.45~0.55 |
-| 결측값 없음 | `df.isnull().sum()` | 모든 피처 0 |
-| 역할군 합계 | `a_duelist+...+a_sentinel` | 각 팀 = 5 |
-| match_key 누수 없음 | train/val/test 교집합 | 0 |
-| 피처 수 | `len(feature_cols)` | 43 |
-| 중복 dedup_key | `dedup_key.duplicated().sum()` | 0 |
+| 체크 항목 | 확인 방법 | 기준 | 실측 결과 |
+|----------|----------|------|----------|
+| 맵 행 총수 (dedup 후) | `len(matches_clean)` | — | 66,485행 |
+| train (A/B swap 증강 후) | `len(train)` | — | 93,078행 |
+| val | `len(val)` | — | 9,973행 |
+| test | `len(test)` | — | 9,973행 |
+| 클래스 균형 (test) | `df["label"].mean()` | 0.45~0.55 | 0.569 (imbalance_ratio 1.32) |
+| 결측값 없음 | `df.isnull().sum()` | 모든 피처 0 | 통과 |
+| 역할군 합계 | `a_duelist+...+a_sentinel` | 각 팀 = 5 | 통과 |
+| match_key 누수 없음 | train/val/test 교집합 | 0 | 통과 |
+| 피처 수 | `len(feature_cols)` | 43 | FEATURE_COLS_P1(19) + FEATURE_COLS_P2(24) = 43 |
+| 중복 dedup_key | `dedup_key.duplicated().sum()` | 0 | 통과 |
 
 ---
 

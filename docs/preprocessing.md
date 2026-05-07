@@ -1,7 +1,8 @@
 # 데이터 전처리 전략
 
-`data/raw/kaggle/` 7개 데이터셋 기반 전처리 파이프라인 및 피처 엔지니어링 설계 문서.  
-마지막 업데이트: 2026-05-04
+`data/raw/kaggle/` 7개 데이터셋 기반 전처리 파이프라인 및 피처 엔지니어링 문서.  
+마지막 업데이트: 2026-05-05  
+구현 상태: `ml/data_pipeline.py` 구현 완료
 
 ---
 
@@ -12,14 +13,13 @@
 | `vct_2021_2023` | ~600K | 2021~2026 | ryanluong | 1.0 |
 | `ryanluong1__valorant-challengers-league-data` | ~412K | 2023~2024 | ryanluong | **1.8** |
 | `qualidea1217__valorant-pro-matches-since-april-2021` | ~250K | 2021~현재 | qualidea | 1.0 |
-| `piyush86kumar__valorant-champions-tour-2024-all-events` | ~30K | 2024 | piyush | **1.5** |
-| `piyush86kumar__valorant-vct-2025-all-events` | ~15K | 2025 | piyush | **1.5** |
+| ~~`piyush86kumar__valorant-champions-tour-2024-all-events`~~ | ~30K | 2024 | ~~piyush~~ | ~~**1.5**~~ | (제거됨) |
+| ~~`piyush86kumar__valorant-vct-2025-all-events`~~ | ~15K | 2025 | ~~piyush~~ | ~~**1.5**~~ | (제거됨) |
 | `ediashtarevin__vct-champions-2023-stats` | ~6K | 2023 | ediashtarevin | 0.9 |
-| `kierru__vctpacific-2023` | ~5K | 2023 | kierru | 0.9 |
 
-**소스 가중치 정책**: 중복 경기가 두 소스에 존재할 때 남길 행을 결정. ryanluong challengers(1.8)가 컬럼 수가 많고 공수 분리 스탯이 있어 신뢰도 최고. piyush(1.5)는 최신 메타를 담아 두 번째. 동점 시 컬럼 수가 더 많은 소스 우선.
+**소스 가중치 정책**: 중복 경기가 두 소스에 존재할 때 남길 행을 결정. ryanluong challengers(1.8)가 컬럼 수가 많고 공수 분리 스탯이 있어 신뢰도 최고. ~~piyush(1.5)는 최신 메타를 담아 두 번째~~ (piyush 소스 제거됨). 동점 시 컬럼 수가 더 많은 소스 우선.
 
-**전처리 후 예상 맵 행수**: 선수행 ÷ 10 → 약 130K → 중복 제거 후 **80~100K 맵** 예상.
+**전처리 후 실제 맵 행수**: 품질 게이트·dedup 통과 후 **66,485 맵 행** (A/B swap 증강 전 기준).
 
 ---
 
@@ -132,10 +132,49 @@ def normalize_team(raw: str) -> str:
 
 ---
 
+### 2-4. 이벤트명 정규화 (`EVENT_NAME_ALIASES`)
+
+같은 이벤트가 소스마다 다르게 표기되면 `dedup_key` 생성 시 동일 경기가 중복 집계된다
+(팀명 정규화와 동형 리스크). `"VCT 2024 Americas League Stage 1"` vs `"VCT Americas Stage 1"` vs
+`"vct_americas_stg1"` 세 표기가 같은 이벤트지만 다른 dedup_key를 만든다.
+
+```python
+EVENT_NAME_ALIASES: dict[str, str] = {
+    "vct 2024 americas league stage 1": "VCT_2024_Americas_S1",
+    "vct americas stage 1":              "VCT_2024_Americas_S1",
+    # 파싱 중 불일치 발견 시 보완
+}
+
+def normalize_event(raw: str) -> str:
+    return EVENT_NAME_ALIASES.get(raw.strip().lower(), raw.strip())
+```
+
+`normalize_event()`는 파서 A~D 모두에서 `event` 필드 확정 직후 호출. 초기 테이블은 공란으로 시작해 파싱 실행 중 발견 즉시 보완한다.
+
+---
+
+### 2-5. 선수명 정규화 (`PLAYER_NAME_ALIASES`)
+
+동일 선수가 소스마다 다른 닉네임으로 기록되면 `agent_experience[player]` 집계 신뢰도가 떨어진다
+(`"TenZ"` / `"tenz_"` / `"TenZ (Sentinels)"` 가 각각 다른 선수로 인식됨).
+
+```python
+PLAYER_NAME_ALIASES: dict[str, str] = {
+    # 파싱 중 불일치 발견 시 채움
+}
+
+def normalize_player(raw: str) -> str:
+    return PLAYER_NAME_ALIASES.get(raw.strip().lower(), raw.strip())
+```
+
+`normalize_player()`는 파서 A~D 모두에서 `player` 필드 확정 직후 호출.
+
+---
+
 ## 3. 파서 구조
 
 ### 왜 소스마다 파서를 따로 만드는가?
-ryanluong은 선수 스탯(`overview.csv`)과 팀 점수(`maps_scores.csv`)를 파일 2개로 분리했고, qualidea는 단일 파일에 모든 정보가 있으며, piyush는 이벤트 폴더 단위 구조다. 파서를 소스별로 분리하면 각 파일 구조에 최적화된 로직을 쓸 수 있고, 이후 품질 게이트·피처 생성 단계는 소스에 무관하게 동일한 인터페이스로 처리할 수 있다.
+ryanluong은 선수 스탯(`overview.csv`)과 팀 점수(`maps_scores.csv`)를 파일 2개로 분리했고, qualidea는 단일 파일에 모든 정보가 있으며, ~~piyush는 이벤트 폴더 단위 구조였다~~ (piyush 소스 제거됨). 파서를 소스별로 분리하면 각 파일 구조에 최적화된 로직을 쓸 수 있고, 이후 품질 게이트·피처 생성 단계는 소스에 무관하게 동일한 인터페이스로 처리할 수 있다.
 
 **파서 공통 출력 스키마**:
 
@@ -210,24 +249,29 @@ team1-score, team2-score  → score_a, score_b → label
 공수 분리 컬럼 (보강 시 활용 가능): `acs-t`, `acs-ct`, `kd-t`, `kd-ct`, `adr-t`, `adr-ct`  
 **KAST 가용성**: ✅
 
+> **⚠️ 데이터 품질 (실측 2026-05-04)**: `agent` 컬럼 249,710행 중 **250행에 숫자값**
+> (0.01, 0.02 등)이 혼재. CSV 파싱 시 헤더 오프셋 오류로 추정.  
+> 파서 구현 시 `pd.to_numeric(df["agent"], errors="coerce").notna()` 행 필터링 필수.
+
 ---
 
-### 3-3. piyush 파서
+### ~~3-3. piyush 파서~~ (제거됨)
 
-**파일**: 이벤트 폴더 내 `detailed_matches_player_stats.csv` — **조인 불필요**
+~~**파일**: 이벤트 폴더 내 `detailed_matches_player_stats.csv` — **조인 불필요**~~
 
 ```
-player_name     → player
-team, agent     → team, agent
-acs, k, d, a    → acs, kills, deaths, assists
-kast, adr       → kast, adr
-hs_percent      → hs  (다른 소스의 hs%, HS%와 정규화 필요)
-fk, fd          → fk, fd
-map_winner      → 승팀 이름 → label
+# 제거됨
+# player_name     → player
+# team, agent     → team, agent
+# acs, k, d, a    → acs, kills, deaths, assists
+# kast, adr       → kast, adr
+# hs_percent      → hs  (다른 소스의 hs%, HS%와 정규화 필요)
+# fk, fd          → fk, fd
+# map_winner      → 승팀 이름 → label
 ```
 
-2024/2025 모두 `*_csvs` 하위 폴더 반복 — 파서가 재귀 탐색.  
-**KAST 가용성**: ⚠️ 일부 이벤트 결측
+~~2024/2025 모두 `*_csvs` 하위 폴더 반복 — 파서가 재귀 탐색.~~  
+~~**KAST 가용성**: ⚠️ 일부 이벤트 결측~~
 
 ---
 
@@ -237,23 +281,14 @@ map_winner      → 승팀 이름 → label
 
 ```
 match_id, game_id          → match_key 재료
-team / opponent            → team_a (win='win' 기준) / team_b
-win_lose                   → label  ('win'→1, 'lose'→0)
+team / opponent            → team_a (win_lose='team win' 기준) / team_b
+win_lose                   → label  ('team win'→1, 'opponent win'→0)
 map, player, agent         → map, player, agent
 acs, kill, death, assist   → acs, kills, deaths, assists
 kast%, adr, fk, fd         → kast, adr, fk, fd
 ```
 
 **KAST 가용성**: ✅ (`kast%`)
-
----
-
-### 3-5. kierru 파서
-
-**파일**: `csv/stats.csv` — **조인 불필요**
-
-`role_agent` 컬럼 직접 포함 → `AGENT_ROLE_MAP` 조회 없이 역할군 파싱 가능.  
-**KAST 가용성**: ❓ 구현 시 컬럼 확인 필요.
 
 ---
 
@@ -265,10 +300,9 @@ kast%, adr, fk, fd         → kast, adr, fk, fd
 parse_ryanluong("data/raw/kaggle/vct_2021_2023")
 parse_ryanluong("data/raw/kaggle/ryanluong1__*")
 parse_qualidea ("data/raw/kaggle/qualidea1217__*")
-parse_piyush   ("data/raw/kaggle/piyush86kumar__*2024*")
-parse_piyush   ("data/raw/kaggle/piyush86kumar__*2025*")
+# 제거됨: parse_piyush   ("data/raw/kaggle/piyush86kumar__*2024*")
+# 제거됨: parse_piyush   ("data/raw/kaggle/piyush86kumar__*2025*")
 parse_edia     ("data/raw/kaggle/ediashtarevin__*")
-parse_kierru   ("data/raw/kaggle/kierru__*")
 → 공통 스키마 행 리스트로 병합
 ```
 
@@ -302,6 +336,7 @@ parse_kierru   ("data/raw/kaggle/kierru__*")
 | 핵심 스탯 결측 | ACS·KD 각 선수 모두 비결측 | 핵심 선수 스탯 피처 생성 불가 |
 | 소스 비중 | 단일 소스 < 학습셋 전체의 20% | 소스 편향 방지 |
 | 승패 동점 | score_a ≠ score_b | 동점(overtime 등)은 레이블 불명확 |
+| 팀 내 요원 중복 | 팀 A·B 각각 5요원이 모두 distinct (`len(set(agents))==5`) | 발로란트 규칙 위반 → 파싱 오류 또는 통합 실수 |
 
 ---
 
@@ -362,6 +397,25 @@ test  : 2024-01 ~ 2025-현재
 
 랜덤 분할보다 Accuracy가 크게 낮으면 메타 시프트 영향이 크다는 신호 → 시간 가중치 강도 조정.
 
+#### GroupKFold — 하이퍼파라미터 탐색 단계
+
+**왜 GroupKFold가 필요한가?**  
+`GroupShuffleSplit`은 train/val/test 1회 분할에만 쓴다. 하이퍼파라미터 탐색에서 K-Fold를 사용할 때도 반드시 `match_key` 그룹을 보존해야 한다. `StratifiedKFold` 또는 기본 `KFold`는 경기 단위 분리를 보장하지 않아 같은 경기의 맵이 fold 양쪽에 나뉘어 들어갈 수 있다 — P1 블로커.
+
+```python
+from sklearn.model_selection import GroupKFold
+
+gkf = GroupKFold(n_splits=5)
+for train_idx, val_idx in gkf.split(X_train, y_train, groups=df_train["match_key"]):
+    X_fold_train = X_train.iloc[train_idx]
+    X_fold_val   = X_train.iloc[val_idx]
+    y_fold_train = y_train.iloc[train_idx]
+    y_fold_val   = y_train.iloc[val_idx]
+    # 모델 학습 및 평가
+```
+
+`StratifiedKFold` · `KFold` · 기본 `cross_val_score` **금지** — `match_key` 누수 발생.
+
 ---
 
 ## 5. 과적합 리스크 및 완화 전략
@@ -398,6 +452,16 @@ def get_time_weight(date_str: str) -> float:
 vct_2021_2023이 학습셋의 ~60%를 차지하면 북미/유럽 초기 메타를 과학습할 수 있다.  
 Phase 3 Gate "소스 비중 < 20%" → 초과 시 해당 소스 under-sampling.
 
+#### qualidea team1 레이블 편향 (실측 2026-05-04)
+
+qualidea 원본 데이터에서 **team1 승률 = 58.1%** (24,922 맵 경기 기준).  
+team1이 시드 선순위 또는 알파벳 선순위로 일관되게 명명되어 발생하는 구조적 편향이다.
+
+완화 방법:
+- **train**: A/B swap 증강 → team1/team2 역할 교환으로 50:50 보정 (§8 참조)
+- **val/test**: swap 없이 자연 분포 유지 → **ROC-AUC를 주 평가지표**로 사용
+- Accuracy는 보조 지표 — 58:42 분포에서 단순 다수결 예측도 58% 달성 가능
+
 ---
 
 ### 5-4. 팀명 표기 불일치 (dedup 누락 위험)
@@ -417,13 +481,12 @@ Phase 3 Gate "소스 비중 < 20%" → 초과 시 해당 소스 under-sampling.
 | vct_2021_2023 | ✅ |
 | ryanluong challengers | ✅ |
 | qualidea | ✅ |
-| piyush 2024/2025 | ⚠️ 일부 이벤트 결측 |
+| ~~piyush 2024/2025~~ | ~~⚠️ 일부 이벤트 결측~~ | (제거됨) |
 | ediashtarevin | ✅ |
-| kierru | ❓ 확인 필요 |
 
 **처리 원칙**:
-1. **행 레벨 결측** (특정 선수만): 동일 경기 팀 평균으로 imputation.
-2. **이벤트 전체 결측** (piyush 일부): `a_avg_kast`/`b_avg_kast`를 `-1` 플래그로 채워 모델이 "KAST 없음" 패턴 학습 가능하게 함.
+1. **행 레벨 결측** (특정 선수만): **동일 경기·동일 팀 내 나머지 4명 평균**으로 imputation (팀 간 교차 사용 금지).
+2. **이벤트 전체 결측** (~~piyush 일부~~ — piyush 소스 제거됨): `a_avg_kast`/`b_avg_kast`를 `-1` 플래그로 채워 모델이 "KAST 없음" 패턴 학습 가능하게 함.
 3. **피처 제외 기준**: KAST 결측 행이 전체 학습셋의 20% 초과 시 해당 피처 제외 후 재실험.
 
 ---
@@ -436,11 +499,13 @@ Phase 3 Gate "소스 비중 < 20%" → 초과 시 해당 소스 under-sampling.
 |----------|---------|------|
 | 역할군 카운트 | 12 | 요원 → AGENT_ROLE_MAP |
 | 역할군 파생 | 4 | 역할군 카운트 → boolean |
-| 선수 스탯 | 12 | overview.csv / player_stats.csv |
-| 시너지 | 6 | 선수 스탯 집계 |
+| 선수 스탯 | 8 | overview.csv / player_stats.csv (FEATURE_COLS_P1) |
+| 시너지·추가 스탯 | 6 | 선수 스탯 집계 (FEATURE_COLS_P1 포함) |
 | 요원 조합 | 6 | 요원+맵 통계, 경기 이력 집계 |
 | 맵 | 3 | MAP_TO_INDEX, 공수 기록 |
-| **합계** | **43 + 1 레이블** | |
+| **합계** | **FEATURE_COLS_P1 19개 + FEATURE_COLS_P2 14개 = 33개** | |
+
+> **구현 기준**: `ml/data_pipeline.py`는 `FEATURE_COLS_P1` (19개)과 `FEATURE_COLS_P2` (14개) 두 세트로 피처를 정의. 소스에 따라 P1 전용 또는 P1+P2 전체를 사용.
 
 ---
 
@@ -534,7 +599,7 @@ Duelist 2명 이상 조합은 교전력 극대화 vs 유틸 부족이라는 특�
 - **fk_fd_ratio**: 먼저 잡은 팀이 5v4 수적 우위를 만든다. 이 비율이 높으면 진입 전략과 스킬 연계가 잘 작동한다는 신호.
 - **avg_assists**: 어시스트가 많을수록 선수들이 스킬을 팀에 맞춰 쓴다는 뜻 — 역할군 조합이 실제로 "맞물리고 있는가"의 지표.
 - **KAST 표준편차**: 평균 KAST가 같아도 팀원 한 명의 KAST가 현저히 낮으면 상대가 그 선수를 집중 공략한다. 표준편차가 낮을수록 균형 잡힌 팀, 높을수록 특정 선수에 의존하는 팀. "약한 고리" 유무를 포착하는 지표다.
-- **Team_Shared_Exp**: 같은 팀으로 오래 뛴 선수들은 서로 움직임을 예측하고 더 잘 협력한다. **`visualize25` 데이터셋 보류로 현재 미구현 — 이후 재검토.**
+- **Team_Shared_Exp**: 같은 팀으로 오래 뛴 선수들은 서로 움직임을 예측하고 더 잘 협력한다. **`visualize25` 데이터셋 보류로 제외됨 — 추후 재검토.**
 
 | 피처명 | 계산식 | 소스 |
 |--------|--------|------|
@@ -641,8 +706,8 @@ agent_map_stats[agent][map] = {
 레이블 (1):  label
 ```
 
-**총 43개 피처 + 1개 레이블**  
-Team_Shared_Exp(시너지, 동반 출전 횟수)는 visualize25 데이터셋 보류로 미구현 — 추가 시 44개.
+**구현 기준 33개 피처 + 1개 레이블** (FEATURE_COLS_P1 19개 + FEATURE_COLS_P2 14개)  
+Team_Shared_Exp(시너지, 동반 출전 횟수)는 visualize25 데이터셋 보류로 제외 — 추가 시 34개.
 
 ---
 
@@ -658,6 +723,9 @@ swap: team_a=FNC, team_b=T1, label=0  ← train에만 추가
 
 val/test 미적용 — 평가는 실제 경기 그대로의 행만 사용.  
 `--no-augment-train` 플래그로 비활성화 가능.
+
+**실제 결과**: 원본 66,485행 → swap 증강 후 train **93,078행** (2배 확장).  
+val.csv와 test.csv는 각각 **9,973행** (자연 분포 유지, imbalance_ratio ≈ 1.32).
 
 ---
 
@@ -769,9 +837,9 @@ key_player = max(contribution, key=contribution.get)
 |------|------|
 | `data/processed/matches_clean.csv` | 품질 게이트·dedup 통과한 맵 행 전체 |
 | `data/processed/features_base.csv` | 피처 테이블 (레이블 포함) |
-| `data/processed/train.csv` | 학습셋 (A/B swap 증강 포함) |
-| `data/processed/val.csv` | 검증셋 |
-| `data/processed/test.csv` | 테스트셋 (최종 평가 전용) |
+| `data/processed/train.csv` | 학습셋 — A/B swap 증강 포함 **93,078행** |
+| `data/processed/val.csv` | 검증셋 — **9,973행** (자연 분포) |
+| `data/processed/test.csv` | 테스트셋 — **9,973행** (최종 평가 전용, imbalance_ratio ≈ 1.32) |
 | `reports/preprocess_summary.json` | 소스별 행수·제거율·최종 분포 등 실행 통계 |
 | `reports/rejected_matches.csv` | 품질 게이트 탈락 행 및 탈락 사유 |
 
@@ -804,9 +872,8 @@ ml/
   parsers/
     ryanluong.py       # vct_2021_2023 + challengers
     qualidea.py
-    piyush.py          # 2024/2025
+    # 제거됨: piyush.py          # 2024/2025
     ediashtarevin.py
-    kierru.py
 ```
 
 ---
@@ -815,14 +882,14 @@ ml/
 
 | 지표 | 범위 | 조건 |
 |------|------|------|
-| Accuracy (랜덤 분할) | 58~65% | 43개 피처, 80K 맵 행 |
+| Accuracy (랜덤 분할) | 58~65% | 33개 피처, train 93,078행 |
 | Accuracy (시간 분할) | 55~62% | 메타 시프트 반영 |
 | ROC-AUC | 0.62~0.68 | RF/XGB/LGB 앙상블 |
 
 **구조적 한계**:
 - 프리매치 예측이므로 인게임 실력 발현(컨디션, 순간 판단)을 피처로 잡을 수 없음
 - **선수 이적 후 스탯 구식화**: 이적 이전 팀 소속 스탯이 이적 후에도 같은 선수 이름으로 연결됨 → 시간 가중치(2024+ 1.2)로 구식 스탯 영향을 줄이고, Streamlit UI에서 사용자가 최신 스탯 직접 입력 가능. 이적 날짜를 데이터에서 추적하는 것은 불가능하므로 이 한계는 명시적으로 고지한다.
-- Team_Shared_Exp 미구현 (visualize25 보류) → 팀 시너지 일부 손실
+- Team_Shared_Exp 제외됨 (visualize25 데이터셋 보류) → 팀 시너지 일부 손실
 - KAST 결측 행이 많으면 KAST 피처 제외 필요
 
 ---
@@ -832,8 +899,7 @@ ml/
 | 항목 | 내용 |
 |------|------|
 | vct_2021_2023 하위 폴더 | `vct_2021/`~`vct_2026/` 재귀 탐색, `all_ids/` 건너뜀 |
-| piyush 이벤트 폴더 | `*_csvs` 패턴 재귀, 중복 이벤트는 dedup_key로 자동 처리 |
-| kierru role_agent | AGENT_ROLE_MAP 없이 역할군 파싱 가능 — 이름 정규화 확인 필요 |
+| ~~piyush 이벤트 폴더~~ | ~~`*_csvs` 패턴 재귀, 중복 이벤트는 dedup_key로 자동 처리~~ | (제거됨) |
 | 팀명 정규화 | `normalize_team()` 미적용 시 동일 팀이 다른 팀으로 처리돼 dedup 누락 — `TEAM_NAME_ALIASES` 지속 보완 필요 (섹션 2-3) |
 | HS% 컬럼명 | 소스마다 `hs` / `hs_percent` / `HS%`로 달라 파서 내 정규화 필수 |
 | 데이터 불균형 | 승/패 비율 집계 후 불균형 시 `class_weight='balanced'` 적용 |

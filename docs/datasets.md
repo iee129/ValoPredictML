@@ -14,7 +14,6 @@ ValoPredictML에서 사용하는 7개 Kaggle 데이터셋의 내용, 프로젝�
 | 등급 | 설명 | 수 |
 |------|------|----|
 | **핵심** | 대용량 다년도 학습 소스 — 선수 스탯 + 팀 점수 + 승패 레이블 보유 | 3개 |
-| **piyush 계열** | 2024~2025 최신 이벤트 상세 스탯 | 2개 |
 | **보조** | 특정 대회·지역 보강, 교차 검증용 | 2개 |
 
 ---
@@ -122,48 +121,9 @@ ValoPredictML에서 사용하는 7개 Kaggle 데이터셋의 내용, 프로젝�
 
 ---
 
-## 3. piyush86kumar 계열
+## 3. ~~piyush86kumar 계열~~ (제거됨)
 
-2024~2025 VCT 이벤트 상세 선수 스탯. `vct-2025-all-events`가 개별 2025 이벤트(Kickoff/Stage/Masters/Champions)를 모두 포함하는 상위 집합.
-
----
-
-### 3.1 `piyush86kumar__valorant-champions-tour-2024-all-events` — VCT 2024 전체
-
-| 항목 | 내용 |
-|------|------|
-| Kaggle ID | `piyush86kumar/valorant-champions-tour-2024-all-events` |
-| 용량 | ~15MB |
-| 구조 | Americas/China/EMEA/Pacific 지역별 × 이벤트별 하위 폴더 |
-| 핵심 파일 | `detailed_matches_player_stats.csv`, `detailed_matches_maps.csv` |
-
-**`detailed_matches_player_stats.csv` — 행 단위**: 선수 1명 × 맵 1개.
-
-| 컬럼 | 설명 |
-|------|------|
-| `match_id` / `event_name` / `match_date` | 경기 식별 정보 |
-| `team1` / `team2` / `player_name` / `player_team` / `agent` | 선수·팀·요원 |
-| `acs` / `k` / `d` / `a` / `kast` / `adr` / `hs_percent` / `fk` / `fd` | 스탯 컬럼 |
-| `map_name` | 맵 이름 |
-| `map_winner` | **이 맵의 승팀** — 레이블 소스 (조인 불필요) |
-
-**왜 필요한가?** 2024 VCT 전체 시즌을 4개 지역별로 커버. 지역별 상이한 조합 스타일이 담겨 모델의 일반화 성능을 높인다.
-
-**파이프라인 역할**: piyush 파서 대상, 소스 가중치 1.5
-
----
-
-### 3.2 `piyush86kumar__valorant-vct-2025-all-events` — VCT 2025 전체
-
-| 항목 | 내용 |
-|------|------|
-| Kaggle ID | `piyush86kumar/valorant-vct-2025-all-events` |
-| 구조 | Kickoff/Stage1/Stage2/Masters Bangkok/Masters Toronto/Champions 통합 |
-| 핵심 파일 | `3.1`과 동일 스키마 (`detailed_matches_player_stats.csv`, `detailed_matches_maps.csv`) |
-
-**왜 필요한가?** 2025 전체 시즌을 단일 데이터셋으로 통합 제공. 개별 이벤트 데이터셋들의 합집합으로 `event_name` 컬럼으로 특정 이벤트 필터링 가능. 현재 메타(2025)를 반영하는 가장 최신 소스.
-
-**파이프라인 역할**: piyush 파서 대상, 2025 최신 메타 소스
+> ❌ **파이프라인에서 제거됨**: `piyush86kumar__valorant-champions-tour-2024-all-events` 및 `piyush86kumar__valorant-vct-2025-all-events` 데이터셋 폴더와 `ml/parsers/piyush.py` 파서가 삭제됨.
 
 ---
 
@@ -194,6 +154,8 @@ ValoPredictML에서 사용하는 7개 Kaggle 데이터셋의 내용, 프로젝�
 
 ### 4.2 `kierru__vctpacific-2023` — VCT Pacific 2023
 
+> ❌ **현재 파이프라인에서 제거됨**: 리젝션율 80%, 26행만 통과
+
 | 항목 | 내용 |
 |------|------|
 | Kaggle ID | `kierru/vctpacific-2023` |
@@ -211,7 +173,7 @@ ValoPredictML에서 사용하는 7개 Kaggle 데이터셋의 내용, 프로젝�
 
 **왜 필요한가?** 한국·일본 등 Pacific 지역 특유의 빠른 템포와 Initiator 중심 조합을 포함. `role_agent` 컬럼이 직접 있어 역할군 파싱 로직 간소화 가능.
 
-**파이프라인 역할**: Pacific 지역 메타 보강, role_agent 직접 활용
+**파이프라인 역할**: ~~Pacific 지역 메타 보강, role_agent 직접 활용~~ → 제거됨 (리젝션율 80%, 26행만 통과)
 
 ---
 
@@ -220,11 +182,11 @@ ValoPredictML에서 사용하는 7개 Kaggle 데이터셋의 내용, 프로젝�
 | 파이프라인 단계 | 사용 데이터셋 |
 |----------------|-------------|
 | **파서 — ryanluong** | `vct_2021_2023`, `ryanluong1__valorant-challengers-league-data` |
-| **파서 — piyush** | `piyush86kumar__valorant-champions-tour-2024-all-events`, `piyush86kumar__valorant-vct-2025-all-events` |
+| **~~파서 — piyush~~** | ~~`piyush86kumar__valorant-champions-tour-2024-all-events`, `piyush86kumar__valorant-vct-2025-all-events`~~ (제거됨) |
 | **파서 — qualidea** | `qualidea1217__valorant-pro-matches-since-april-2021` |
-| **보조 스탯 보강** | `ediashtarevin__vct-champions-2023-stats`, `kierru__vctpacific-2023` |
+| **보조 스탯 보강** | `ediashtarevin__vct-champions-2023-stats`, ~~`kierru__vctpacific-2023`~~ (제거됨) |
 | **atk_side_advantage 집계** | `ryanluong1__challengers` (`maps_scores.csv`) |
-| **role_agent 직접 추출** | `kierru__vctpacific-2023` (`role_agent` 컬럼) |
+| **role_agent 직접 추출** | ~~`kierru__vctpacific-2023`~~ (제거됨 — 리젝션율 80%로 파이프라인에서 제외) |
 | **공수 분리 스탯** | `qualidea1217__*` (`acs-t`, `acs-ct`, `kd-t`, `kd-ct`) |
 
 ---
@@ -236,7 +198,7 @@ ValoPredictML에서 사용하는 7개 Kaggle 데이터셋의 내용, 프로젝�
 | `vct_2021_2023` | ★★★★★ | 6년치 T1 프로 경기 1.2GB, 핵심 학습 소스 |
 | `ryanluong1__challengers` | ★★★★★ | T2 대용량 1.0GB, 공수 점수 분리, 소스 가중치 최고 |
 | `qualidea1217__*` | ★★★★★ | 249K행, 공수 분리 스탯 유일 소스, 조인 불필요 |
-| `piyush86kumar__2024` | ★★★★☆ | 2024 VCT 전 지역, 최신 메타, 레이블 포함 |
-| `piyush86kumar__2025` | ★★★★☆ | 2025 전체 시즌 통합, 현재 메타 |
+| `piyush86kumar__2024` | ❌ 제거됨 | 데이터셋 폴더 및 파서 제거됨 |
+| `piyush86kumar__2025` | ❌ 제거됨 | 데이터셋 폴더 및 파서 제거됨 |
 | `ediashtarevin__*` | ★★★☆☆ | 2023 Champions 특화, 교차 검증용 |
-| `kierru__vctpacific-2023` | ★★★☆☆ | Pacific 지역 보강, role_agent 직접 제공 |
+| `kierru__vctpacific-2023` | ❌ 제거됨 | Pacific 지역 보강 목적이었으나 리젝션율 80%, 26행만 통과 — 파이프라인에서 제거됨 |

@@ -26,10 +26,10 @@
 | `vct_2021_2023` | 6년치 T1 프로 경기, 1.2GB 대용량 |
 | `challengers` | T2 대용량, 공수 분리 스탯, 가중치 최고(1.8) |
 | `qualidea` | 249K행, 공수 분리 스탯 유일, 조인 불필요 |
-| `piyush 2024` | 2024 VCT 전 지역, 최신 메타, 레이블 직접 포함 |
-| `piyush 2025` | 2025 전체 시즌, 현재 메타(Tejo·Waylay·Drift) |
+| ~~`piyush 2024`~~ | ~~2024 VCT 전 지역, 최신 메타, 레이블 직접 포함~~ | (제거됨) |
+| ~~`piyush 2025`~~ | ~~2025 전체 시즌, 현재 메타(Tejo·Waylay·Drift)~~ | (제거됨) |
 | `ediashtarevin` | 2023 Champions 특화, 교차 검증 용도 |
-| `kierru` | Pacific 지역 보강, `role_agent` 컬럼 직접 제공 |
+| `kierru` | Pacific 지역 보강, `role_agent` 컬럼 직접 제공 → 결국 제거됨 (리젝션율 80%, 26행만 통과) |
 
 ---
 

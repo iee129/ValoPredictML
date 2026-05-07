@@ -1,6 +1,6 @@
 # 02. 기술 스택 상세
 
-마지막 업데이트: 2026-05-04
+마지막 업데이트: 2026-05-05
 
 ## 1. 전체 스택 한눈에 보기
 
@@ -91,7 +91,7 @@ LightGBM 예측 → 팀 A 승률 0.65
 - **역할:** 로컬 분석 UI
 - **선택 이유:** Python만으로 대화형 웹 UI 구현 가능 — 별도 프론트엔드 불필요
 - **시각화:** Streamlit 컴포넌트 + Plotly (후보)
-- **진입점:** `app/streamlit_app.py` (구현 예정)
+- **진입점:** `app/streamlit_app.py` (미구현)
 
 ### 2.10 PostgreSQL + SQLAlchemy (후보, 미구현)
 
@@ -102,7 +102,18 @@ LightGBM 예측 → 팀 A 승률 0.65
 - **연결:** SQLAlchemy + psycopg2 (`postgresql+psycopg2://`)
 - **테이블:** `predictions` (예측 기록)
 
-### 2.11 joblib
+### 2.11 SHAP
+
+- **역할:** 피처별 예측 기여도 계산 (TreeExplainer 사용)
+- **사용처:** `ml/evaluate_model.py` — 앙상블 모델 SHAP 값 산출 및 시각화
+
+### 2.12 Optuna
+
+- **역할:** 하이퍼파라미터 자동 최적화 (HPO)
+- **사용처:** `ml/train_model.py` — RF/XGBoost/LightGBM 각 모델의 파라미터 탐색
+- **방식:** Optuna Study (`direction="maximize"`, ROC-AUC 최적화)
+
+### 2.13 joblib
 
 - **역할:** 학습된 모델 직렬화/역직렬화
 - **사용법:**
@@ -128,7 +139,7 @@ LightGBM 예측 → 팀 A 승률 0.65
 
 ### 3.1 Python (`requirements.txt`) — 현재
 
-현재 `requirements.txt`는 데이터 수집 및 전처리 레이어용입니다.
+현재 `requirements.txt`는 데이터 수집·전처리·ML 학습 레이어용입니다.
 
 ```
 # 데이터 수집
@@ -136,13 +147,16 @@ kagglehub
 pandas>=2.0.0
 numpy>=1.26.0
 
-# 추후 추가 예정 (전처리·학습 레이어)
-# scikit-learn>=1.5.0
-# xgboost>=2.0.0
-# lightgbm>=4.0.0
+# ML 파이프라인 (현재 사용 중)
+scikit-learn>=1.5.0
+xgboost>=2.0.0
+lightgbm>=4.0.0
+shap
+optuna
+joblib>=1.3.0
+
+# 추후 추가 예정 (UI·DB 레이어)
 # streamlit
-# shap
-# joblib>=1.3.0
 # sqlalchemy>=2.0.0
 # psycopg2-binary>=2.9.0
 ```
@@ -158,7 +172,6 @@ numpy>=1.26.0
 | Vercel / 클라우드 배포 | 로컬 실행 도구 — 배포 없음 |
 | HenrikDev API | 외부 API 미사용 — Kaggle 데이터셋만 사용 |
 | PyTorch / TensorFlow | 딥러닝 금지 — Tree-based ML만 사용 |
-| Optuna | 현재 계획에 없음 (필요 시 추가 가능) |
 
 ---
 

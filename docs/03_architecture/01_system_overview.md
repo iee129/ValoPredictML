@@ -84,7 +84,7 @@ ValoPredictML은 **ML 파이프라인 → Streamlit 로컬 UI** 의 단순 2계�
 | 모델 저장 | joblib | 최신 | 직렬화 |
 | DB | PostgreSQL + SQLAlchemy | 후보 | 예측 기록 (미구현) |
 
-**범위 외**: FastAPI, uvicorn, Next.js, React, Tailwind, Recharts, Vercel, Optuna, HenrikDev API
+**범위 외**: FastAPI, uvicorn, Next.js, React, Tailwind, Recharts, Vercel, HenrikDev API
 
 ---
 
@@ -92,15 +92,17 @@ ValoPredictML은 **ML 파이프라인 → Streamlit 로컬 UI** 의 단순 2계�
 
 ```
 [Kaggle 데이터셋 7개] (data/raw/kaggle/, 2.3GB)
-        ↓ ml/data_pipeline.py (구현 예정)
-  파싱 → 정규화 → 품질 게이트 → dedup → 분할
+        ↓ ml/data_pipeline.py
+  파싱 → 정규화 → 품질 게이트 → dedup → 분할 → A/B swap 증강
         ↓
   data/processed/train.csv, val.csv, test.csv
-        ↓ ml/train_model.py (구현 예정)
-  RF + XGBoost + LightGBM 학습 (K-Fold K=5)
+        ↓ ml/train_model.py
+  RF + XGBoost + LightGBM 학습 (GroupKFold n=5, Optuna HPO)
+        ↓ ml/evaluate_model.py / ml/validate_metrics.py
+  AUC=0.935, Acc=0.854, 베이스라인 대비 +29.13%p
         ↓
   models/*.joblib
-        ↓ app/streamlit_app.py (구현 예정)
+        ↓ app/streamlit_app.py (Phase 5, 미구현)
   사용자 입력 → 피처 빌드 → 앙상블 예측 → 승률 출력
         ↓ (후보)
   PostgreSQL predictions 테이블
@@ -113,9 +115,11 @@ ValoPredictML은 **ML 파이프라인 → Streamlit 로컬 UI** 의 단순 2계�
 | 컴포넌트 | 상태 |
 |----------|------|
 | 데이터 수집 (`dataload.py`) | 완료 |
-| 전처리 파이프라인 (`ml/data_pipeline.py`) | 미구현 |
-| 모델 학습 (`ml/train_model.py`) | 미구현 |
-| Streamlit UI (`app/streamlit_app.py`) | 미구현 |
+| 전처리 파이프라인 (`ml/data_pipeline.py`) | 완료 |
+| 모델 학습 (`ml/train_model.py`) | 완료 (AUC=0.935, Acc=0.854) |
+| 모델 평가 (`ml/evaluate_model.py`) | 완료 |
+| 메트릭 검증 (`ml/validate_metrics.py`) | 완료 |
+| Streamlit UI (`app/streamlit_app.py`) | 미구현 (Phase 5) |
 | PostgreSQL 예측 기록 | 미구현 (후보) |
 
 ---

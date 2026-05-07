@@ -6,20 +6,18 @@
 
 ```
 ml/
-├── agent_roles.py          # 요원→역할군 매핑, 맵 목록, 정규화 함수
-├── data_pipeline.py        # 전처리 파이프라인 진입점
+├── __init__.py
+├── agent_roles.py          # AGENT_ROLE_MAP(27개 요원), MAP_ORDER(12개 맵), 정규화 함수
+├── data_pipeline.py        # 전처리 파이프라인 진입점 (augment_swap, build_features, quality_gate)
 ├── parsers/
 │   ├── __init__.py
 │   ├── ryanluong.py        # vct_2021_2023 + challengers 파서
 │   ├── qualidea.py         # qualidea1217 파서
-│   ├── piyush.py           # piyush86kumar 2024/2025 파서
-│   ├── ediashtarevin.py    # ediashtarevin 파서
-│   └── kierru.py           # kierru 파서
-├── train_model.py          # RF + XGBoost + LightGBM 학습
-└── evaluate_model.py       # 성능 평가 (Accuracy, ROC-AUC, F1)
+│   └── ediashtarevin.py    # ediashtarevin 파서
+├── train_model.py          # train_rf(), train_xgb(), train_lgbm(), ensemble_predict_proba(), Optuna HPO
+├── evaluate_model.py       # kfold_evaluate(), shap_analyze(), GroupKFold(n=5)
+└── validate_metrics.py     # baseline_compare(), generalization_check(), shap_analysis()
 ```
-
-> `ml/` 폴더는 현재 미존재. Phase 2 진입 시 생성.
 
 ---
 
@@ -29,7 +27,7 @@ ml/
 # Step 1: 데이터 다운로드 (구현 완료)
 python dataload.py
 
-# Step 2: 전처리 파이프라인 (구현 예정)
+# Step 2: 전처리 파이프라인
 python -m ml.data_pipeline \
   --input data/raw/kaggle \
   --output data/processed \
@@ -44,10 +42,10 @@ python -m ml.data_pipeline \
 # A/B swap 증강 비활성화
 python -m ml.data_pipeline ... --no-augment-train
 
-# Step 3: 모델 학습 (구현 예정)
+# Step 3: 모델 학습
 python -m ml.train_model
 
-# Step 4: 성능 평가 (구현 예정)
+# Step 4: 성능 평가
 python -m ml.evaluate_model
 ```
 
@@ -127,18 +125,7 @@ def normalize_team(raw: str) -> str: ...
 
 ---
 
-### 3.5 `ml/parsers/piyush.py` — piyush 파서
-
-**대상 소스:** `piyush86kumar__*2024*`, `piyush86kumar__*2025*`
-
-- 이벤트 폴더 내 `detailed_matches_player_stats.csv` — 조인 불필요
-- `*_csvs` 하위 폴더 재귀 탐색
-- `map_winner` 컬럼에서 직접 레이블 추출
-- KAST 일부 이벤트 결측
-
----
-
-### 3.6 `ml/parsers/ediashtarevin.py` — ediashtarevin 파서
+### 3.5 `ml/parsers/ediashtarevin.py` — ediashtarevin 파서
 
 **대상 소스:** `ediashtarevin__vct-champions-2023-stats`
 
@@ -147,27 +134,18 @@ def normalize_team(raw: str) -> str: ...
 
 ---
 
-### 3.7 `ml/parsers/kierru.py` — kierru 파서
-
-**대상 소스:** `kierru__vctpacific-2023`
-
-- `csv/stats.csv` — 조인 불필요
-- `role_agent` 컬럼 직접 포함 → AGENT_ROLE_MAP 조회 없이 역할군 파싱 가능
-
----
-
-### 3.8 `ml/train_model.py` — 모델 학습
+### 3.7 `ml/train_model.py` — 모델 학습
 
 **입력:** `data/processed/train.csv`, `val.csv`
 **출력:** `models/rf_model.joblib`, `models/xgboost_model.joblib`, `models/lgbm_model.joblib`, `models/model_metadata.json`
 
-```python
-import joblib
-from sklearn.ensemble import RandomForestClassifier
-import xgboost as xgb
-import lightgbm as lgb
-from sklearn.model_selection import GroupKFold
+**주요 함수:**
+- `train_rf(X_train, y_train, groups)` — RandomForestClassifier, GroupKFold(n=5)
+- `train_xgb(X_train, y_train, groups)` — XGBClassifier, Early Stopping, Optuna HPO
+- `train_lgbm(X_train, y_train, groups)` — LGBMClassifier, Early Stopping, Optuna HPO
+- `ensemble_predict_proba(rf, xgb, lgb, X)` — 세 모델 예측 확률 단순 평균
 
+```python
 FEATURE_COLS = [
     # 역할군 카운트 (12)
     "a_duelist", "a_initiator", "a_controller", "a_sentinel",
@@ -191,10 +169,9 @@ FEATURE_COLS = [
     # 맵 (3)
     "map_encoded", "atk_side_advantage", "is_attacker_a",
 ]
-
-# K-Fold (K=5), match_key 단위 GroupKFold
-# 앙상블: RF + XGBoost + LightGBM 예측 확률 평균
 ```
+
+**성능 결과:** Ensemble AUC=0.935, Acc=0.854, 랜덤 베이스라인 대비 +29.13%p
 
 ---
 
@@ -203,12 +180,28 @@ FEATURE_COLS = [
 **입력:** `models/*.joblib`, `data/processed/test.csv`
 **출력:** 터미널 리포트 + `reports/training_report.json`
 
+**주요 함수:**
+- `kfold_evaluate(model, X, y, groups)` — GroupKFold(n=5) 교차 검증, AUC/Acc/F1 집계
+- `shap_analyze(model, X)` — SHAP TreeExplainer로 피처 기여도 산출
+
 **출력 내용:**
 - Accuracy, F1-Score, ROC-AUC
 - Confusion Matrix
 - Train-Val 갭 (과적합 여부)
 - 피처 중요도 상위 10개
-- SHAP 분석 (구현 시)
+- SHAP TreeExplainer 분석 결과
+
+---
+
+### 3.10 `ml/validate_metrics.py` — 메트릭 검증
+
+**입력:** `models/*.joblib`, `data/processed/test.csv`
+**출력:** 터미널 검증 리포트
+
+**주요 함수:**
+- `baseline_compare(model, X_test, y_test)` — 랜덤/다수결 베이스라인 대비 성능 차이 확인
+- `generalization_check(model, X_train, X_test, y_train, y_test)` — Train-Test 갭 과적합 진단
+- `shap_analysis(model, X_test)` — SHAP 값 일관성 및 방향성 검증
 
 ---
 

@@ -1,6 +1,6 @@
 # 01. 프로젝트 소개 및 핵심 아이디어
 
-마지막 업데이트: 2026-05-04
+마지막 업데이트: 2026-05-05
 
 ## 1. ValoPredictML이란?
 
@@ -14,7 +14,7 @@
 |------|------|
 | 제품 형태 | Streamlit 기반 로컬 분석 도구 |
 | 핵심 흐름 | 조합 입력 → 승률 예측 → 영향 피처 확인 → 교체 시뮬레이션 |
-| 현재 구현 | 데이터 수집 완료 (`data/raw/kaggle/`, 2.3GB), 다음 단계: 전처리 (`ml/`) |
+| 현재 구현 | 데이터 수집 + ML 파이프라인 완료 (`ml/agent_roles.py`, `ml/data_pipeline.py`, `ml/train_model.py`, `ml/evaluate_model.py`, `ml/validate_metrics.py`), 미구현: Streamlit UI (`app/`) |
 | 제외 | FastAPI, React/Next.js, 클라우드 배포, 외부 API — 사용 안 함 |
 
 ---
@@ -97,7 +97,7 @@ Valorant는 27종 이상의 요원(캐릭터) 중 각 플레이어가 1명씩 �
 | 선택 입력 | 선수 정보 (ACS, K/D/A, KAST, ADR, 클러치율) |
 | 시스템 생성 | 역할군 카운트/차이, map_encoded, Controller 여부, 팀 시너지 피처 |
 
-### 출력 (구현 예정)
+### 출력 (Streamlit UI 구현 시 제공)
 
 | 출력 | 설명 |
 |------|------|
@@ -111,14 +111,14 @@ Valorant는 27종 이상의 요원(캐릭터) 중 각 플레이어가 1명씩 �
 
 ---
 
-## 5. 성능 목표
+## 5. 성능 결과
 
-| 지표 | 예상 범위 | 검증 방법 |
+| 지표 | 실제 성능 | 검증 방법 |
 |------|-----------|----------|
-| Accuracy | 58~65% | K-Fold (K=5) 교차 검증 |
-| ROC-AUC | 0.62~0.68 | RF/XGB/LGB 앙상블 |
-| F1-Score | — | K-Fold 평균 |
-| Train-Val 갭 | — | 과적합 기준 모니터링 |
+| Accuracy | 0.854 | GroupKFold (K=5) 교차 검증 |
+| ROC-AUC | 0.935 | RF/XGB/LGB 앙상블 |
+| F1-Score | 0.851 | K-Fold 평균 |
+| Baseline 대비 개선 | +29.13%p | `ml/validate_metrics.py` 검증 |
 
 ### 개발 원칙
 

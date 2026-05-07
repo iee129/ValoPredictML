@@ -1,8 +1,4 @@
 # Python 3.14.4
-# Current scope: dataset download, collection, raw-data inspection, and preprocessing.
-# Model training/UI/DB dependencies are intentionally not included yet.
-# Add streamlit, scikit-learn, xgboost, lightgbm, shap, sqlalchemy,
-# psycopg2-binary, and joblib when those implementation files exist.
 
 # Kaggle datasets and CLI fallback
 kagglehub>=1.0.0
@@ -26,3 +22,18 @@ liquipediapy
 # CSV loading and dataset sanity checks
 numpy>=2.2.0
 pandas>=2.3.0
+
+# ML pipeline
+scikit-learn>=1.6.0
+xgboost>=2.1.0
+lightgbm>=4.5.0
+shap>=0.46.0
+joblib>=1.4.0
+optuna>=3.0.0
+
+# Streamlit UI
+streamlit>=1.35.0
+
+# Database
+sqlalchemy>=2.0.0
+psycopg2-binary>=2.9.0

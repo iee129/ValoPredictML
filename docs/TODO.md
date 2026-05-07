@@ -1,6 +1,6 @@
 # TODO 리스트
 
-> 마지막 업데이트: 2026-05-03  
+> 마지막 업데이트: 2026-05-05  
 > 현재 브랜치: `iee`
 
 ---
@@ -16,60 +16,24 @@
   - [x] `docs/ui_design.md` — Streamlit 5개 화면 설계 + WHY
   - [x] `docs/datasets.md` — 7개 데이터셋 상세, 관련성 평가, 파이프라인 역할
   - [x] `docs/valorant.md` — 게임 규칙, 역할 가이드, 프로 데이터 한계 + WHY
+- [x] **ML 파이프라인 구현** — `ml/` 전체 (agent_roles, data_pipeline, train_model, evaluate_model, validate_metrics)
+  - [x] `ml/agent_roles.py` — 27개 요원 역할 매핑, 맵 목록, 정규화 함수
+  - [x] `ml/data_pipeline.py` — ryanluong 파서, 품질 게이트, 피처 엔지니어링, A/B swap 증강, 70/15/15 분할 (piyush 파서 제거됨)
+  - [x] `ml/train_model.py` — RF + XGBoost + LightGBM + 앙상블, GroupKFold K=5
+  - [x] `ml/evaluate_model.py` — Accuracy/ROC-AUC/F1 평가, SHAP feature importance
+  - [x] `ml/validate_metrics.py` — 성과지표 검증
+  - [x] `data/processed/train.csv` (93,078행), `test.csv` (9,973행) 생성
+  - [x] `reports/` JSON 생성 — eval_summary, baseline_comparison, generalization_check, shap_analysis
+  - [x] `models/` 학습된 모델 파일 저장
+  - [x] **앙상블 Ensemble AUC = 0.935, baseline 대비 +29.13%p 개선**
+- [x] **모델 검증 문서**
+  - [x] `docs/06_model_test/ml_concept_validation.md`
+  - [x] `docs/06_model_test/project_differentiation.md`
+  - [x] `docs/06_model_test/verification_summary.md`
 
 ---
 
 ## 진행 중 🔜
-
-### 1단계: 데이터 전처리 (`ml/`)
-
-> 계획 문서: `.omc/plans/preprocessing.md`
-
-- [ ] **`ml/agent_roles.py`** 구현
-  - [ ] `AGENT_ROLE_MAP` (27종 요원 → 역할군) 딕셔너리
-  - [ ] `MAP_ORDER` / `MAP_TO_INDEX` (12개 맵)
-  - [ ] `normalize_agent(raw)` — 별칭·소문자·`.title()` 폴백
-  - [ ] `normalize_map(raw)` — 동일 패턴
-- [ ] **`ml/data_pipeline.py`** 구현
-  - [ ] ryanluong 파서 — `overview.csv` + `maps_scores.csv` 통합 row 생성
-  - [ ] piyush 파서 — `player_stats.csv` + `maps.csv` 통합 row 생성
-  - [ ] qualidea 파서 — `matches.csv` 파싱
-  - [ ] 품질 게이트 — 팀당 요원 5개, 알려진 요원/맵, 유효 레이블, `dedup_key` 중복 제거
-  - [ ] 피처 엔지니어링 — 역할 카운트, diff, `map_encoded`, `has_controller_a/b`, `label`
-  - [ ] 70/15/15 train/val/test 분할 (`match_key` 단위, seed=42)
-  - [ ] `reports/preprocess_summary.json` 출력
-  - [ ] `reports/rejected_matches.csv` 출력
-- [ ] 전처리 dry-run 실행 및 검증
-  ```bash
-  python -m ml.data_pipeline --input data/raw/kaggle --output /tmp/valo_out --reports /tmp/valo_reports
-  ```
-
----
-
-## 미구현 ⬜
-
-### 2단계: 피처 엔지니어링 고도화
-
-- [ ] **선수 스탯 피처** — `Team_Avg_Rating`, `Team_Avg_KD`, `Team_Max_Clutch_Rate`, `Team_Avg_KAST`, `Team_Avg_Assists`, `Team_ADR`
-- [ ] **시너지 피처** — `First_Kill_Death_Ratio`, `Team_Shared_Exp` (visualize25 데이터셋 가공 필요)
-- [ ] **요원×맵 피처** — `agent_map_wr` (train.csv 기반 집계, 데이터 누수 방지), `Avg_Agent_Pick_Rate`, `Team_Agent_Experience`
-- [ ] **맵 피처** — `atk_side_advantage`, `is_attacker_a`
-- [ ] `visualize25__*` 데이터셋 수집 — `Team_Shared_Exp` 피처용
-
-### 3단계: 모델 학습 (`ml/train_model.py`)
-
-- [ ] **Random Forest** 기본 학습
-- [ ] **XGBoost** 학습
-- [ ] **LightGBM** 학습
-- [ ] **앙상블** — 3모델 확률 평균 → 최종 승률
-- [ ] **K-Fold 교차검증** (K=5) — Accuracy, ROC-AUC, F1 평균 산출
-- [ ] 모델 파일 저장 (`models/`, git 제외)
-
-### 4단계: 모델 평가 (`ml/evaluate_model.py`)
-
-- [ ] Accuracy, ROC-AUC, F1 평가 출력
-- [ ] SHAP feature importance 시각화
-- [ ] `reports/eval_summary.json` 출력
 
 ### 5단계: Streamlit UI (`app/streamlit_app.py`)
 

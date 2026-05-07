@@ -77,12 +77,9 @@ def dedup_rows(rows: list[dict]) -> list[dict]:
     """
     SOURCE_WEIGHT = {
         "ryanluong_challengers": 1.8,
-        "piyush_2024": 1.5,
-        "piyush_2025": 1.5,
         "vct_2021_2023": 1.0,
         "qualidea": 1.0,
         "ediashtarevin": 0.9,
-        "kierru": 0.9,
     }
 
     best: dict[str, dict] = {}

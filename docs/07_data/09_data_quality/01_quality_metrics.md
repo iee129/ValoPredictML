@@ -72,11 +72,11 @@ def run_quality_gate(row: dict) -> tuple[bool, str]:
 | vct_2021_2023 | ✅ |
 | ryanluong challengers | ✅ |
 | qualidea | ✅ |
-| piyush 2024/2025 | ⚠️ 일부 이벤트 결측 |
+| ~~piyush 2024/2025~~ | ~~⚠️ 일부 이벤트 결측~~ | (제거됨) |
 | ediashtarevin | ✅ |
-| kierru | ❓ 확인 필요 |
+| kierru | ❌ 제거됨 (리젝션율 80%) |
 
 처리 원칙:
 1. 행 레벨 결측 (특정 선수만): 동일 경기 팀 평균으로 imputation.
-2. 이벤트 전체 결측 (piyush 일부): `a_avg_kast`/`b_avg_kast`를 `-1` 플래그로 채움.
+2. 이벤트 전체 결측 (~~piyush 일부~~ — piyush 소스 제거됨): `a_avg_kast`/`b_avg_kast`를 `-1` 플래그로 채움.
 3. KAST 결측 행이 전체 학습셋의 20% 초과 시 해당 피처 제외 후 재실험.

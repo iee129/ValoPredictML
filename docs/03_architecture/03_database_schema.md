@@ -81,7 +81,7 @@ CREATE INDEX idx_predictions_agents     ON predictions USING GIN (team_a_agents)
 ## 3. SQLAlchemy ORM 모델
 
 ```python
-# database.py (구현 예정)
+# database.py (미구현 — PostgreSQL 범위 외)
 from sqlalchemy import Column, BigInteger, String, Float, Index
 from sqlalchemy.dialects.postgresql import JSONB, TIMESTAMPTZ
 from sqlalchemy.sql import func

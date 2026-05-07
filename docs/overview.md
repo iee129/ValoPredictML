@@ -14,7 +14,8 @@ ValoPredictML — Valorant 5v5 라인업 기반 승률 예측 Streamlit 로컬 �
 |------|------|
 | 제품 형태 | Streamlit 기반 로컬 분석 도구 |
 | 핵심 흐름 | 조합 입력 → 승률 예측 → 영향 피처 확인 → 교체 시뮬레이션 |
-| 현재 구현 | 데이터 수집 완료 (`data/raw/kaggle/`, 2.3GB), 다음 단계: 전처리 (`ml/`) |
+| 현재 구현 | 데이터 수집 완료 (`data/raw/kaggle/`, 2.3GB) + ML 파이프라인 완료 (`ml/data_pipeline.py`, `ml/train_model.py`, `ml/evaluate_model.py`, `ml/validate_metrics.py`) |
+| 미구현 | Streamlit UI |
 | 제외 | FastAPI, React/Next.js, 클라우드 배포, 외부 API — 사용 안 함 |
 
 ### 개발 원칙
@@ -30,7 +31,7 @@ ValoPredictML — Valorant 5v5 라인업 기반 승률 예측 Streamlit 로컬 �
 | 선택 입력 | 선수 정보 (ACS, K/D/A, KAST, ADR, 클러치율) |
 | 시스템 생성 | 역할군 카운트/차이, map_encoded, Controller 여부, 팀 시너지 피처 |
 
-### 출력 (구현 예정)
+### 출력 (Streamlit UI 미구현)
 
 | 출력 | 설명 |
 |------|------|
@@ -49,7 +50,7 @@ ValoPredictML — Valorant 5v5 라인업 기반 승률 예측 Streamlit 로컬 �
 ```
 Kaggle 원천 데이터 (data/raw/kaggle/, 2.3GB)
         ↓
-전처리 파이프라인 (ml/data_pipeline.py) ← 다음 단계
+전처리 파이프라인 (ml/data_pipeline.py) ← 완료
         ↓
 역할군 baseline 피처 (train/val/test)
         ↓
@@ -64,14 +65,14 @@ PostgreSQL 예측 기록 저장 (후보)
 
 ```
 ┌─────────────────────────────────────┐
-│  Streamlit UI (구현 예정)            │
+│  Streamlit UI (미구현)               │
 │  - 선수/요원 조합 입력               │
 │  - 예측 결과 + 영향도 시각화         │
 └──────────────┬──────────────────────┘
                │ Python 함수 호출
                ↓
 ┌─────────────────────────────────────┐
-│  모델 레이어 (구현 예정)              │
+│  모델 레이어 (완료)                   │
 │  - Feature Builder                  │
 │  - RF / XGBoost / LightGBM          │
 │  - SHAP / feature importance        │
@@ -90,10 +91,10 @@ PostgreSQL 예측 기록 저장 (후보)
 |------|------|------|
 | 언어 | Python 3.14.4 | 현재 구현 |
 | 데이터 처리 | pandas, NumPy | 현재 구현 |
-| UI | Streamlit | 구현 예정 |
-| ML | Random Forest, XGBoost, LightGBM | 구현 예정 |
-| 설명 | feature importance, SHAP | 구현 예정 |
-| DB | PostgreSQL + SQLAlchemy | 구현 예정 |
+| UI | Streamlit | 미구현 |
+| ML | Random Forest, XGBoost, LightGBM | 완료 |
+| 설명 | feature importance, SHAP | 완료 |
+| DB | PostgreSQL + SQLAlchemy | 미구현 |
 
 ---
 
@@ -102,10 +103,10 @@ PostgreSQL 예측 기록 저장 (후보)
 ```
 Phase 0 ✅  환경 설정 (venv, Kaggle 인증)
 Phase 1 ✅  데이터 수집 (Kaggle 7개 데이터셋, 2.3GB)
-Phase 2 →   데이터 전처리 (ml/agent_roles.py, ml/data_pipeline.py)
-Phase 3 →   피처 엔지니어링 (역할군·선수스탯·시너지·요원조합 피처)
-Phase 4     모델 학습 및 평가 (RF, XGBoost, LightGBM)
-Phase 5     Streamlit UI 구현
+Phase 2 ✅  데이터 전처리 (ml/agent_roles.py, ml/data_pipeline.py)
+Phase 3 ✅  피처 엔지니어링 (역할군·선수스탯·시너지·요원조합 피처)
+Phase 4 ✅  모델 학습 및 평가 (RF, XGBoost, LightGBM)
+Phase 5 →   Streamlit UI 구현
 Phase 6     검증 및 발표 정리
 ```
 
@@ -125,7 +126,7 @@ Phase 6     검증 및 발표 정리
 
 | 차별점 | 기존 도구 / 프로젝트 | 이 프로젝트 |
 |--------|---------------------|------------|
-| **데이터 규모** | 최근 1~2시즌 스냅샷 | 2021~2026 6년치 + 6지역 핵심 데이터 약 300K+ 경기 (vct_2021_2023 1.2GB + ryanluong challengers 1.0GB + qualidea 249K행 + piyush 2024~2025) |
+| **데이터 규모** | 최근 1~2시즌 스냅샷 | 2021~2026 6년치 + 6지역 핵심 데이터 약 300K+ 경기 (vct_2021_2023 1.2GB + ryanluong challengers 1.0GB + qualidea 249K행) |
 | **선수-요원 적합도** | 요원 전체 승률만 제공 | `Team_Agent_Experience` — 특정 선수가 해당 요원을 과거에 플레이한 경험 횟수를 수치화, "좋은 요원을 숙련된 선수가 드는가"를 피처로 포착 |
 | **공수 사이드 비대칭** | 정성적 설명 | `atk_side_advantage` — ryanluong challengers `Attacker Score`/`Defender Score`에서 맵별 공격 사이드 전역 승률을 직접 집계, 수치로 정량화 |
 | **팀 시너지 정량화** | 개인 스탯 단순 평균 | FK/FD 비율 + 어시스트 + 누적 동반 출전 횟수(`Team_Shared_Exp`)로 팀 연계력을 수치화 |
@@ -187,11 +188,25 @@ test.csv는 K-Fold와 완전히 분리 유지 — 최종 평가에만 한 번 �
 
 ---
 
-## 6. 성공 기준
+## 6. 성과 지표 (실측)
 
-| 기준 | 내용 |
-|------|------|
-| 모델 성능 | Accuracy, ROC-AUC, F1 — K-Fold 교차 검증으로 일반화 성능 확인 |
-| 설명 가능성 | feature importance / SHAP / 교체 변화량으로 예측 근거 제시 |
-| 사용자 가치 | 조합 선택·역할 균형·교체 영향 이해 가능 |
-| 발표 가능성 | 데이터/피처/모델/평가/한계 문서화 |
+ML 파이프라인 완료 기준 실제 측정값:
+
+| 지표 | Ensemble (RF+XGB+LGB) |
+|------|-----------------------|
+| Accuracy | 0.854 |
+| F1 Score | 0.851 |
+| ROC-AUC | 0.935 |
+| Baseline 대비 | +29.13%p (baseline 56.9%) |
+| K-Fold vs Test gap | 0.004 (과적합 없음) |
+
+---
+
+## 7. 성공 기준
+
+| 기준 | 내용 | 상태 |
+|------|------|------|
+| 모델 성능 | Accuracy, ROC-AUC, F1 — K-Fold 교차 검증으로 일반화 성능 확인 | 완료 (AUC=0.935) |
+| 설명 가능성 | feature importance / SHAP / 교체 변화량으로 예측 근거 제시 | 완료 |
+| 사용자 가치 | 조합 선택·역할 균형·교체 영향 이해 가능 | Streamlit UI 미구현 |
+| 발표 가능성 | 데이터/피처/모델/평가/한계 문서화 | 진행 중 |

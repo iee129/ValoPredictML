@@ -1,6 +1,6 @@
 # 03. 설계 원칙
 
-마지막 업데이트: 2026-05-04
+마지막 업데이트: 2026-05-05
 
 ## 1. 방어적 데이터 처리 (Defensive Data Handling)
 
@@ -58,7 +58,7 @@ def normalize_agent(raw: str) -> str | None:
 ### 1.3 Streamlit UI 입력 검증
 
 ```python
-# app/streamlit_app.py (구현 예정)
+# app/streamlit_app.py (Streamlit UI — 미구현)
 def validate_lineup(agents_a: list[str], agents_b: list[str]) -> list[str]:
     errors = []
     if len(agents_a) != 5:
@@ -139,7 +139,7 @@ diff_sentinel   = a_sentinel   - b_sentinel
 - 각 예측 요청은 독립적으로 처리 (상태 공유 없음)
 
 ```python
-# app/streamlit_app.py (구현 예정)
+# app/streamlit_app.py (Streamlit UI — 미구현)
 import streamlit as st
 import joblib
 

@@ -12,9 +12,8 @@
 |------|------|------|
 | ryanluong | vct_2021_2023, ryanluong challengers | `ml/parsers/ryanluong.py` |
 | qualidea | qualidea1217 | `ml/parsers/qualidea.py` |
-| piyush | piyush 2024/2025 | `ml/parsers/piyush.py` |
+| ~~piyush~~ | ~~piyush 2024/2025~~ | ~~`ml/parsers/piyush.py`~~ (제거됨) |
 | ediashtarevin | ediashtarevin | `ml/parsers/ediashtarevin.py` |
-| kierru | kierru | `ml/parsers/kierru.py` |
 
 ---
 
@@ -95,26 +94,7 @@ KAST 가용성: 있음.
 
 ---
 
-### 3-3. piyush 파서 (2024/2025)
-
-**파일**: 이벤트 폴더 내 `detailed_matches_player_stats.csv` — **조인 불필요**
-
-```
-player_name     → player
-team, agent     → team, agent
-acs, k, d, a    → acs, kills, deaths, assists
-kast, adr       → kast, adr
-hs_percent      → hs  (다른 소스의 hs%, HS%와 정규화 필요)
-fk, fd          → fk, fd
-map_winner      → 승팀 이름 → label
-```
-
-2024/2025 모두 `*_csvs` 하위 폴더 반복 — 파서가 재귀 탐색.
-KAST 가용성: 일부 이벤트 결측.
-
----
-
-### 3-4. ediashtarevin 파서
+### 3-3. ediashtarevin 파서
 
 **파일**: `player_stats.csv` — **조인 불필요**
 
@@ -128,15 +108,6 @@ kast%, adr, fk, fd         → kast, adr, fk, fd
 ```
 
 KAST 가용성: 있음 (`kast%`).
-
----
-
-### 3-5. kierru 파서
-
-**파일**: `csv/stats.csv` — **조인 불필요**
-
-`role_agent` 컬럼 직접 포함 → `AGENT_ROLE_MAP` 조회 없이 역할군 파싱 가능.
-KAST 가용성: 구현 시 컬럼 확인 필요.
 
 ---
 
@@ -184,10 +155,7 @@ def make_match_key(date, event, team_a, team_b):
 parse_ryanluong("data/raw/kaggle/vct_2021_2023")
 parse_ryanluong("data/raw/kaggle/ryanluong1__valorant-challengers-league-data")
 parse_qualidea ("data/raw/kaggle/qualidea1217__valorant-pro-matches-since-april-2021")
-parse_piyush   ("data/raw/kaggle/piyush86kumar__valorant-champions-tour-2024-all-events")
-parse_piyush   ("data/raw/kaggle/piyush86kumar__valorant-vct-2025-all-events")
 parse_edia     ("data/raw/kaggle/ediashtarevin__vct-champions-2023-stats")
-parse_kierru   ("data/raw/kaggle/kierru__vctpacific-2023")
 # → 공통 스키마 행 리스트로 병합
 ```
 

@@ -1,16 +1,16 @@
 # 04. 로드맵, 팀 구성, 용어 사전
 
-마지막 업데이트: 2026-05-04
+마지막 업데이트: 2026-05-05
 
 ## 1. 단계별 로드맵
 
 ```
 Phase 0 ✅  환경 설정 (venv, Kaggle 인증)
 Phase 1 ✅  데이터 수집 (Kaggle 7개 데이터셋, 2.3GB)
-Phase 2 →   데이터 전처리 (ml/agent_roles.py, ml/data_pipeline.py)
-Phase 3 →   피처 엔지니어링 (역할군·선수스탯·시너지·요원조합 피처 43개)
-Phase 4     모델 학습 및 평가 (RF, XGBoost, LightGBM)
-Phase 5     Streamlit UI 구현
+Phase 2 ✅  데이터 전처리 (ml/agent_roles.py, ml/data_pipeline.py)
+Phase 3 ✅  피처 엔지니어링 (역할군·선수스탯·시너지·요원조합 피처 43개)
+Phase 4 ✅  모델 학습 및 평가 (RF, XGBoost, LightGBM — Ensemble AUC=0.935, Acc=0.854, F1=0.851)
+Phase 5 →   Streamlit UI 구현
 Phase 6     검증 및 발표 정리
 ```
 
@@ -20,10 +20,10 @@ Phase 6     검증 및 발표 정리
 |-------|-----------|
 | Phase 0 | `.venv` 활성화, `python dataload.py` 정상 실행 |
 | Phase 1 | `data/raw/kaggle/`에 7개 데이터셋, 2.3GB 다운로드 완료 |
-| Phase 2 | `data/processed/matches_clean.csv` 생성, 품질 게이트 통과, `reports/preprocess_summary.json` 생성 |
-| Phase 3 | 43개 피처 생성, `data/processed/features_base.csv` 확인, `train.csv / val.csv / test.csv` 생성 |
-| Phase 4 | RF/XGBoost/LightGBM Accuracy·ROC-AUC·F1 비교표 생성, K-Fold(K=5) 교차 검증 완료 |
-| Phase 5 | 입력→예측→설명 흐름 Streamlit에서 동작 |
+| Phase 2 | ✅ `data/processed/matches_clean.csv` 생성, 품질 게이트 통과, `reports/preprocess_summary.json` 생성 |
+| Phase 3 | ✅ 43개 피처 생성, `data/processed/features_base.csv` 확인, `train.csv / val.csv / test.csv` 생성 |
+| Phase 4 | ✅ RF/XGBoost/LightGBM Ensemble AUC=0.935, Acc=0.854, F1=0.851, GroupKFold(K=5) 교차 검증 완료, `ml/validate_metrics.py` 통과 |
+| Phase 5 | 입력→예측→설명 흐름 Streamlit에서 동작 (미구현) |
 | Phase 6 | 발표 자료에 데이터/피처/모델/평가/한계 포함 |
 
 ---
@@ -69,7 +69,7 @@ Phase 6     검증 및 발표 정리
 | **Early Stopping** | 검증 성능이 일정 라운드 이상 개선되지 않으면 학습 조기 종료 |
 | **dedup_key** | 24자 SHA-1 hex — 날짜/이벤트/맵/팀/요원셋/점수로 만든 경기 중복 제거 키 |
 | **match_key** | 16자 SHA-1 hex — 소스+파일+경기 단위 grouping 키. train/val/test 분할 단위 |
-| **소스 가중치** | 중복 경기 선택 시 신뢰도 높은 소스 우선. ryanluong challengers=1.8, piyush=1.5 |
+| **소스 가중치** | 중복 경기 선택 시 신뢰도 높은 소스 우선. ryanluong challengers=1.8, vct/qualidea=1.0 (~~piyush=1.5 제거됨~~) |
 | **시간 가중치** | 구식 메타 데이터 영향 줄이기. 2021~2022=0.6, 2023=0.8, 2024+=1.2 |
 | **A/B Swap 증강** | 팀 A/B를 뒤집은 행을 train에 추가 — 위치 편향 방지 |
 | **XGBoost** | eXtreme Gradient Boosting. 구조화 데이터 분류에 강한 Gradient Boosting 모델 |
@@ -86,7 +86,7 @@ Phase 6     검증 및 발표 정리
 | **품질 게이트** | 팀당 요원 5명, 유효 요원/맵, 유효 레이블 등 조건 미충족 시 행 제외 |
 | **ryanluong 파서** | vct_2021_2023 + challengers 소스 파서. overview.csv + maps_scores.csv 조인 필요 |
 | **qualidea 파서** | data-since-april-2021.csv 단일 파일 파서. 조인 불필요 |
-| **piyush 파서** | 2024/2025 VCT 이벤트 폴더 파서. 조인 불필요 |
+| ~~**piyush 파서**~~ | ~~2024/2025 VCT 이벤트 폴더 파서. 조인 불필요~~ (제거됨 — ryanluong vct_2024/vct_2025와 중복) |
 | **atk_side_advantage** | 맵별 공격 사이드 전역 승률 (ryanluong challengers 집계) |
 | **Team_Agent_Experience** | 선수가 특정 요원을 과거에 플레이한 경험 횟수 |
 | **Streamlit** | Python 전용 로컬 웹 UI 프레임워크 |
