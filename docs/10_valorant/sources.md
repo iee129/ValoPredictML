@@ -25,13 +25,13 @@
    - 게임 디자인 의도 (메타 균형, 신규 요원 개발 노트). `meta.md` 메타 영향 해석.
 
 ### 패치별 URL
-5. **Patch 7.12 (ISO 출시)** — https://playvalorant.com/en-us/news/game-updates/valorant-patch-notes-7-12/
+5. **Patch 7.09 (ISO 출시 — 2023-10-31, Liquipedia 검증) / 7.12 (Gekko·Skye 변경, Drift TDM 추가)** — https://playvalorant.com/en-us/news/game-updates/valorant-patch-notes-7-12/ ⚠️ ISO 출시 패치는 7.12가 아닌 **7.09** (검증 2026-05-09)
 6. **Patch 8.0 (시즌 시작)** — https://playvalorant.com/en-us/news/game-updates/valorant-patch-notes-8-0/
 7. **Patch 8.05 (Clove 출시)** — https://playvalorant.com/en-us/news/game-updates/valorant-patch-notes-8-05/
 8. **Patch 8.08 (Cypher 너프)** — https://playvalorant.com/en-us/news/game-updates/valorant-patch-notes-8-08/
 9. **Patch 8.11 (Abyss + ISO Double Tap 변경)** — https://playvalorant.com/en-us/news/game-updates/valorant-patch-notes-811/ ⚠️ no-dash URL slug (다른 패치와 다름, 2026-05-09 검증)
-10. **Patch 9.0 (Vyse 출시)** — https://playvalorant.com/en-us/news/game-updates/valorant-patch-notes-9-00/
-11. **Patch 9.05 (ISO + Sage 너프)** — https://playvalorant.com/en-us/news/game-updates/valorant-patch-notes-9-05/
+10. **Patch 9.0 (ISO Double Tap 너프, 2024-06-25)** — https://playvalorant.com/en-us/news/game-updates/valorant-patch-notes-9-0/ ⚠️ Vyse 출시는 9.0이 아닌 **9.04 (2024-08-27, Liquipedia 검증)**
+11. **Patch 9.05 (Astra Stars 4→5 + Chamber TP 13→18m 버프, 2024-09-10)** — https://playvalorant.com/en-us/news/game-updates/valorant-patch-notes-9-05/ ⚠️ ISO/Sage 너프 아님 (이전 추정 정정, Riot 공식 검증 2026-05-09 — meta.md 항목 8 참조)
 12. **Patch 10.0 (Tejo 출시)** — https://playvalorant.com/en-us/news/game-updates/valorant-patch-notes-10-00/
 13. **Patch 10.06 (Waylay 출시)** — https://playvalorant.com/en-us/news/game-updates/valorant-patch-notes-10-06/
 13a. **Patch 11.07b (Veto 출시, 2025-10-07)** — https://playvalorant.com/en-us/news/game-updates/valorant-patch-notes-11-07b/ (S-35로 anchor — 2026-05-09 추가)
@@ -153,7 +153,7 @@ US-005 cross-validation에서 도메인 가설(`agents.md` / `maps.md` / `counte
 
 ## 메모
 
-- **총 URL 수**: 34개 (수락 기준 ≥20 만족, 70% 여유).
+- **총 URL 수**: 41개 (수락 기준 ≥20 만족 — 2026-05-09 신규 7개 추가 후).
 - **모든 URL은 공식 / Wiki / 통계 사이트 기반** — Reddit, 디시인사이드 등 익명 커뮤니티 0건.
 - **YouTube는 공식 팀 채널만** (Sentinels/Fnatic/LOUD/Riot esports), 개인 분석가 0건.
 - 패치 URL slug은 Riot 공식 표기 기준 (예: `7-12`, `8-05`, `10-06`). 일부는 `8-00`처럼 0 패딩.

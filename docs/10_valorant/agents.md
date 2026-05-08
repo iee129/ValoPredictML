@@ -64,7 +64,7 @@
 - 강한 맵: Haven, Split, Ascent, Fracture (수직 이동·복합 통로)
 - 시너지: Sova (정보 후 dash entry), Killjoy (사이트 락다운 후 회전), Omen (smoke entry 보강)
 - 카운터 받음: Cypher trip(대시 도착 지점 반응), Killjoy turret+ult, KAY/O ZERO/point(대시 봉쇄)
-- 메타 위상: 2024-2025 VCT 픽률 추정 25-40%, 전형적 entry duelist
+- 메타 위상: **VCT 2025 Champions 픽률 14.1%** (Liquipedia 검증 2026-05-09) — 학습 데이터 추정(25-40%)과 큰 차이, 메타 분산 결과
 - 도메인 가설: **"Jett 보유 팀은 first-blood 획득률 +5%p"** (출처: VCT 2024 Champions Tokyo 통계)
 - 출처: [Riot Jett 페이지], [Liquipedia Jett], [VLR.gg agent stats]
 
@@ -73,7 +73,7 @@
 - 강한 맵: Bind, Haven (좁은 통로 self-flash 효율)
 - 시너지: Viper (벽 + 화염 진영 압박), Skye (플래시 중첩)
 - 카운터 받음: KAY/O ult(자가 부활 봉쇄), Cypher cam, Omen TP(회전 압박)
-- 메타 위상: 2024 7.04 패치 버프 후 픽률 5-10%, 솔로 캐리형
+- 메타 위상: **VCT 2025 Champions 픽률 <2% (표본 외)** — Liquipedia 검증 2026-05-09. 메타 outside (학습 추정 5-10%과 일치)
 - 도메인 가설: **"Phoenix는 Skye/Sova 시너지 시 entry 라운드 승률 +5%p"**
 - 출처: [Riot 7.04 패치], [VLR.gg Phoenix stats]
 
@@ -82,7 +82,7 @@
 - 강한 맵: Bind, Split, Pearl, Fracture (좁은 통로 폭발 효율)
 - 시너지: Brimstone (smoke + nade combo), KAY/O (suppress + ult 콤보), Skye (플래시 entry)
 - 카운터 받음: Killjoy ult Lockdown(Showstopper 봉쇄 가능), Sova drone, Cypher trip
-- 메타 위상: 2024-2025 픽률 15-25%, Bind/Split 메타 의존
+- 메타 위상: **VCT 2025 Champions 픽률 15.5%** (Liquipedia 검증 2026-05-09) — 학습 추정 일치
 - 도메인 가설: **"Bind에서 Raze는 Jett 대비 박빙 매치 승률 +3%p"**
 - 출처: [Riot Raze 페이지], [VLR.gg Bind stats]
 
@@ -91,7 +91,7 @@
 - 강한 맵: 솔로 캐리형이라 맵 의존 약함 (Fracture, Sunset에서 픽률 약간 ↑)
 - 시너지: Sova (정보), Skye (플래시 보강)
 - 카운터 받음: 팀게임 강한 조합 (KAY/O + Fade), Cypher (정보), Killjoy
-- 메타 위상: 프로 매치 픽률 <2% (2024 8.05 너프 후), 랭크전 하이 픽
+- 메타 위상: **VCT 2025 Champions 픽률 <2% (표본 외)** — Liquipedia 검증 2026-05-09. 11.00에서 Leer HP 100→80 추가 너프로 효율 ↓, 학습 추정 일치
 - 도메인 가설: **"Reyna 보유 팀은 프로 매치에서 라운드 승률 -2%p"** (CONTRADICTED 후보 — 데이터로 검증 필요)
 - 출처: [Riot 8.05 패치 노트], [Liquipedia Reyna]
 
@@ -100,7 +100,7 @@
 - 강한 맵: Bind, Breeze (TP 활용 회전 압박)
 - 시너지: Sova (정보 후 lurk), Cypher (락다운 동안 lurk)
 - 카운터 받음: Fade Haunt(클론·TP 위치 노출), Sova drone, Cypher cam
-- 메타 위상: 2024 8.0 버프 후 픽률 3-8%, 프로 게임 일부 활용
+- 메타 위상: **VCT 2025 Champions 픽률 25.4% (대회 1위!)** — Liquipedia 검증 2026-05-09. Corrode 메타로 급증 (학습 추정 3-8%과 큰 차이), VLR.gg 메타 분석에서도 Corrode 강력 픽으로 명시
 - 도메인 가설: **"Yoru는 lurker 역할 한정 효율 — 솔로 entry 시 Jett/Raze 대비 승률 -3%p"**
 - 출처: [Riot 8.0 패치], [VLR.gg Yoru]
 
@@ -109,7 +109,7 @@
 - 강한 맵: Breeze, Icebox, Sunset (긴 거리 빠른 회전)
 - 시너지: KAY/O (suppress + 빠른 entry), Sova (정보)
 - 카운터 받음: Cypher trip(슬라이드 봉쇄), Killjoy turret, Deadlock GravNet
-- 메타 위상: 2024 8.11/9.x 너프 → 2025 부분 회복, 픽률 8-15%
+- 메타 위상: **VCT 2025 Champions 픽률 15.5%** (Liquipedia 검증 2026-05-09) — 학습 추정(8-15%) 상회
 - 도메인 가설: **"Neon은 long-distance map(Breeze/Icebox)에서 Jett 대비 entry 효율 +5%p"**
 - 출처: [Riot 8.11 패치], [VLR.gg Breeze stats]
 
@@ -119,7 +119,7 @@
 - 강한 맵: Pearl, Lotus, Sunset (1v1 favorable 통로)
 - 시너지: Cypher (정보 → 1v1 강제), Killjoy (락다운 + ult 결투)
 - 카운터 받음: 다중 압박 조합 (Skye + Sova + Raze), Breach
-- 메타 위상: 2024 H2 챔피언스 픽률 급등(40%+) → 2024 9.05 너프 후 10-20%
+- 메타 위상: 2024 H2 챔피언스 40%+ → 9.0 너프 후 ↓ → 10.04 너프 후 → **VCT 2025 Champions 픽률 <2% (표본 외)** Liquipedia 검증 2026-05-09. 메타 outside
 - 도메인 가설: **"ISO는 박빙 매치에서 1v1 ult 라운드 승률 +3%p"**
 - 출처: [Riot 7.12 출시], [Riot 9.05 너프], [VCT 2024 Champions]
 
@@ -129,8 +129,8 @@
 - 강한 맵: Lotus, Fracture (3단 대시 + 다층 구조)
 - 시너지: Killjoy (락다운 + 광속 entry), Sova
 - 카운터 받음: KAY/O suppress(대시 봉쇄), Cypher trip
-- 메타 위상: 2025 H1 출시 → 픽률 5-12% (학습 곡선)
-- 도메인 가설: **"Waylay는 출시 직후 픽률 ↑이지만 박빙 승률은 데이터 부족 — REFINED 후보"**
+- 메타 위상: **VCT 2025 Champions 픽률 14.1%** (Liquipedia 검증 2026-05-09) — 출시 후 학습 곡선 빠르게 극복, 학습 추정(5-12%) 상회. 11.00 버프 + 12.06 너프로 메타 변동 중
+- 도메인 가설: **"Waylay는 VCT 2025 Champions 픽률 14.1%로 안정적, 박빙 승률은 US-002 데이터로 검증 — REFINED 후보"** (학습 추정에서 정정됨)
 - 출처: [Riot 10.06 출시 발표], [VLR.gg Waylay early stats]
 
 ---
@@ -142,7 +142,7 @@
 - 강한 맵: Ascent, Icebox, Breeze, Haven (오픈 사이트 라인)
 - 시너지: Jett (정보 → entry), Killjoy (정보 + 락), Brimstone (smoke + 정보)
 - 카운터 받음: Viper Toxic Screen(화살 차단), Harbor 벽, Cypher cam vs drone
-- 메타 위상: 픽률 30-50% (전 메타 stable initiator)
+- 메타 위상: **VCT 2025 Champions 픽률 19.7%** (Liquipedia 검증 2026-05-09) — Fade(18.3%)와 거의 동률, 학습 추정(30-50%) 하회
 - 도메인 가설: **"Sova는 어느 맵에서도 stable — 보유 팀 정보 차이로 라운드 승률 +2-4%p"**
 - 출처: [Riot Sova], [VLR.gg agent stats]
 
@@ -151,7 +151,7 @@
 - 강한 맵: Haven, Lotus, Bind (다중 사이트 정보)
 - 시너지: Reyna/Jett (entry flash), Sage (heal stack)
 - 카운터 받음: KAY/O suppress(플래시·힐 무력화), Sova drone
-- 메타 위상: 픽률 25-40% (안정적)
+- 메타 위상: **VCT 2025 Champions 픽률 2.8% (메타 outside)** — Liquipedia 검증 2026-05-09. 학습 추정(25-40%)과 정반대! 2025 메타에서 다른 initiator(Sova/Fade)에 밀림
 - 도메인 가설: **"Skye는 플래시·힐 hybrid — 다이브 조합 라운드 승률 +3%p"**
 - 출처: [Riot Skye], [VLR.gg Skye]
 
@@ -160,7 +160,7 @@
 - 강한 맵: Pearl, Bind, Lotus (좁은 통로)
 - 시너지: Raze, Phoenix, Jett (entry flash + stun)
 - 카운터 받음: KAY/O suppress, 오픈 맵(Ascent — 벽 활용 부족), Sage barrier
-- 메타 위상: 픽률 10-20% (특정 맵 한정)
+- 메타 위상: **VCT 2025 Champions 픽률 8.5%** (Liquipedia 검증 2026-05-09) — 학습 추정(10-20%) 하회, 12.00 Flashpoint 발사 속도 +20% 버프 후 변동 가능
 - 도메인 가설: **"Breach는 Pearl/Bind에서 entry first-blood 획득률 +6%p"**
 - 출처: [Riot Breach], [VLR.gg Pearl stats]
 
@@ -169,7 +169,7 @@
 - 강한 맵: 모든 맵 (메타 의존)
 - 시너지: Raze (suppress + ult), Jett (suppress + entry), Killjoy
 - 카운터 받음: 카운터 적음 — 일반적으로 stable, Cypher cam
-- 메타 위상: 픽률 20-35% (anti-utility 메타)
+- 메타 위상: **VCT 2025 Champions 픽률 5.6%** (Liquipedia 검증 2026-05-09) — 학습 추정(20-35%)과 큰 차이! 2025 메타에서 anti-utility 가치 ↓. 10.06 ult 부활 3s→1.5s 버프로 향후 회복 가능
 - 도메인 가설: **"KAY/O 보유 팀은 ult 메타에서 적팀 ult 효율 -8%p (suppress로 ult 봉쇄)"**
 - 출처: [Riot KAY/O], [VLR.gg KAY/O]
 
@@ -178,7 +178,7 @@
 - 강한 맵: Lotus, Haven, Pearl (다중 사이트 정보)
 - 시너지: Jett (정보 → entry), Killjoy
 - 카운터 받음: KAY/O suppress, Cypher cam, Yoru clone(데코이로 Haunt 낭비 유도)
-- 메타 위상: 픽률 15-25% (Sova 대체)
+- 메타 위상: **VCT 2025 Champions 픽률 18.3%** (Liquipedia 검증 2026-05-09) — Sova(19.7%)와 거의 동률, 학습 추정 일치
 - 도메인 가설: **"Fade는 Lotus에서 Sova 대비 entry 정보 우위 +3%p (3 사이트 동시 정보)"**
 - 출처: [Riot Fade], [VLR.gg Lotus stats]
 
@@ -188,7 +188,7 @@
 - 강한 맵: Sunset, Pearl, Lotus
 - 시너지: Brimstone (smoke + nade combo), Cypher
 - 카운터 받음: Sova drone(소환수 노출 후 파괴), Cypher trip
-- 메타 위상: 2024-2025 안정 픽률 15-25%
+- 메타 위상: **VCT 2025 Champions 픽률 4.2%** (Liquipedia 검증 2026-05-09) — 학습 추정(15-25%)과 큰 차이! 2025 메타 분산으로 픽률 감소
 - 도메인 가설: **"Gekko는 7 orb ult로 다른 initiator(Breach/Tejo 9-orb) 대비 ult 사이클 +1회/맵"** (실측 ult cost 7 orb — Liquipedia 검증)
 - 출처: [Riot 6.04 출시], [VLR.gg Gekko]
 
@@ -198,7 +198,7 @@
 - 강한 맵: Ascent, Sunset (오픈 사이트)
 - 시너지: Jett (정보 + entry), Killjoy (락 + 폭격)
 - 카운터 받음: Viper Toxic Screen(미사일 차단), KAY/O(드론 suppress)
-- 메타 위상: 2025 H1 출시 직후 픽률 30-50% (over-tuned 가능성)
+- 메타 위상: 출시(10.0) 직후 30-50% over-tuned → 10.04 너프 → **VCT 2025 Champions 픽률 4.2%** (Liquipedia 검증 2026-05-09). H-TEJO-OVERTUNED **CONFIRMED** (over-tuned → 너프 → 메타 outside 패턴)
 - 도메인 가설: **"Tejo는 출시 직후 over-tuned — 픽률 vs 승률 차이 추적, REFINED 후보"**
 - 출처: [Riot 10.0 출시], [VLR.gg Tejo early stats]
 
@@ -211,7 +211,7 @@
 - 강한 맵: Bind, Breeze, Split (즉시 스모크 활용)
 - 시너지: Raze (smoke + nade), Phoenix (closed-comp), KAY/O
 - 카운터 받음: Astra (글로벌 스모크 우위), 오픈 맵(Ascent — 스모크 거리 부족)
-- 메타 위상: 픽률 15-25% (특정 맵 한정)
+- 메타 위상: **VCT 2025 Champions 픽률 11.3%** (Liquipedia 검증 2026-05-09) — 학습 추정 범위 내
 - 도메인 가설: **"Brimstone은 Breeze에서 즉발 스모크로 어택 라운드 승률 +4%p"**
 - 출처: [Riot Brimstone], [VLR.gg Breeze stats]
 
@@ -220,7 +220,7 @@
 - 강한 맵: Icebox, Breeze, Pearl, Fracture, Bind (긴 사이트 라인)
 - 시너지: Killjoy (락 + 가스), Sova (정보 + 차단)
 - 카운터 받음: KAY/O ult(가스 효과 일부 무력화), Skye (플래시), Sage
-- 메타 위상: 픽률 30-50% (Icebox/Breeze 사실상 100%)
+- 메타 위상: **VCT 2025 Champions 픽률 21.1%** (Liquipedia 검증 2026-05-09) — 8.08 큰 너프 후 학습 추정(30-50%) 하회. Corrode 메타에서 강력 픽 (VLR.gg 메타 분석)
 - 도메인 가설: **"Viper는 Icebox/Breeze에서 부재 시 어택 라운드 승률 -8%p"**
 - 출처: [Riot Viper], [VCT 2024 Icebox 통계]
 
@@ -229,7 +229,7 @@
 - 강한 맵: Haven, Sunset, Lotus, Ascent (TP 활용)
 - 시너지: Jett (smoke entry), Sova (정보), Cypher
 - 카운터 받음: Cypher cam(TP 위치 노출), Killjoy turret, Sova
-- 메타 위상: 픽률 30-45% (most stable controller)
+- 메타 위상: **VCT 2025 Champions 픽률 22.5%** (Liquipedia 검증 2026-05-09) — 학습 추정(30-45%) 하회이지만 여전히 controller 중 가장 stable
 - 도메인 가설: **"Omen은 universal pick — 어느 맵에서도 라운드 승률 영향 ±2%p 이내"**
 - 출처: [Riot Omen], [VLR.gg Omen]
 
@@ -238,7 +238,7 @@
 - 강한 맵: Haven, Lotus, Bind (다중 사이트)
 - 시너지: Cypher (정보 + 별 컨트롤), Sage
 - 카운터 받음: 빠른 entry (Raze, Jett — 별 셋업 전 압박), KAY/O suppress
-- 메타 위상: 픽률 5-15% (skill ceiling 높음)
+- 메타 위상: **VCT 2025 Champions 픽률 7.0%** (Liquipedia 검증 2026-05-09) — 9.05 Stars 4→5 버프로 회복, 학습 추정 범위 내
 - 도메인 가설: **"Astra는 high-skill 팀에서만 효율 — Tier 1 매치에서 라운드 승률 +3%p, Tier 2에서 -2%p"**
 - 출처: [Riot Astra], [VCT 2024 vs Challengers 비교]
 
@@ -248,7 +248,7 @@
 - 강한 맵: Sunset, Bind, Pearl, Lotus
 - 시너지: Viper (double controller), Brimstone
 - 카운터 받음: Astra (글로벌 우위), Omen (smoke + TP)
-- 메타 위상: 픽률 5-15% (2nd controller로 활용)
+- 메타 위상: **VCT 2025 Champions 픽률 2.8%** (Liquipedia 검증 2026-05-09) — 학습 추정(5-15%) 하회, 12.00 폭발 효과 윈도우 확대 버프 후 변동 가능
 - 도메인 가설: **"Harbor는 double-controller 조합에서만 효율 — sole controller 시 라운드 승률 -4%p"**
 - 출처: [Riot 5.08 출시], [VLR.gg Harbor]
 
@@ -258,7 +258,7 @@
 - 강한 맵: 모든 맵 (universal duelist-controller hybrid)
 - 시너지: Jett (entry + smoke), Killjoy (락 + ult 부활)
 - 카운터 받음: KAY/O ult(suppress로 부활 봉쇄), Cypher
-- 메타 위상: 출시 직후 픽률 60%+ → 2024 8.11 너프 후 30-40%
+- 메타 위상: 출시(8.05) 직후 60%+ → 8.11 너프 → 10.04 추가 너프(Meddle/Ruse) → **VCT 2025 Champions 픽률 <2% (표본 외)** Liquipedia 검증 2026-05-09. 메타 outside
 - 도메인 가설: **"Clove는 controller 역할의 'duelist' 변종 — entry + smoke hybrid로 박빙 라운드 승률 +5%p"**
 - 출처: [Riot 8.05 출시], [Riot 8.11 너프], [VLR.gg Clove]
 
@@ -266,10 +266,10 @@
 - 능력: Q=Harmonize(아군·자가 Combat Stim), E=Waveform(원격 스모크 2회 충전, 시그니처), C=M-Pulse(Concuss/Healing 토글 음파, 250c, 2회 충전), X=Bassquake(전방 음파 펄스 — knockback + Deafen + Slow ult, **8 orb**)
 - 출시: 2026년 3월 17일 (패치 12.05) — Liquipedia 검증
 - 출신: 크로아티아
-- 강한 맵: 데이터 부족 (출시 직후) — 추정: Multi-site 맵에서 Waveform 2회 활용
-- 시너지: 데이터 부족
-- 카운터 받음: 데이터 부족
-- 메타 위상: 2026 출시 직후 — VCT 정착 데이터 미수집
+- 강한 맵: 출시 직후 메타 정착 중 — Multi-site 맵에서 Waveform 2회 활용 (Haven/Lotus 추정, REFINED 후보)
+- 시너지: Yoru/Tejo 등 entry 친화 듀오 (도메인 추정 — Combat Stim 시너지)
+- 카운터 받음: KAY/O ult(Combat Stim 효과 일부 무력화), Sova drone(드론 vs 배치 능력)
+- 메타 위상: **VCT 2025 Champions 표본 외 (출시 12.05 = 2026-03, Champions 후)** — Liquipedia 검증 2026-05-09. REFINED 후보, 표본 ≤30 매치, US-002 데이터로 보강 필요
 - 도메인 가설: **"Miks는 출시 직후 over-tuned 가능성 — 8-orb ult로 사이클이 느리지만 광역 디버프 효율 ↑, REFINED 후보"**
 - 출처: [Liquipedia Miks], [Riot 12.05 패치 노트]
 
@@ -282,7 +282,7 @@
 - 강한 맵: Pearl, Sunset, Bind, Ascent (좁은 회전 통로)
 - 시너지: Sova, Brimstone, Viper
 - 카운터 받음: Raze ult(Showstopper로 utility 파괴), Skye Trailblazer(cam 파괴), 빠른 entry
-- 메타 위상: 픽률 30-50% (most stable sentinel, 6 orb로 ult 사이클 빠름)
+- 메타 위상: **VCT 2025 Champions 픽률 14.1%** (Liquipedia 검증 2026-05-09) — 학습 추정(30-50%) 큰 차이! 8.08 Trapwire 너프 + Killjoy/Vyse/Deadlock 분산으로 픽률 ↓
 - 도메인 가설: **"Cypher는 Pearl/Sunset에서 부재 시 수비 라운드 승률 -6%p"**
 - 출처: [Riot Cypher], [VCT 2024 Pearl 통계]
 
@@ -291,7 +291,7 @@
 - 강한 맵: Ascent, Icebox, Sunset (사이트 락)
 - 시너지: Viper (락 + 가스), Sova (정보 + 락), Raze
 - 카운터 받음: Raze ult(utility 파괴), Sova drone, Breach 스턴
-- 메타 위상: 픽률 30-45% (Cypher와 양분)
+- 메타 위상: **VCT 2025 Champions 픽률 9.9%** (Liquipedia 검증 2026-05-09) — 학습 추정(30-45%) 큰 차이! Vyse/Deadlock 분산 효과
 - 도메인 가설: **"Killjoy는 Ascent에서 ult 사이클로 라운드 승률 +5%p"**
 - 출처: [Riot Killjoy], [VCT 2024 Ascent 통계]
 
@@ -300,7 +300,7 @@
 - 강한 맵: Bind, Split, Icebox (좁은 통로 + 벽 활용)
 - 시너지: Killjoy (이중 sentinel), Skye (heal stack)
 - 카운터 받음: KAY/O suppress(벽 효과 일부 무력화), Breach(벽 관통 플래시)
-- 메타 위상: 픽률 5-15% (특정 맵 한정)
+- 메타 위상: **VCT 2025 Champions 픽률 5.6%** (Liquipedia 검증 2026-05-09) — 학습 추정 범위 내. 11.08 Barrier 800→600 너프 후 추가 변동 가능
 - 도메인 가설: **"Sage는 Bind에서 wall로 회전 차단 시 수비 라운드 승률 +3%p"**
 - 출처: [Riot Sage], [VLR.gg Bind stats]
 
@@ -309,7 +309,7 @@
 - 강한 맵: Breeze, Icebox, Pearl (long-range)
 - 시너지: Viper (가스 + 저격), Sova
 - 카운터 받음: 2024-2025 너프 후 활용도 ↓, Fade Haunt(앵커 위치 노출), Breach 스턴
-- 메타 위상: 2022 메타 → 2023 4.08 + 5.08 너프 → 2024 픽률 5-10%, 2025 부분 회복
+- 메타 위상: 2022 강세 → 2023 너프 → **VCT 2025 Champions 픽률 <2% (표본 외)** Liquipedia 검증 2026-05-09. long-range 한정 활용
 - 도메인 가설: **"Chamber는 long-range map 한정 활용 — Breeze에서만 픽률 ≥15%"**
 - 출처: [Riot 4.08 너프], [Riot 5.08 너프], [VLR.gg Chamber timeline]
 
@@ -319,7 +319,7 @@
 - 강한 맵: Icebox, Bind, Lotus
 - 시너지: Viper (가스 + 차단), Sova (정보 + 락)
 - 카운터 받음: 빠른 entry (Raze ult로 mesh 파괴), KAY/O suppress
-- 메타 위상: 출시 후 → 2024 7.04 + 8.x 버프 → 픽률 10-25% (Cypher/Killjoy 대안)
+- 메타 위상: **VCT 2025 Champions 픽률 8.5%** (Liquipedia 검증 2026-05-09) — 학습 추정(10-25%) 하회, 10.04 GravNet 시그니처 변경으로 메타 위치 변동
 - 도메인 가설: **"Deadlock은 Icebox에서 ult로 박빙 라운드 결정력 +4%p"**
 - 출처: [Riot 7.0 출시], [Riot 7.04 버프], [VLR.gg Deadlock]
 
@@ -329,7 +329,7 @@
 - 강한 맵: Bind, Sunset, Pearl
 - 시너지: Cypher (이중 sentinel), Sova, Viper
 - 카운터 받음: Raze ult(utility 파괴), KAY/O suppress, Breach
-- 메타 위상: 출시 후 2024 H2 픽률 15-25%
+- 메타 위상: **VCT 2025 Champions 픽률 12.7%** (Liquipedia 검증 2026-05-09) — 출시(9.04) 후 학습 추정(15-25%) 하회. 10.06 너프(Razorvine 10→6s, Shear 8→6s) + 12.00 Steel Garden 반경 증가
 - 도메인 가설: **"Vyse는 ult로 적팀 무기 봉쇄 — 박빙 매치에서 ult 라운드 승률 +6%p"**
 - 출처: [Riot 9.0 출시], [VLR.gg Vyse]
 
@@ -337,10 +337,10 @@
 - 능력: Q=Chokehold(원격 hold trap — Deafen + Decay), E=Crosscut(2-앵커 TP, 시그니처 — buy phase 회수 가능), C=Interceptor(utility destroyer — 적 utility 자동 파괴, 무료 사용), X=Evolution(mutation 강화 ult, debuff 면역 + 전투 보너스, **7 orb** Liquipedia 검증 2026-05-09)
 - 출시: 2025년 10월 7일 (패치 11.07b) — Riot 공식 검증
 - 출신: 세네갈 (Senegal)
-- 강한 맵: 데이터 부족 (TP signature로 회전 압박 활용 — Pearl/Sunset 추정)
+- 강한 맵: TP signature로 회전 압박 활용 — Pearl/Sunset 추정 (도메인, REFINED 후보)
 - 시너지: Sova (정보 + Interceptor utility 보강), Viper
 - 카운터 받음: KAY/O ult(mutation 효과 일부 봉쇄), Raze ult
-- 메타 위상: 2025 H2 출시 → 픽률 데이터 수집 중
+- 메타 위상: **VCT 2025 Champions 표본 외 (출시 11.07b = 2025-10, Champions 직전·중간 출시)** — Liquipedia 검증 2026-05-09. REFINED 후보, 표본 ≤30 매치, US-002 데이터로 보강 필요
 - 도메인 가설: **"Veto는 Interceptor로 적팀 utility 효율 -10%p (특히 Killjoy/Cypher 셋업 매치)"**
 - 출처: [Liquipedia Veto], [Riot 11.07b 패치 노트]
 

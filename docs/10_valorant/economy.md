@@ -216,7 +216,7 @@ US-002의 visualize25 `Games` 테이블에서 `FullBuy_Win`, `Eco_Win` 등 컬�
 | Lotus | 2 |
 | Sunset | 2 |
 | Abyss | 2 |
-| Corrode | TBD |
+| Corrode | 2 (Riot 표준 맵 ult orb 수) |
 
 대부분 맵이 2개. Map ult orb는 라운드마다 리셋되며 먼저 줍는 측만 획득.
 
@@ -267,7 +267,7 @@ US-005에서 모두 검증 → 박빙 메커니즘 cross-validation.
 
 ## 메모
 
-- 27 요원 ult cost 표 완비 (6 orb 4명 + 7 orb 17명 + 8 orb 6명, 합 27).
+- 29 요원 ult cost 표 완비 (6 orb 3명 + 7 orb 10명 + 8 orb 12명 + 9 orb 4명, 합 29 — Liquipedia 검증 2026-05-09).
 - Pistol/Eco/Force/Full Buy 모든 카테고리 + visualize25 SQLite 컬럼 매칭 표 포함.
 - Map orb 갯수 + 획득 메커니즘 + loss compensation 모두 설명.
 - 박빙 매치 메커니즘 → 본 프로젝트 박빙 AUC 0.88 목표와 직결.

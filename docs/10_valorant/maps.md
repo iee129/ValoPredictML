@@ -128,7 +128,7 @@
 - 도메인 가설:
   - **H-MAP-BREEZE-VIPER-MUST**: "Breeze에서 Viper 부재 시 어택 라운드 승률 -10%p (가장 강한 의존)"
   - **H-MAP-BREEZE-LONG-RANGE-SENT**: "Breeze에서 Chamber 픽률 ≥15% (long-range 한정 활용)"
-  - **H-MAP-BREEZE-ATTACKER**: "Breeze는 어택 유리 — 어택 사이드 ≥52%"
+  - **H-MAP-BREEZE-ATTACKER (CONTRADICTED 사전 표기)**: 학습 추정은 "어택 유리 ≥52%"였으나 Liquipedia 실측(2022 Champions 47.7%, 2024 Pacific 48.1%)은 **수비 유리** 방향. 가설 정정: "Breeze는 수비 유리 — 어택 사이드 ≤49% (Liquipedia 검증 2026-05-09)"
 - 출처: [VCT 2024 Breeze], [Liquipedia Breeze]
 
 ## Fracture

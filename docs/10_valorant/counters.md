@@ -21,6 +21,23 @@ US-005에서 데이터 통계로 검증 → CONFIRMED / CONTRADICTED / REFINED �
 
 ---
 
+## ⚠️ Ult orb cost 변경 영향 (2026-05-09 재검토)
+
+Liquipedia 직접 검증으로 ult orb cost가 학습 데이터와 다름이 발견되어 일부 카운터 가설 재검토:
+
+| 페어 | 학습 ult cost | 실측 ult cost | 영향 |
+|------|--------------|--------------|------|
+| C-01 Killjoy ult vs Raze ult | KJ 8 / Raze 7 | **KJ 9 / Raze 8** | 차이 1 orb 유지 — 가설 강도 유지 |
+| C-04 KAY/O ult vs Sage ult | KAY/O 7 / Sage 8 | **KAY/O 7 / Sage 7** | 같은 cost — Sage ult 사이클 1 orb 빠르짐 |
+| C-06 Brim ult vs Viper Pit | Brim 7 / Viper 8 | **Brim 8 / Viper 9** | 차이 1 orb 유지 — 가설 영향 적음 |
+| C-11 Vyse Steel Garden | Vyse 7 | **Vyse 8** | ult 사이클 1 orb 느림 — 가설 H-VYSE-CLOSE 효과 약화 가능 |
+| C-13 Astra ult vs Sova ult | Astra 7 / Sova 7 | **Astra 7 / Sova 8** | Sova가 1 orb 더 비쌈 — 메커니즘 동일 |
+| C-15 Tejo Armageddon | Tejo 8 | **Tejo 9** | 사이클 더 느림 — H-TEJO-OVERTUNED CONFIRMED 강화 |
+
+슬롯 swap 영향: Killjoy (Q=Alarmbot, E=Turret 시그니처, C=Nanoswarm), KAY/O (Q=FLASH/drive, E=ZERO/point 시그니처, C=FRAG/ment), Omen (Q=Paranoia, E=Dark Cover 시그니처, C=Shrouded Step), Cypher (Q=Cyber Cage, E=Spycam 시그니처, C=Trapwire), Vyse (Q=Shear, E=Arc Rose 시그니처, C=Razorvine) — **카운터 메커니즘은 모두 ult(X) 또는 시그니처(E) 슬롯 기반이라 직접 영향 없음**. 18쌍 메커니즘 정확성 유지 확인.
+
+---
+
 ## 카운터 강도 정의
 
 - **0.7 (강한 카운터)**: 능력이 구조적·직접적으로 무효화. 능력 명세에 의한 확정 카운터.
@@ -64,7 +81,7 @@ US-005 cross-validation에서 데이터로 강도 자동 보정 → `final_count
 
 ### C-01: Killjoy ult vs Raze ult (강도 0.7)
 
-- **메커니즘**: Killjoy `Lockdown` (8 orb)은 광역 detain. Raze `Showstopper` (7 orb)은 발사 모션 중 detain되면 발사 봉쇄. Lockdown 지속 13초 동안 Showstopper 사용 불가.
+- **메커니즘**: Killjoy `Lockdown` (**9 orb** Liquipedia 검증)은 광역 detain. Raze `Showstopper` (**8 orb** Liquipedia 검증)은 발사 모션 중 detain되면 발사 봉쇄. Lockdown 지속 13초 동안 Showstopper 사용 불가.
 - **라운드 영향**: 박빙 라운드(특히 retake)에서 Raze ult 의존 라운드 승률 ↓.
 - **데이터 검증 가설**:
   - **H-COUNTER-01**: "Killjoy Lockdown 사용 라운드에서 Raze 보유 팀 라운드 승률 -8%p (vs Raze 솔로 ult 라운드)"
@@ -104,7 +121,7 @@ US-005 cross-validation에서 데이터로 강도 자동 보정 → `final_count
 
 ### C-06: Brimstone Orbital Strike vs Viper's Pit (0.6)
 
-- **메커니즘**: Brimstone `Orbital Strike` (7 orb)는 광역 위에서 떨어지는 폭격, Viper's Pit (8 orb)는 가스 dome. 가스 안에 있어도 폭격 데미지 적용 → Pit 안 적 강타.
+- **메커니즘**: Brimstone `Orbital Strike` (**8 orb** Liquipedia 검증)는 광역 위에서 떨어지는 폭격, Viper's Pit (**9 orb** Liquipedia 검증)는 가스 dome. 가스 안에 있어도 폭격 데미지 적용 → Pit 안 적 강타.
 - **라운드 영향**: post-plant Pit 라운드에서 Brim ult로 retake 강제.
 - **데이터 검증 가설**:
   - **H-COUNTER-06**: "Pit 내부 Brim ult 매치에서 Pit 측 라운드 승률 -12%p"
@@ -152,7 +169,7 @@ US-005 cross-validation에서 데이터로 강도 자동 보정 → `final_count
 
 ### C-12: Killjoy Lockdown vs Phoenix Run It Back (0.5)
 
-- **메커니즘**: Killjoy `Lockdown` (8 orb)은 13초 광역 detain. Phoenix `Run It Back` (6 orb)은 시전 위치로 부활. Lockdown 영역 내에서 부활 시 detain 즉시 적용.
+- **메커니즘**: Killjoy `Lockdown` (**9 orb**)은 13초 광역 detain. Phoenix `Run It Back` (6 orb)은 시전 위치로 부활. Lockdown 영역 내에서 부활 시 detain 즉시 적용.
 - **라운드 영향**: Phoenix entry → 사망 → 부활 → 다시 detain → 무의미.
 - **데이터 검증 가설**:
   - **H-COUNTER-12**: "Killjoy ult + Phoenix ult 동시 라운드에서 Phoenix 부활 후 킬 ≤0.3"
@@ -176,7 +193,7 @@ US-005 cross-validation에서 데이터로 강도 자동 보정 → `final_count
 
 ### C-15: Tejo Armageddon vs Defender 사이트 락 (0.5)
 
-- **메커니즘**: Tejo `Armageddon` (8 orb)는 광역 폭격. utility(turret/cam 등) 모두 폭격 범위 내 파괴 가능.
+- **메커니즘**: Tejo `Armageddon` (**9 orb** Liquipedia 검증)는 광역 폭격. utility(turret/cam 등) 모두 폭격 범위 내 파괴 가능.
 - **라운드 영향**: post-plant retake 또는 어택 entry 시 사이트 utility 일제 정리.
 - **데이터 검증 가설**:
   - **H-COUNTER-15**: "Tejo ult 사용 라운드에서 Killjoy/Cypher utility 잔존율 -60%p"

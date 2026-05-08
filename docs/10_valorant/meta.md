@@ -169,7 +169,7 @@ US-002에서 매치 row의 `date` 컬럼으로 자동 분류 (`season_q` 피처 
 - 영향 받는 가설: H-MIKS-NEW (REFINED 후보)
 - 출처: [Riot 12.05 patch notes], [Liquipedia Miks]
 
-### 16-A. 패치 11.00 (2025-06-24): **Corrode 출시** + Waylay 버프 + 맵 로테이션
+### 16. 패치 11.00 (2025-06-24): **Corrode 출시** + Waylay 버프 + 맵 로테이션
 - 변경 (Riot 공식 검증 2026-05-09):
   - **Corrode 맵 출시** (12번째, France 테마, medieval fortress, 3 lanes 2 sites). 5-day Corrode-only Swiftplay queue 동시 출시.
   - **맵 로테이션**: Bind/Corrode 입장, **Pearl/Split 빠짐**
@@ -182,7 +182,7 @@ US-002에서 매치 row의 `date` 컬럼으로 자동 분류 (`season_q` 피처 
 - 영향 받는 가설: H-MAP-CORRODE-NEWMAP-VARIANCE, H-REYNA-PRO
 - 출처: [Riot 11.00 patch notes — 직접 fetch 검증 2026-05-09]
 
-### 16. 패치 11.08 (2025-Q4 추정): **Sage Barrier 큰 너프**
+### 18. 패치 11.08 (2025-Q4 추정): **Sage Barrier 큰 너프**
 - 변경 (Riot 공식 검증 2026-05-09):
   - **Sage Barrier Orb HP 800 → 600** (fortified 상태)
   - **비용 400c → 300c** (할인)
@@ -191,7 +191,7 @@ US-002에서 매치 row의 `date` 컬럼으로 자동 분류 (`season_q` 피처 
 - 영향 받는 가설: H-SAGE-BIND (수비 wall 활용 변동)
 - 출처: [Riot 11.08 patch notes]
 
-### 17. 패치 12.00 (2026-01-06): **Bandit 신규 사이드암 + Breeze 대규모 리워크 + Sunset 경쟁전 제거**
+### 19. 패치 12.00 (2026-01-06): **Bandit 신규 사이드암 + Breeze 대규모 리워크 + Sunset 경쟁전 제거**
 - 변경 (Riot 공식 검증 2026-05-09):
   - **Bandit 신규 사이드암 무기** 추가 (600 credits)
   - **Breeze 맵 대규모 리워크** (처음 2주간 RR 손실 50% 감소)
@@ -205,9 +205,9 @@ US-002에서 매치 row의 `date` 컬럼으로 자동 분류 (`season_q` 피처 
 - 영향 받는 가설: H-MAP-BREEZE-VIPER-MUST (Breeze 리워크로 Viper 의존도 변동 가능)
 - 출처: [Riot 12.00 patch notes — 직접 fetch 검증 2026-05-09]
 
-### 18. 패치 12.05 (2026-03-17): Miks 출시 (이미 항목 15에서 다룸)
+### 20. 패치 12.05 (2026-03-17): Miks 출시 (상세는 항목 15)
 
-### 19. 패치 12.06 (2026-03-31): Waylay 너프 + Viper Pit backend 개선
+### 21. 패치 12.06 (2026-03-31): Waylay 너프 + Viper Pit backend 개선
 - 변경 (Riot 공식 검증 2026-05-09):
   - **Waylay 너프**: Saturate INSTANT → **EQUIP** (즉시 hinder 능력 약화, 팀 safety coordination 요구)
   - **Viper Pit backend 기술 업데이트**: chemical cloud 일관된 spread, Haven/Icebox 등에서 cast 실패 방지
@@ -218,7 +218,7 @@ US-002에서 매치 row의 `date` 컬럼으로 자동 분류 (`season_q` 피처 
 - 영향 받는 가설: H-WAYLAY-EARLY (출시 후 너프로 효율 ↓)
 - 출처: [Riot 12.06 patch notes — 직접 fetch 검증 2026-05-09]
 
-### 20. 패치 11.x / 12.x 잔여 (균형 패치)
+### 22. 패치 11.x / 12.x 잔여 (균형 패치)
 - 변경: 11.01~11.07a, 11.09~11.x, 12.01~12.04 균형 패치 다수 (구체 변경은 Riot 패치 노트 인덱스 참조)
 - 메타 영향: 시즌별 메타 정착 — US-002에서 Riot 공식 패치 노트 페이지 스크랩 후 매핑
 - 출처: [Riot 패치 노트 인덱스 — 11.x~12.x]
@@ -295,26 +295,30 @@ US-005에서 데이터로 검증할 시즌·패치 관련 가설.
 
 ## 패치 영향 매핑 (요원별 dictionary)
 
+패치 영향 매핑 (Riot 공식 + Liquipedia 직접 fetch 검증 2026-05-09):
+
 | 요원 | 영향 패치 | 변화 방향 |
 |------|---------|----------|
-| ISO | 7.12 출시 → 9.05 너프 | 픽률 ↑↓, 박빙 결정력 ↓ |
-| Clove | 8.05 출시 → 8.11 너프 | 픽률 ↑↓ (60%+ → 35-40%) |
-| Cypher | 8.08 너프 | 픽률 ↓ (45% → 35%) |
-| Vyse | 9.0 출시 | 픽률 ↑ (0 → 20-25%) |
-| Sage | 9.05 (barrier 너프) | wall 활용도 ↓ |
-| Tejo | 10.0 출시 → 10.04 너프 | 픽률 ↑↓ (0 → 50% → 30%) |
-| Waylay | 10.06 출시 | 픽률 ↑ (0 → 5-12%) |
-| Chamber | 10.08 부분 버프 | 픽률 ↑ (8% → 12-15%) |
-| Neon | 8.11 너프 | 픽률 ↓ (18% → 12%) |
-| Yoru | 8.0 버프 | 픽률 ↑ (3% → 8%) |
-| Skye | 8.0 너프 | 픽률 ↓ (35% → 30%) |
-| Gekko | 9.04 (Sunset 시너지) | Sunset 픽률 ↑ |
+| ISO | **7.09 출시** → 8.11 Double Tap kill reset 추가 → 9.0 너프 → 10.04 Double Tap reversion + Undercut 너프 | VCT 2025 Champions <2% (메타 outside) |
+| Clove | 8.05 출시 → 8.11 너프 → **10.04 Meddle/Ruse 너프** | 60%+ → VCT 2025 Champions <2% |
+| Cypher | 8.08 너프 (Trapwire re-arm 1→2s) | VCT 2025 Champions 14.1% (학습 추정 30-50% 하회) |
+| **Vyse** | **9.04 출시** → 10.06 너프 (Razorvine 10→6s) → 12.00 Steel Garden 반경 ↑ | VCT 2025 Champions 12.7% |
+| **Sage** | **11.08 Barrier 800→600 HP + 비용 400→300c** | VCT 2025 Champions 5.6% |
+| Tejo | 10.0 출시(over-tuned) → 10.04 Salvo 너프 → 12.00 Special Delivery 폭발 추가 | 출시 30-50% → VCT 2025 Champions 4.2% |
+| **Waylay** | **10.04 출시** → 11.00 Lightspeed 후 전투 버프 → 12.06 Saturate INSTANT→EQUIP 너프 | VCT 2025 Champions 14.1% |
+| Chamber | **9.05 Rendezvous 13m→18m 버프**, 10.08 부분 회복 | VCT 2025 Champions <2% (메타 outside) |
+| Astra | **9.05 Stars 4→5 버프** | VCT 2025 Champions 7.0% |
+| KAY/O | 10.06 ult 부활 3s→1.5s 버프 | VCT 2025 Champions 5.6% (학습 추정 20-35% 하회) |
+| Reyna | **11.00 Leer HP 100→80 너프** | VCT 2025 Champions <2% |
+| Killjoy | (큰 너프 없음) | VCT 2025 Champions 9.9% (학습 추정 30-45% 하회) |
+| **Miks** | **12.05 출시 (Controller 7번째)** | 출시 직후, 표본 부족 |
+| **Veto** | **11.07b 출시 (Sentinel 7번째)** | 출시 직후, 표본 부족 |
 
 ---
 
 ## 메모
 
-- 패치 ≥10건 충족 (총 13건 + 11.x 11.y 등 추정 포함).
+- 패치 ≥10건 충족 (총 22건 매핑 — Riot 공식 + Liquipedia 직접 fetch 검증 2026-05-09).
 - 시즌 ≥4개 충족 (2024-H1, 2024-H2, 2025-H1, 2025-H2 + Q 분기 8개).
 - 모든 요원 출시·너프 시점이 매핑됨 → US-002에서 매치 `date` ↔ 패치 매핑 후 `patch_meta_phase` 피처 가능.
 - 2025-H2 데이터는 컷오프 이후 — VLR.gg + Kaggle 신규 데이터로 보강 (US-002).
