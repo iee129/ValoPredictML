@@ -19,3 +19,6 @@ riot.txt
 CLAUDE.md
 CONTRIBUTING.md
 AGENTS.md
+
+# 위 AGENTS.md 패턴(basename + core.ignorecase=true)이 발로란트 도메인 docs까지 매칭하므로 명시적 예외
+!docs/10_valorant/agents.md
