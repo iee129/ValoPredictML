@@ -198,6 +198,18 @@
       "accessCount": 1,
       "lastAccessed": 1778220980837,
       "type": "file"
+    },
+    {
+      "path": "docs/10_valorant/README.md",
+      "accessCount": 1,
+      "lastAccessed": 1778241594252,
+      "type": "file"
+    },
+    {
+      "path": "docs/10_valorant/valorant.md",
+      "accessCount": 1,
+      "lastAccessed": 1778241595127,
+      "type": "file"
     }
   ],
   "userDirectives": []
