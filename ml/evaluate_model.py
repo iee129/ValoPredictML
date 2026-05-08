@@ -220,16 +220,14 @@ def close_match_evaluate_multi(
     df_test: pd.DataFrame,
     feature_cols: list[str],
     margins: list[int] | None = None,
+    meta_learner: LogisticRegression | None = None,
 ) -> dict:
-    """margin=1,2,3,4 각각에 대해 close_match_evaluate()를 실행, {margin: result} 반환.
-
-    score_a/score_b 없거나 해당 margin 서브셋 0건이면 해당 key를 None으로 저장.
-    """
+    """margin=1,2,3,4 각각에 대해 close_match_evaluate()를 실행, {margin: result} 반환."""
     if margins is None:
         margins = [1, 2, 3, 4]
     results: dict[int, dict | None] = {}
     for m in margins:
-        r = close_match_evaluate(models, df_test, feature_cols, margin=m)
+        r = close_match_evaluate(models, df_test, feature_cols, margin=m, meta_learner=meta_learner)
         results[m] = r if r else None
     return results
 
@@ -297,24 +295,27 @@ def save_reports(
 # ── 메인 ──────────────────────────────────────────────────────────────────────
 
 def run(args: argparse.Namespace) -> None:  # 터미널에서 받은 옵션들을 보고 전체 평가 과정을 순서대로 실행하는 함수
-    print("[Evaluate] 모델 로드 중...")  # 평가 시작 단계를 화면에 알림
-    models = load_models(args.models)  # 지정된 폴더에서 세 선생님 모델 파일 불러오기
+    print("[Evaluate] 모델 로드 중...")
+    models = load_models(args.models)
+    meta_learner = load_meta_learner(args.models)
+    if meta_learner is not None:
+        print("[Evaluate] meta_learner 로드 완료 (OOF 스태킹 앙상블 사용)")
 
-    base = Path(args.input)  # 전처리 데이터가 있는 폴더 경로를 다루기 쉬운 객체로 바꿈
-    df_train = pd.read_csv(base / "train.csv", low_memory=False)  # 교차검증에 쓸 훈련 데이터 읽기 (메모리를 절약하며 읽음)
-    df_test  = pd.read_csv(base / "test.csv",  low_memory=False)  # 최종 시험에 쓸 데이터 읽기
+    base = Path(args.input)
+    df_train = pd.read_csv(base / "train.csv", low_memory=False)
+    df_test  = pd.read_csv(base / "test.csv",  low_memory=False)
 
-    print("\n[Evaluate] GroupKFold(5) 교차검증 중...")  # 교차검증 시작을 화면에 알림
-    kfold_metrics = kfold_evaluate(models, df_train, FEATURE_COLS)  # 훈련 데이터를 5조각으로 나눠 교차검증 실행
+    print("\n[Evaluate] GroupKFold(5) 교차검증 중...")
+    kfold_metrics = kfold_evaluate(models, df_train, FEATURE_COLS)
 
-    # K-Fold deepcopy가 원본을 변경하지 않지만, 명시적으로 reload하여 저장된 artifact와 일치시킴
-    print("\n[Evaluate] Test 최종 평가 중 (저장 모델 재로드)...")  # 시험 평가 시작을 화면에 알림
-    models = load_models(args.models)  # 저장된 원본 선생님 모델을 다시 불러와 시험 평가에 씀 (교차검증 중 변형된 복사본이 아닌 원본 사용)
-    test_metrics = test_evaluate(models, df_test, FEATURE_COLS)  # 시험 데이터로 딱 한 번만 최종 성적 확인
+    print("\n[Evaluate] Test 최종 평가 중 (저장 모델 재로드)...")
+    eval_models = load_calibrated_models(args.models) or load_models(args.models)
+    if load_calibrated_models(args.models) is not None:
+        print("[Evaluate] 보정 모델(calibrated) 로드 완료")
+    test_metrics = test_evaluate(eval_models, df_test, FEATURE_COLS, meta_learner=meta_learner)
 
-    # 박빙(접전) 경기 다중 margin 평가
     print(f"\n[Evaluate] 박빙(접전) 경기 평가 중 (margins=1,2,3,4)...")
-    close_metrics_multi = close_match_evaluate_multi(models, df_test, FEATURE_COLS)
+    close_metrics_multi = close_match_evaluate_multi(eval_models, df_test, FEATURE_COLS, meta_learner=meta_learner)
     close_metrics = close_metrics_multi.get(args.close_margin)  # 하위호환용 단일 margin 결과
 
     # SHAP 실패 시 메트릭 손실 방지 — 선저장
