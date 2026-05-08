@@ -85,6 +85,16 @@
     - 요원별 픽률, 승률, ACS, K/D — 메타 검증 핵심 소스.
 27. **VLR.gg Event Index** — https://www.vlr.gg/events
     - VCT 모든 이벤트 매치 결과 + map 스코어.
+27a. **VLR.gg VCT 2025 EMEA Stage 1 통계** — https://www.vlr.gg/event/stats/2380/vct-2025-emea-stage-1 (S-42 anchor — 2026-05-09 직접 fetch 성공, W-02 검증)
+27b. **Riot 10.08 patch notes (Yoru ult 7→8 정정)** — https://playvalorant.com/en-us/news/game-updates/valorant-patch-notes-10-08/ (S-43 anchor)
+27c. **Riot 11.04 patch notes (Sage 범위 버프, Chamber 회복)** — https://playvalorant.com/en-us/news/game-updates/valorant-patch-notes-11-04/ (S-44 anchor)
+27d. **Liquipedia VCT/2026/Stage_1/Masters/Statistics** — https://liquipedia.net/valorant/VCT/2026/Stage_1/Masters/Statistics (S-45 anchor)
+27e. **Liquipedia VCT/2026/EMEA_League/Stage_1/Statistics** — https://liquipedia.net/valorant/VCT/2026/EMEA_League/Stage_1/Statistics (S-46 anchor)
+27f. **Liquipedia VCT/2026/Americas_League/Stage_1/Statistics** — https://liquipedia.net/valorant/VCT/2026/Americas_League/Stage_1/Statistics (S-47 anchor)
+27g. **Liquipedia VCT/2026/Pacific_League/Stage_1/Statistics** — https://liquipedia.net/valorant/VCT/2026/Pacific_League/Stage_1/Statistics (S-48 anchor)
+27h. **Liquipedia VCT/2025/EMEA_League/Stage_1/Statistics** — https://liquipedia.net/valorant/VCT/2025/EMEA_League/Stage_1/Statistics (S-49 anchor)
+27i. **Liquipedia VCT/2025/Americas_League/Stage_1/Statistics** — https://liquipedia.net/valorant/VCT/2025/Americas_League/Stage_1/Statistics (S-50 anchor)
+27j. **Liquipedia VCT/2025/Pacific_League/Stage_1/Statistics** — https://liquipedia.net/valorant/VCT/2025/Pacific_League/Stage_1/Statistics (S-51 anchor)
 28. **axsddlr/vlrggapi (GitHub 비공식 API)** — https://github.com/axsddlr/vlrggapi
     - FastAPI 기반 비공식 VLR.gg 스크래퍼. US-003에서 활용 (rate limit 1 req/s, 세션당 ≤5,000 요청).
 

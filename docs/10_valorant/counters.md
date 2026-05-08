@@ -251,6 +251,35 @@ US-005 `validate_domain_hypothesis()`에서 18쌍 모두 데이터로 검증. CO
 
 ---
 
+## 18쌍 메커니즘 spot check (2026-05-09 plan v3 W-05 검증)
+
+각 쌍의 메커니즘 정확성 — Liquipedia + Riot 공식 직접 검증으로 확인된 슬롯·능력 명세 기반:
+
+| ID | 카운터 | 메커니즘 정확성 | 비고 |
+|----|--------|--------------|------|
+| C-01 | Killjoy 9-orb Lockdown vs Raze 8-orb Showstopper | ✅ 정확 (Liquipedia 능력 페이지 검증) | ult cost 둘 다 +1 정정 적용 |
+| C-02 | Cypher Trapwire vs Jett Tailwind | ✅ 정확 (능력 명세 동일) | — |
+| C-03 | Sova Owl Drone ↔ Cypher Spycam | ✅ 정확 (양방향 카운터 일관) | — |
+| C-04 | KAY/O 7-orb NULL/cmd vs Sage 7-orb Resurrection | ✅ 정확 (지속시간 12초 정정 적용) | Sage ult 8→7 정정 |
+| C-05 | Viper Toxic Screen vs Sova Recon Bolt | ✅ 정확 (능력 명세 동일) | — |
+| C-06 | Brimstone 8-orb Orbital Strike vs Viper 9-orb Pit | ✅ 정확 (둘 다 ult cost +1 정정) | — |
+| C-07 | Skye Trailblazer vs Cypher Spycam | ✅ 정확 (Skye Q=Trailblazer 검증) | — |
+| C-08 | Fade Haunt vs Yoru clones | ✅ 정확 (Fade E=Haunt 시그니처 검증) | — |
+| C-09 | Gekko 7-orb Mosh Pit vs Killjoy utility | ✅ 정확 (Gekko ult 6→7 정정) | — |
+| C-10 | Raze 8-orb Showstopper vs Killjoy setup | ✅ 정확 | — |
+| C-11 | Vyse 8-orb Steel Garden vs Duelist ults | ✅ 정확 (Vyse ult 7→8 정정) | 효과 약화 가능 표기 |
+| C-12 | Killjoy 9-orb Lockdown vs Phoenix 6-orb RIB | ✅ 정확 | — |
+| C-13 | Astra 7-orb Cosmic Divide vs Sova 8-orb Hunter's Fury | ✅ 정확 (Sova ult 7→8 정정) | — |
+| C-14 | Breach 9-orb Rolling Thunder vs Defender setup | ✅ 정확 (Breach ult 8→9 정정) | — |
+| C-15 | Tejo 9-orb Armageddon vs Defender setup | ✅ 정확 (Tejo ult 8→9 정정) | — |
+| C-16 | Omen 7-orb From the Shadows vs Cypher trip | ✅ 정확 | — |
+| C-17 | Chamber 8-orb Tour de Force vs Jett ult | ✅ 정확 | — |
+| C-18 | Phoenix self-flash vs Cypher Trapwire | ✅ 정확 (Phoenix Q=Hot Hands, E=Curveball 정정 적용) | — |
+
+**판정**: 18쌍 모두 메커니즘 정확. ult cost 변경 정정이 적용됨. 슬롯 swap 영향 0건 (ult/시그니처 슬롯이 변동 없음).
+
+---
+
 ## 메모
 
 - 총 **18쌍** (수락 기준 ≥15쌍 충족).

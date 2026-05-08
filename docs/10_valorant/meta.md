@@ -151,11 +151,29 @@ US-002에서 매치 row의 `date` 컬럼으로 자동 분류 (`season_q` 피처 
 - 출처: [Riot 10.06 patch notes — 직접 fetch 검증 2026-05-09]
 - ⚠️ Waylay 출시는 10.06이 아니라 **10.04** (이전 fetch에서 정정됨)
 
-### 13. 패치 10.08 (2025-04-30): 맵 균형 + Chamber 부분 회복
-- 변경: Chamber Headhunter 정확도 개선, Tour de Force 가격 조정. 맵별 미세 조정.
-- 메타 영향: Chamber 픽률 8% → 12-15% (Breeze/Icebox 한정)
-- 영향 받는 가설: H-CHAMBER-LONGRANGE
-- 출처: [Riot 10.08 patch notes]
+### 13. 패치 10.08 (2025-04-29): Yoru ult cost 변경 + 맵 로테이션
+- 변경 (Riot 공식 검증 2026-05-09):
+  - **Yoru Dimensional Drift 지속 12s→10s, ult cost 7→8** (이전 학습 데이터 7 orb 추정 정정)
+  - **Astra Nova Pulse 스턴 4s→3.5s** (다른 concuss와 표준화)
+  - Brimstone Incendiary 음성 개선 (smoke 안에서 명료성 ↑)
+  - **맵 로테이션**: Sunset 복귀, Fracture 빠짐
+  - Gifting 기능 출시 (Featured Store bundles)
+- 메타 영향: Yoru ult 사이클 1 orb 느려짐 → 박빙 매치 영향 가능
+- 영향 받는 가설: H-YORU-LURKER, ult cost 분포 (8 orb 카테고리에 Yoru 확정)
+- 출처: [Riot 10.08 patch notes — 직접 fetch 검증 2026-05-09]
+
+### 13-A. 패치 11.04 (2025-08-19): **Sage 범위 버프 + Chamber 회복**
+- 변경 (Riot 공식 검증 2026-05-09):
+  - **Sage Barrier Orb 범위 10m → 15m** (사거리 50% ↑)
+  - **Sage Resurrection 범위 6m → 12m** (사거리 2배)
+  - **Chamber Trademark 범위 제한 제거** (Chamber 회복 trigger)
+  - **맵 로테이션**: Abyss 복귀, Icebox 빠짐
+  - Ping 오디오 완화, ult AOE 색상 (아군 teal, 적 yellow)
+  - Manila 서버 추가 (Asia Pacific 6번째)
+  - VCT esports gifting 기능
+- 메타 영향: Sage controller-hybrid sentinel으로 정체성 강화 (Riot 공식 발표), Chamber 픽률 회복 trigger
+- 영향 받는 가설: H-SAGE-BIND, H-CHAMBER-LONGRANGE
+- 출처: [Riot 11.04 patch notes — 직접 fetch 검증 2026-05-09]
 
 ### 14. 패치 11.07b (2025-10-07): Veto 출시 (Sentinel 7번째)
 - 변경: Sentinel 7번째 요원 Veto 추가 (출신: 세네갈). 능력 — Q=Chokehold(hold trap), E=Crosscut(2-앵커 TP, 시그니처), C=Interceptor(utility destroyer), X=Evolution(mutation 강화 ult). Skirmish 모드 동시 출시.
@@ -268,11 +286,30 @@ US-002에서 매치 row의 `date` 컬럼으로 자동 분류 (`season_q` 피처 
 - **데이터 보강**: VLR.gg + Kaggle vct_2025 신규 데이터로 픽률 실측치 산출 (US-002)
 
 ### 2026-H1
-**컨셉**: Bandit 신규 무기 + Breeze 리워크 + Sunset 비활성 + Miks 출시 (Riot 공식 검증 2026-05-09)
+**컨셉**: Bandit 신규 무기 + Breeze 리워크 + Sunset 비활성 + Miks 출시 + **VCT 2026 시즌 시작** (Riot 공식 검증 2026-05-09)
+- **VCT 2026 일정**: Kickoff (Jan 15-Feb 15, triple-elimination) → **VCT 2026 Masters Santiago (Feb 28-Mar 15, $1M, Nongshim RedForce 우승)** → International Stage 1 (Mar-May) → Masters London (Jun 6-21) → Stage 2 (Jul-Aug) → Champions (Sep-Oct, Shanghai, $2.25M)
+- **VCT 2026 활성 맵 풀**: Split, Haven, Abyss, Breeze, Pearl, Bind, Corrode (Masters Santiago 7 맵)
 
 - **주요 패치**: 12.00 (Bandit + Breeze 리워크 + Sunset 비활성, 1월), 12.05 (Miks, 3월), 12.06 (Waylay 너프, 3월)
 - **메타 변동**: Sunset 일시 비활성으로 다른 맵 픽률 ↑ 예상, Bandit 600c 사이드암으로 economy 변동
 - **데이터 보강**: 출시 직후라 표본 부족 — US-002에서 보강 필요
+
+---
+
+## Riot 공식 메타 분석 (Devblog reference)
+
+### State of the Agents (Riot 공식, March 2024) — Liquipedia/직접 fetch 검증 2026-05-09
+
+핵심 발표 (요약):
+- **balance 철학**: 2024부터 "더 적극적인 밸런싱" 전환 (Coleman Palm). 신중한 보존주의 → 적극 조정.
+- **Skye 너프 의도**: 조직화된 팀플레이에서 "지나치게 지배적" — 너프 대상. (이는 9.05/이후 너프와 일치, 2025 메타에서 Skye 픽률 2.8% 감소 결과)
+- **버프 받은 요원**: Gekko, Deadlock, Cypher, Killjoy, Chamber (역할 다양성 강화 의도)
+- **신규 요원 A25 (2024-Q1)**: 스모크 활용 혁신 컨트롤러 = **Clove (8.05 출시 확정)**
+- **출처**: [Riot Devblog — State of the Agents March 2024], sources.md S-4 (Devblog)
+
+### VCT EMEA State of the Meta (Riot 공식 esports, 2025-02-15)
+- 본 글은 VCT EMEA Stage 1 (2025) 시작 시 메타 소개. 신규 요원 + 신진 선수 중심.
+- 출처: [Riot esports — VCT EMEA State of the Meta]
 
 ---
 
