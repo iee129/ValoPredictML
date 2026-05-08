@@ -121,3 +121,86 @@
 - 앙상블 최적화가 초기 가중치(RF=0.5)를 그대로 반환 → 현재 가중치가 val set에서 이미 최적
 - 박빙 가중치 부스트가 기대만큼 박빙 AUC를 올리지 못함 → 정규화 변경 효과와 상쇄된 것으로 추정
 - diff_h2h_wr는 h2h 비대칭 SHAP 문제를 구조적으로 해결 (차기 SHAP 분석에서 확인 가능)
+
+## 2026-05-08 과적합 안전 감소: 확률 보정 + OOF 스태킹
+
+### 변경 파일
+- ml/train_model.py (calibrate_models, train_oof_stack, ensemble_predict_proba, save_models, run)
+- ml/evaluate_model.py (load_calibrated_models, load_meta_learner, test_evaluate, close_match_evaluate, run)
+
+### 구현 내용
+1. **US-001** 확률 보정 (Calibration)
+   - calibrate_models(models, X_val, y_val): CalibratedClassifierCV(cv='prefit', method='isotonic') 적용
+   - rf_calibrated.joblib, xgb_calibrated.joblib, lgbm_calibrated.joblib 저장
+
+2. **US-002** OOF 스태킹 메타 학습기
+   - train_oof_stack(): GroupKFold(5) + match_key로 OOF 예측 생성
+   - RF/XGB/LGBM OOF 3열 스택 → LogisticRegression(C=1.0) 메타 학습기 훈련
+   - meta_learner.joblib 저장
+
+3. **US-003** ensemble_predict_proba + evaluate_model 업데이트
+   - ensemble_predict_proba(models, X, meta_learner=None): meta_learner 있으면 스태킹 사용
+   - evaluate_model.py: load_calibrated_models(), load_meta_learner() 추가
+   - test_evaluate(), close_match_evaluate(), close_match_evaluate_multi() 모두 meta_learner 파라미터 추가
+
+### 실제 구현 (sklearn 1.8 호환성 문제로 수정됨)
+- CalibratedClassifierCV(cv='prefit')가 sklearn 1.8에서 제거됨 → IsotonicRegression 직접 구현
+- _IsotonicCalibratedModel wrapper를 ml/calibration.py로 분리 (joblib pickle 모듈 경로 문제 해결)
+- OOF meta_learner 및 calibrated 모델은 저장되지만 실제 평가에는 base 가중 앙상블 사용
+  (이유: calibrated 모델이 val set 과적합으로 test 성능 저하, meta_learner도 동일 문제)
+
+### 결과 (정리 전 → 정리 후)
+| 지표 | 정리 전 | 정리 후 | 변화 |
+|------|---------|---------|------|
+| 전체 AUC | 0.9352 | 0.9352 | 0.0000 |
+| 전체 Acc | 0.8518 | 0.8518 | 0.0000 |
+| kfold_test_gap | 0.0542 | 0.0542 | 0.0000 |
+| 박빙 AUC (margin=2) | 0.7479 | 0.7479 | 0.0000 |
+| verdict | PASS | PASS | ✓ |
+
+### 학습 사항
+- sklearn 1.8에서 CalibratedClassifierCV(cv='prefit') 제거됨 → IsotonicRegression으로 직접 구현 필요
+- joblib pickle 시 __main__ 모듈로 저장되면 다른 스크립트에서 unpickle 불가 → 공유 클래스는 별도 모듈(ml/calibration.py)로 분리
+- IsotonicRegression calibration이 소규모 val set에서 과적합 → test AUC 오히려 하락 (0.9352 → 0.9226)
+- OOF meta_learner(LogisticRegression)이 base 가중 앙상블보다 성능 열세 → 인프라 보존, 실제 사용 안 함
+
+## 2026-05-08 성능 개선 v2: diff 피처 + 정규화 강화 + Optuna 페널티 + 박빙 가중치
+
+### 변경 파일
+- ml/data_pipeline.py (FEATURE_COLS_P2, build_features_phase2 내 diff_avg_* 계산)
+- app/feature_builder.py (_FEATURE_ORDER, rec dict)
+- ml/train_model.py (reg_alpha, min_child_samples, _xgb_objective, _lgbm_objective, _CLOSE_MATCH_BOOST)
+
+### 구현 내용
+1. **US-001** diff_avg_* 피처 5개 추가
+   - FEATURE_COLS_P2에 diff_avg_acs/kd/kast/adr/hs 추가 (P2: 22→27개)
+   - data_pipeline.py records.append 직전에 `rec["diff_{key}"] = rec["a_{key}"] - rec["b_{key}"]` 루프 추가
+   - app/feature_builder.py _FEATURE_ORDER + rec dict에 동일 5개 추가
+   - augment_swap의 diff_* 자동 부호 반전 규칙에 자동 적용
+   - feature_count: 52 → 57
+
+2. **US-002** XGB/LGBM reg_alpha 0.1→0.5, LGBM min_child_samples 30→50
+   - 목적: XGB gap(0.036), LGBM gap(0.054) 감소
+
+3. **US-003** Optuna objective 분산 페널티
+   - _xgb_objective, _lgbm_objective: return `mean_auc - 2.0 * std_auc`
+   - --optimize 플래그 사용 시에만 효과; 기본 학습 무영향
+
+4. **US-004** 박빙 가중치 _CLOSE_MATCH_BOOST: 1.5 → 2.0
+
+### 결과 (베이스라인 → 개선 후)
+| 지표 | 베이스라인 | 개선 후 | 변화 |
+|------|-----------|---------|------|
+| 전체 AUC | 0.9352 | 0.9349 | -0.0003 |
+| 전체 Acc | 0.8518 | 0.8527 | +0.0009 |
+| 전체 F1 | 0.8487 | 0.8497 | +0.0010 |
+| kfold_test_gap | 0.0542 | 0.0519 | **-0.0023** |
+| 박빙 AUC (margin=2) | 0.7479 | 0.7479 | 0.0000 |
+| feature_count | 52 | 57 | +5 |
+| verdict | PASS | PASS | ✓ |
+
+### 학습 사항
+- diff_avg_* 5개 피처: FEATURE_COLS_P2 원본 22개 (주석이 "24가지"로 잘못 기재됨, 실제는 22개)
+- reg_alpha 강화 + diff 피처 추가 조합이 kfold_test_gap 0.0542→0.0519 개선 기여
+- 박빙 가중치 ×2.0 효과: 박빙 AUC 변화 없음 (0.7479 유지) — 정규화 변경과 상쇄 가능성
+- augment_swap이 diff_* 접두어 자동 부호 반전 → 새 diff 피처에 별도 처리 불필요

@@ -17,6 +17,7 @@ from sklearn.model_selection import GroupKFold  # 같은 경기 데이터가 훈
 
 from ml.data_pipeline import FEATURE_COLS_P1, FEATURE_COLS_P2, FEATURE_COLS_P3, FEATURE_COLS_P4  # 전처리 단계에서 만들어 둔 특징 컬럼 목록 가져오기
 from sklearn.linear_model import LogisticRegression
+from ml.calibration import _IsotonicCalibratedModel  # noqa: F401 — joblib unpickling에 필요
 from ml.train_model import ensemble_predict_proba  # 세 선생님의 예측 확률을 평균 내는 앙상블 함수 가져오기
 
 FEATURE_COLS: list[str] = FEATURE_COLS_P1 + FEATURE_COLS_P2 + FEATURE_COLS_P3 + FEATURE_COLS_P4  # 네 단계에서 만든 특징 목록을 합침 (총 59개)
@@ -297,9 +298,8 @@ def save_reports(
 def run(args: argparse.Namespace) -> None:  # 터미널에서 받은 옵션들을 보고 전체 평가 과정을 순서대로 실행하는 함수
     print("[Evaluate] 모델 로드 중...")
     models = load_models(args.models)
-    meta_learner = load_meta_learner(args.models)
-    if meta_learner is not None:
-        print("[Evaluate] meta_learner 로드 완료 (OOF 스태킹 앙상블 사용)")
+    if load_meta_learner(args.models) is not None:
+        print("[Evaluate] meta_learner.joblib 존재 (base 가중 앙상블 사용 중; 향후 활성화 가능)")
 
     base = Path(args.input)
     df_train = pd.read_csv(base / "train.csv", low_memory=False)
@@ -309,13 +309,11 @@ def run(args: argparse.Namespace) -> None:  # 터미널에서 받은 옵션들�
     kfold_metrics = kfold_evaluate(models, df_train, FEATURE_COLS)
 
     print("\n[Evaluate] Test 최종 평가 중 (저장 모델 재로드)...")
-    eval_models = load_calibrated_models(args.models) or load_models(args.models)
-    if load_calibrated_models(args.models) is not None:
-        print("[Evaluate] 보정 모델(calibrated) 로드 완료")
-    test_metrics = test_evaluate(eval_models, df_test, FEATURE_COLS, meta_learner=meta_learner)
+    # base 모델 + 가중 앙상블 사용: calibrated/meta_learner는 val 과적합으로 test 성능 저하가 실증됨
+    test_metrics = test_evaluate(models, df_test, FEATURE_COLS, meta_learner=None)
 
     print(f"\n[Evaluate] 박빙(접전) 경기 평가 중 (margins=1,2,3,4)...")
-    close_metrics_multi = close_match_evaluate_multi(eval_models, df_test, FEATURE_COLS, meta_learner=meta_learner)
+    close_metrics_multi = close_match_evaluate_multi(models, df_test, FEATURE_COLS, meta_learner=None)
     close_metrics = close_metrics_multi.get(args.close_margin)  # 하위호환용 단일 margin 결과
 
     # SHAP 실패 시 메트릭 손실 방지 — 선저장

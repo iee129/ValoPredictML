@@ -15,38 +15,38 @@ import xgboost as xgb  # XGBoost 선생님 모델을 만들고 쓰는 도구
 from sklearn.ensemble import RandomForestClassifier  # Random Forest(랜덤 포레스트) 선생님 모델
 from sklearn.metrics import accuracy_score, f1_score, roc_auc_score  # 모델 성적표를 매기는 세 가지 채점 함수
 from scipy.optimize import minimize  # 앙상블 가중치 val-AUC 최적화에 사용
-from sklearn.calibration import CalibratedClassifierCV
+from sklearn.isotonic import IsotonicRegression
 from sklearn.linear_model import LogisticRegression
+from ml.calibration import _IsotonicCalibratedModel
 from sklearn.model_selection import GroupKFold  # 같은 경기 데이터가 훈련용과 시험용에 동시에 들어가지 않도록 조심해서 나누는 방법
 
 from ml.data_pipeline import FEATURE_COLS_P1, FEATURE_COLS_P2, FEATURE_COLS_P3, FEATURE_COLS_P4  # 전처리 단계에서 만들어 둔 피처(특징) 컬럼 목록 가져오기
 
 optuna.logging.set_verbosity(optuna.logging.WARNING)  # Optuna가 실험할 때마다 너무 많은 로그를 출력하지 않도록 경고 수준만 보이게 설정
 
-FEATURE_COLS: list[str] = FEATURE_COLS_P1 + FEATURE_COLS_P2 + FEATURE_COLS_P3 + FEATURE_COLS_P4  # 네 단계에서 만든 특징 목록을 합침 (총 59개)
+FEATURE_COLS: list[str] = FEATURE_COLS_P1 + FEATURE_COLS_P2 + FEATURE_COLS_P3 + FEATURE_COLS_P4  # 네 단계에서 만든 특징 목록을 합침 (총 57개)
 
 _YEAR_WEIGHTS: dict[int, float] = {2025: 2.0, 2024: 1.8, 2023: 1.4, 2022: 1.2}
-_CLOSE_MATCH_BOOST: float = 1.5  # 박빙 경기(스코어 차 ≤3)에 부여하는 추가 가중치
+_CLOSE_MATCH_BOOST: float = 2.0  # 박빙 경기(스코어 차 ≤3)에 부여하는 추가 가중치 (1.5→2.0으로 올려서 박빙 경기를 더 열심히 배우게 해요)
 
 
-def _compute_sample_weights(df_train: pd.DataFrame) -> np.ndarray:
-    """연도 가중치 + 박빙 경기 부스트를 결합한 샘플 가중치를 반환한다."""
-    def _year(row: pd.Series) -> int:
-        date_str = str(row.get("date", ""))
-        if date_str and len(date_str) >= 4 and date_str[:4].isdigit():
-            return int(date_str[:4])
-        event = str(row.get("event", ""))
-        for yr in (2025, 2024, 2023, 2022):
-            if str(yr) in event:
-                return yr
-        return 2021
+def _compute_sample_weights(df_train: pd.DataFrame) -> np.ndarray:  # 각 경기에 중요도 점수(가중치)를 계산해서 배열로 돌려주는 함수예요
+    def _year(row: pd.Series) -> int:  # 경기 한 줄에서 연도 숫자를 뽑아주는 도우미 함수예요
+        date_str = str(row.get("date", ""))  # date 칸에 있는 날짜 문자열을 꺼내요 (없으면 빈 문자열)
+        if date_str and len(date_str) >= 4 and date_str[:4].isdigit():  # 날짜가 있고 앞 4글자가 숫자면 연도로 쓸 수 있어요
+            return int(date_str[:4])  # "2024-01-15" 같은 날짜에서 2024만 숫자로 꺼내 돌려줌
+        event = str(row.get("event", ""))  # date가 없으면 event 이름에서 연도를 찾아봐요
+        for yr in (2025, 2024, 2023, 2022):  # 최신 연도부터 순서대로 이름 안에 있는지 확인해요
+            if str(yr) in event:  # 예: "VCT_2024_Masters" 이름에 "2024"가 들어있으면 2024를 돌려줘요
+                return yr  # 찾은 연도 반환
+        return 2021  # 연도를 알 수 없으면 가장 오래된 2021년으로 가정해요
 
-    years = df_train.apply(_year, axis=1)
-    weights = years.map(_YEAR_WEIGHTS).fillna(1.0)
-    if "score_a" in df_train.columns and "score_b" in df_train.columns:
-        score_diff = (df_train["score_a"] - df_train["score_b"]).abs()
-        weights = weights * score_diff.apply(lambda d: _CLOSE_MATCH_BOOST if d <= 3 else 1.0)
-    return weights.to_numpy(dtype=float)
+    years = df_train.apply(_year, axis=1)  # 훈련 데이터의 모든 경기에서 연도를 뽑아 Series로 만들어요
+    weights = years.map(_YEAR_WEIGHTS).fillna(1.0)  # 연도별 가중치 표에서 점수를 가져오고, 표에 없는 연도는 1.0(기본)으로 채워요
+    if "score_a" in df_train.columns and "score_b" in df_train.columns:  # 경기 스코어 정보가 있을 때만 박빙 부스트를 적용해요
+        score_diff = (df_train["score_a"] - df_train["score_b"]).abs()  # 두 팀 스코어 차이를 절댓값으로 계산해요 (예: 13-10이면 차이=3)
+        weights = weights * score_diff.apply(lambda d: _CLOSE_MATCH_BOOST if d <= 3 else 1.0)  # 차이가 3 이하인 박빙 경기는 가중치를 _CLOSE_MATCH_BOOST배로 키워요
+    return weights.to_numpy(dtype=float)  # 파이썬 리스트 대신 numpy 실수 배열로 바꿔서 반환해요 (모델이 이 형식을 더 좋아해요)
 
 
 # ── 데이터 로드 ────────────────────────────────────────────────────────────────
@@ -100,7 +100,7 @@ def train_xgb(
         learning_rate=0.05,  # 한 번에 조금씩(5%) 배우는 학습률 — 느리지만 실수를 줄여줌
         subsample=0.8,  # 매 라운드마다 훈련 데이터의 80%만 무작위로 골라 씀 — 다양한 관점을 배우게 함
         colsample_bytree=0.7,  # 매 라운드마다 특징의 70%만 무작위로 골라 씀 (0.8→0.7 강화)
-        reg_alpha=0.1,  # 불필요한 특징의 영향을 줄여주는 L1 벌점 (작은 값들을 0으로 만드는 효과)
+        reg_alpha=0.5,  # 불필요한 특징을 아예 0으로 만드는 L1 벌점을 더 강하게 적용해요 (0.1→0.5 강화)
         reg_lambda=2.0,  # 특징의 영향력이 너무 커지지 않게 눌러주는 L2 벌점 (1.0→2.0 강화)
         min_child_weight=7,  # 나무 가지 하나에 최소 7개 이상의 데이터가 있어야 함 (5→7로 올려 과적합 방지)
         gamma=0.1,  # 가지를 새로 만들 때 최소 이 만큼 나아져야 허락함 — 의미 없는 가지를 차단
@@ -136,9 +136,9 @@ def train_lgbm(
         subsample=0.8,  # 매 라운드마다 훈련 데이터의 80%만 무작위로 골라 씀
         subsample_freq=1,  # 위 80% 샘플링을 매 라운드마다 적용
         colsample_bytree=0.7,  # 매 라운드마다 특징의 70%만 무작위로 골라 씀 (0.8→0.7 강화)
-        reg_alpha=0.1,  # 불필요한 특징을 줄여주는 L1 벌점
+        reg_alpha=0.5,  # 불필요한 특징을 아예 0으로 만드는 L1 벌점을 더 강하게 적용해요 (0.1→0.5 강화)
         reg_lambda=2.0,  # 특징 영향력을 눌러주는 L2 벌점 (1.0→2.0 강화)
-        min_child_samples=30,  # 잎사귀 하나에 최소 30개의 데이터가 있어야 만들 수 있음 (20→30, 과적합 방지)
+        min_child_samples=50,  # 잎사귀 하나에 데이터가 최소 50개 있어야 만들 수 있어요 (30→50으로 올려 과적합 방지)
         objective="binary",  # 이기거나(1) 지거나(0), 둘 중 하나를 맞히는 문제로 설정
         metric="binary_logloss",  # 중간 점검 때 예측이 얼마나 확신에 찼는지로 점수를 매김
         random_state=42,  # 결과를 재현할 수 있도록 랜덤 시드 고정
@@ -198,7 +198,9 @@ def _xgb_objective(
         trial.report(auc, step=step)  # Optuna에게 "이번 조각 결과는 이래요"라고 보고
         if trial.should_prune():  # Optuna가 "이 실험은 가망 없어, 그만해"라고 하면
             raise optuna.exceptions.TrialPruned()  # 이번 실험을 중간에 포기하고 다음 실험으로 넘어감
-    return float(np.mean(auc_scores))  # 5개 조각의 AUC 평균을 이번 실험의 최종 점수로 Optuna에 돌려줌
+    mean_auc = float(np.mean(auc_scores))  # 5개 조각의 AUC 평균이에요 — 모델이 얼마나 잘 맞히는지 나타내요
+    std_auc  = float(np.std(auc_scores))   # 5개 조각 AUC가 얼마나 들쑥날쑥한지예요 (값이 작을수록 안정적이에요)
+    return mean_auc - 2.0 * std_auc        # 들쑥날쑥할수록 점수를 낮게 줘서 안정적인(과적합 없는) 모델을 더 좋아하게 해요
 
 
 def _lgbm_objective(
@@ -243,7 +245,9 @@ def _lgbm_objective(
         trial.report(auc, step=step)  # Optuna에게 중간 결과 보고
         if trial.should_prune():  # Optuna가 이 실험을 포기하라고 하면
             raise optuna.exceptions.TrialPruned()  # 이번 실험을 중단하고 다음 실험으로 넘어감
-    return float(np.mean(auc_scores))  # 5개 조각의 AUC 평균을 이번 실험의 최종 점수로 Optuna에 돌려줌
+    mean_auc = float(np.mean(auc_scores))  # 5개 조각의 AUC 평균이에요
+    std_auc  = float(np.std(auc_scores))   # 5개 조각 AUC가 얼마나 들쑥날쑥한지예요
+    return mean_auc - 2.0 * std_auc        # 들쑥날쑥할수록 점수를 낮게 줘서 안정적인 모델을 더 좋아하게 해요
 
 
 def optimize_model(
@@ -302,9 +306,10 @@ def calibrate_models(models: dict, X_val: pd.DataFrame, y_val: pd.Series) -> dic
     """val set으로 각 기본 모델에 isotonic 확률 보정을 적용하고 보정된 모델 dict를 반환한다."""
     calibrated: dict = {}
     for name, model in models.items():
-        cal = CalibratedClassifierCV(model, cv="prefit", method="isotonic")
-        cal.fit(X_val, y_val)
-        calibrated[name] = cal
+        raw_probs = model.predict_proba(X_val)[:, 1]
+        iso = IsotonicRegression(out_of_bounds="clip")
+        iso.fit(raw_probs, y_val)
+        calibrated[name] = _IsotonicCalibratedModel(model, iso)
     return calibrated
 
 
@@ -409,7 +414,7 @@ def save_models(
     metadata = dict(  # 모델 학습 정보를 정리한 메모장 내용
         trained_at=datetime.now().isoformat(),  # 이 모델을 저장한 날짜와 시각
         feature_cols=FEATURE_COLS,  # 학습에 사용한 특징 목록 (나중에 예측할 때 같은 특징을 넣어야 함)
-        feature_count=len(FEATURE_COLS),  # 특징의 개수 (54개)
+        feature_count=len(FEATURE_COLS),  # 특징의 개수 (57개)
         train_samples=train_samples,  # 훈련에 쓰인 경기 수
         val_metrics=metrics.get("val", {}),  # 검증 데이터에서의 성적표
         test_metrics=metrics.get("test", {}),  # 시험 데이터에서의 성적표

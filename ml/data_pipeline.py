@@ -33,7 +33,7 @@ SOURCE_WEIGHT: dict[str, float] = {  # 데이터 출처별로 얼마나 믿을 �
     "kaggle_piyush2024":     1.2,  # piyush86kumar VCT Champions 2024 국제 대회 데이터 — VCT 공식 수준이에요 (1.2점)
 }
 
-FEATURE_COLS_P1 = [  # AI가 예측할 때 참고하는 숫자 정보 중 "요원 역할군 기반" 19가지 항목 이름이에요
+FEATURE_COLS_P1 = [  # AI가 예측할 때 참고하는 숫자 정보 중 "요원 역할군 기반" 17가지 항목 이름이에요
     "a_duelist", "a_initiator", "a_controller", "a_sentinel",  # 팀A에 각 역할군이 몇 명인지예요 (4개)
     "b_duelist", "b_initiator", "b_controller", "b_sentinel",  # 팀B에 각 역할군이 몇 명인지예요 (4개)
     "diff_duelist", "diff_initiator", "diff_controller", "diff_sentinel",  # 팀A 수 - 팀B 수 차이예요 (4개)
@@ -41,7 +41,7 @@ FEATURE_COLS_P1 = [  # AI가 예측할 때 참고하는 숫자 정보 중 "요�
     "a_double_initiator", "b_double_initiator",  # 팀에 척후대가 2명 이상이면 1이에요
 ]
 
-FEATURE_COLS_P2 = [  # AI가 예측할 때 참고하는 숫자 정보 중 "선수 개인 스탯 기반" 24가지 항목 이름이에요
+FEATURE_COLS_P2 = [  # AI가 예측할 때 참고하는 숫자 정보 중 "선수 개인 스탯 기반" 27가지 항목 이름이에요
     "a_avg_acs", "b_avg_acs", "a_avg_kd", "b_avg_kd",  # 팀별 평균 전투점수(ACS)와 킬/데스 비율이에요
     "a_avg_kast", "b_avg_kast", "a_avg_adr", "b_avg_adr",  # 팀별 평균 생존기여율(KAST)과 라운드당 피해량(ADR)이에요
     "a_avg_hs", "b_avg_hs",  # 팀별 평균 헤드샷 비율이에요
@@ -51,6 +51,11 @@ FEATURE_COLS_P2 = [  # AI가 예측할 때 참고하는 숫자 정보 중 "선�
     "a_avg_agent_map_wr", "b_avg_agent_map_wr",  # 팀의 각 요원이 이 맵에서 얼마나 자주 이겼는지 평균이에요
     "a_avg_agent_pick_rate", "b_avg_agent_pick_rate",  # 팀의 각 요원이 이 맵에서 얼마나 자주 선택됐는지 비율이에요
     "a_avg_agent_exp", "b_avg_agent_exp",  # 팀 선수들이 자기 요원을 얼마나 많이 플레이해봤는지 경험 횟수 평균이에요
+    "diff_avg_acs",   # 팀A ACS에서 팀B ACS를 뺀 값이에요 (양수면 팀A가 더 활약이 많음)
+    "diff_avg_kd",    # 팀A K/D에서 팀B K/D를 뺀 값이에요 (양수면 팀A가 더 많이 잡고 덜 죽음)
+    "diff_avg_kast",  # 팀A KAST에서 팀B KAST를 뺀 값이에요 (양수면 팀A 팀원들이 더 많이 기여함)
+    "diff_avg_adr",   # 팀A ADR에서 팀B ADR을 뺀 값이에요 (양수면 팀A가 라운드당 더 많은 피해를 줌)
+    "diff_avg_hs",    # 팀A 헤드샷 비율에서 팀B 헤드샷 비율을 뺀 값이에요 (양수면 팀A가 더 정확함)
 ]
 
 FEATURE_COLS_P3 = [  # 맵별 요원 승률 기반 피처 (train 집계 기반, 데이터 누수 없음)
@@ -891,6 +896,8 @@ def _add_phase2_features(  # 요원 역할군 숫자(Phase 1) 표에 선수 개�
             rec.update(_synergy(players, side))  # 팀 협동 관련 숫자를 추가해요
             rec.update(_combo(players, side))  # 요원·맵 조합 숫자를 추가해요
 
+        for key in ("avg_acs", "avg_kd", "avg_kast", "avg_adr", "avg_hs"):  # 비교할 스탯 이름 목록이에요
+            rec[f"diff_{key}"] = rec.get(f"a_{key}", 0.0) - rec.get(f"b_{key}", 0.0)  # 팀A 스탯에서 팀B 스탯을 빼요 (augment_swap이 나중에 diff_* 부호를 자동으로 반전해줘요)
         records.append(rec)  # 현재 경기의 Phase 2 숫자 사전을 리스트에 추가해요
 
     phase2 = pd.DataFrame(records, index=df.index)  # Phase 2 숫자 리스트를 표로 바꿔요 (Phase 1 표와 줄 번호를 맞춰요)
