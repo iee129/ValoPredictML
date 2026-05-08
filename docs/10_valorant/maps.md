@@ -87,7 +87,7 @@
 
 ## Split
 - 사이트 수 / 특수 구조: 2 사이트 (A, B), **수직 통로(밧줄·지하)**, Mid 좁음
-- 사이드 어드밴티지: **수비 유리 (수비 ~52-54%)** — 좁은 통로로 수비 우위
+- 사이드 어드밴티지: **2024 Pacific Kickoff 어택 50.0% / 수비 50.0% (118 라운드)** — 균형 (Liquipedia VCT 2024 Pacific 검증). 2025 비활성. 학습 데이터 추정(수비 52-54%)과 큰 차이.
 - 이상 구성:
   - Controller: **Omen** 또는 Brimstone
   - Sentinel: **Cypher** 또는 Sage (벽으로 통로 차단)
@@ -117,7 +117,7 @@
 
 ## Breeze
 - 사이트 수 / 특수 구조: 2 사이트 (A, B), **매우 넓은 오픈 라인** + 텔레포터 1개
-- 사이드 어드밴티지: **어택 유리 (어택 ~52-53%)** — 어택의 거리 우위
+- 사이드 어드밴티지: **2022 Champions 어택 47.7% / 2024 Pacific 어택 48.1% (185 라운드)** — Liquipedia 검증, 실제로 수비 유리 (학습 데이터 추정 어택 유리와 반대!). 2025 비활성.
 - 이상 구성:
   - Controller: **Viper** (긴 가스 벽 필수) + Brimstone/Harbor
   - Sentinel: **Cypher** 또는 Chamber (long-range)
@@ -133,7 +133,7 @@
 
 ## Fracture
 - 사이트 수 / 특수 구조: 2 사이트 (A, B), **양방향 어택 스폰(H-shaped)** — 어택이 양쪽에서 동시 진입 가능, zip-line
-- 사이드 어드밴티지: **어택 유리 (어택 ~52%)** — 양방향 스폰으로 수비 분산 강제
+- 사이드 어드밴티지: **2022 Champions 어택 49.0% / 수비 51.0% (206 라운드)** — Liquipedia 검증, 균형. 2024-2025 비활성. 학습 데이터 추정(어택 52%)과 다소 차이.
 - 이상 구성:
   - Controller: **Brimstone** + Viper (double controller)
   - Sentinel: **Killjoy** (양쪽 동시 락 어려움)
@@ -148,7 +148,7 @@
 
 ## Pearl
 - 사이트 수 / 특수 구조: 2 사이트 (A, B), **Mid 컨트롤 중심 + 좁은 회전 통로**
-- 사이드 어드밴티지: **균형 (~50-51%)** — 양 사이드 비슷
+- 사이드 어드밴티지: **2022 Champions 어택 46.8% / 수비 53.2% (190 라운드)** — Liquipedia 검증, 수비 유리. 2024-2025 비활성. 학습 데이터 추정(균형)과 다름.
 - 이상 구성:
   - Controller: **Astra** (글로벌 컨트롤) 또는 Harbor
   - Sentinel: **Cypher** (트랩으로 회전 차단)
@@ -208,12 +208,20 @@
 - 출처: [Riot 8.11 Abyss 출시], [VCT 2024 Champions Abyss 통계]
 
 ## Corrode
-- 사이트 수 / 특수 구조: 2 사이트 (A, B), 2025 신규 맵
-- 출시: 2025년 (구체 패치 미확정 — 출시 직후라 데이터 부족)
+- 사이트 수 / 특수 구조: **2 사이트 (A, B), Mid 3 lanes, 텔레포터 0** — France 테마 medieval fortress, 12번째 맵
+- 출시: **2025년 6월 25일 (패치 11.00)** — Liquipedia 검증
 - ⚠️ **코드 매핑 불일치**: `ml/agent_roles.py`의 `MAP_ORDER`에는 "Drift"로 등록되어 있고 "Corrode"는 미등록 상태. `normalize_map("Corrode")` 호출 시 `-1` 반환됨. US-002에서 두 가지 중 하나로 통일 필요 (Riot 공식 발표 맵 이름 기준). 본 문서에서는 Riot 공식 발표명 "Corrode"를 사용. `agent_roles.py` 동기화는 US-002에서 alias 추가 또는 `MAP_ORDER` 갱신으로 처리.
-- 사이드 어드밴티지: **VCT 2025 Champions 어택 51.4% / 수비 48.6%** (148/288 어택 라운드 승) — Liquipedia 검증, 2025 출시 직후 통계
-- 이상 구성: 출시 직후 메타 정착 중 — VLR.gg 픽률 데이터로 보강 필요
-- 키 픽: TBD
+- 사이드 어드밴티지: **VCT 2025 Champions 어택 51.4% / 수비 48.6%** (148/288 어택 라운드 승) — Liquipedia 검증
+- 이상 구성 (VLR.gg pro 매치 검증 2026-05-09):
+  - Controller: **Viper** (긴 벽 + lurk 시너지) 또는 Omen (TP 다수 위치)
+  - Sentinel: **Cypher** (trip + cam 위치 풍부) — 가장 강력한 sentinel
+  - Initiator: **Sova** 또는 Fade (긴 디펜더 회전 — 정보 필수)
+  - Duelist: **Yoru** (큰 맵 + 긴 defender rotation으로 매우 강력) 또는 Jett
+- 키 픽: Viper / Cypher / Yoru / Omen + scan initiator (Sova/Fade) — pro 메타. Double sentinel · double scan initiator · double duelist 모두 viable.
+- 도메인 가설:
+  - **H-MAP-CORRODE-NEWMAP-VARIANCE**: "Corrode 출시 직후 메타 분산 — 픽률 변동성이 다른 맵 대비 ≥2배" (출시 6개월 후에도 유효 검증 필요)
+  - **H-MAP-CORRODE-YORU-LURK**: "Corrode에서 Yoru 보유 팀의 lurk 라운드 승률 +5%p (큰 맵 + 긴 회전 활용)" — VLR.gg 메타 분석 기반
+- 출처: [Liquipedia Corrode], [Riot 11.00 패치 노트], [VLR.gg Corrode meta posts]
 - 도메인 가설:
   - **H-MAP-CORRODE-NEWMAP-VARIANCE**: "Corrode 출시 직후 메타 분산 — 픽률 변동성이 다른 맵 대비 ≥2배"
   - **H-MAP-CORRODE-DATA-PENDING**: "Corrode는 표본 부족 — REFINED 후보 (조건부 룰만 적용)"
@@ -245,20 +253,20 @@ US-004의 KMeans 자동 클러스터링 입력 + cross-validation 기준점.
 
 VCT Champions 토너먼트별 어택측 승률 — 시즌별 큰 변동 있음 (메타 + 맵 리워크 영향).
 
-| 맵 | 2022 Champions | 2024 Champions | 2025 Champions | 카테고리 |
-|----|---------------|---------------|---------------|----------|
-| Ascent | 45.8% | 46.0% | 50.2% | Mid-control (어택 점점 강세) |
-| Bind | 52.0% | 53.6% | **45.9%** | Closed (2025에 수비 회귀) |
-| Haven | 48.1% | 47.5% | **57.7%** | Multi-site (2025 어택 강세) |
-| Split | 비활성 | 비활성 | 비활성 | Closed/Vertical (풀 outside) |
-| Icebox | 53.5% | 51.3% | 비활성 | Open (어택 약 유리) |
-| Breeze | 47.7% | 비활성 | 비활성 | Open (실측 수비 유리) |
-| Fracture | 49.0% | 비활성 | 비활성 | Dual-spawn (균형) |
-| Pearl | 46.8% | 비활성 | 비활성 | Closed (수비 유리) |
-| Lotus | 비활성 | 54.4% | 51.0% | Multi-site (어택 유리) |
-| Sunset | 비활성 | 53.6% | **39.6%** | Closed (2025 수비 60% 강세!) |
-| Abyss | 비활성 | 50.6% | **57.9%** | Vertical (2025 어택 강세) |
-| Corrode | (미출시) | (미출시) | 51.4% | (신규 2025) |
+| 맵 | 2022 Champions | 2024 Pacific Kickoff | 2024 Champions | 2025 Champions | 카테고리 |
+|----|---------------|---------------------|---------------|---------------|----------|
+| Ascent | 45.8% | 57.1% | 46.0% | 50.2% | Mid-control (시즌 분산 큼) |
+| Bind | 52.0% | 49.4% | 53.6% | **45.9%** | Closed (2025에 수비 회귀) |
+| Haven | 48.1% | — | 47.5% | **57.7%** | Multi-site (2025 어택 강세) |
+| Split | — | **50.0%** | — | 비활성 | Closed/Vertical (균형 50/50, Liquipedia 검증) |
+| Icebox | 53.5% | 57.9% | 51.3% | 비활성 | Open (어택 강세) |
+| Breeze | 47.7% | **48.1%** | — | 비활성 | Open (실측 수비 유리, 2022·2024 일관) |
+| Fracture | **49.0%** | — | — | — | Dual-spawn (2022 균형, 이후 비활성) |
+| Pearl | **46.8%** | — | — | — | Closed (2022 수비 유리, 이후 비활성) |
+| Lotus | — | 56.2% | 54.4% | 51.0% | Multi-site (어택 유리, 시즌마다 약화) |
+| Sunset | — | 41.0% | 53.6% | **39.6%** | Closed (2024-2025 수비 강세) |
+| Abyss | — | — | 50.6% | **57.9%** | Vertical (2025 어택 강세) |
+| Corrode | — | — | — | 51.4% | (신규 2025) |
 
 **핵심 발견**:
 - **시즌별 변동성 매우 큼** — 같은 맵이 +5-15%p 변동. 단일 시즌 통계 일반화 위험.

@@ -296,7 +296,7 @@
 - 출처: [Riot Killjoy], [VCT 2024 Ascent 통계]
 
 ### Sage
-- 능력: Q=Slow Orb(감속 grenade, 7s), E=Healing Orb(아군 60HP/5s 또는 자가 60HP/10s, 시그니처, 45s cooldown), C=Barrier Orb(800 HP 벽, 40s 지속), X=Resurrection(부활 ult, **7 orb**) — Liquipedia 검증 (2026-05-09)
+- 능력: Q=Slow Orb(감속 grenade, 7s), E=Healing Orb(아군 60HP/5s 또는 자가 60HP/10s, 시그니처, 45s cooldown), C=Barrier Orb(**11.08 이후 600 HP** 벽, 비용 300c, fortification 2s — Liquipedia 검증), X=Resurrection(부활 ult, **7 orb**) — Liquipedia 검증 (2026-05-09)
 - 강한 맵: Bind, Split, Icebox (좁은 통로 + 벽 활용)
 - 시너지: Killjoy (이중 sentinel), Skye (heal stack)
 - 카운터 받음: KAY/O suppress(벽 효과 일부 무력화), Breach(벽 관통 플래시)
@@ -334,7 +334,7 @@
 - 출처: [Riot 9.0 출시], [VLR.gg Vyse]
 
 ### Veto (신규 — 2026-05-09 웹 검증으로 확인)
-- 능력: Q=Chokehold(원격 hold trap — Deafen + Decay), E=Crosscut(2-앵커 TP, 시그니처 — buy phase 회수 가능), C=Interceptor(utility destroyer — 적 utility 자동 파괴), X=Evolution(mutation 강화 ult, debuff 면역 + 전투 보너스, **추정 7 orb**)
+- 능력: Q=Chokehold(원격 hold trap — Deafen + Decay), E=Crosscut(2-앵커 TP, 시그니처 — buy phase 회수 가능), C=Interceptor(utility destroyer — 적 utility 자동 파괴, 무료 사용), X=Evolution(mutation 강화 ult, debuff 면역 + 전투 보너스, **7 orb** Liquipedia 검증 2026-05-09)
 - 출시: 2025년 10월 7일 (패치 11.07b) — Riot 공식 검증
 - 출신: 세네갈 (Senegal)
 - 강한 맵: 데이터 부족 (TP signature로 회전 압박 활용 — Pearl/Sunset 추정)

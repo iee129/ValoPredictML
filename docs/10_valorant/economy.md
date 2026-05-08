@@ -139,7 +139,7 @@ US-002의 visualize25 `Games` 테이블에서 `FullBuy_Win`, `Eco_Win` 등 컬�
 | Harbor | Controller | Reckoning | 광역 물 폭격 (스턴) |
 | Sage | Sentinel | Resurrection | 아군 부활 |
 | Deadlock | Sentinel | Annihilation | 적 끌어가기 펄스 |
-| Veto (신규 2025-10) | Sentinel | Evolution | mutation 강화 ult |
+| Veto (신규 2025-10) | Sentinel | Evolution | mutation 강화 ult — debuff 면역 + 전투 보너스 (Liquipedia 7 orb 검증 2026-05-09) |
 
 ### 4-C. 8 orb ult (12 요원, 가장 흔함)
 
