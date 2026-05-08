@@ -11,22 +11,21 @@ from ml.agent_roles import AGENT_ROLE_MAP, ATK_ADV_MAP, MAP_ORDER  # 요원→�
 
 _AGENT_MAP_STATS_PATH = Path("data/processed/agent_map_stats.json")  # 요원과 맵을 조합했을 때의 승률·픽률·경험치 데이터가 담긴 파일 경로
 
-_FEATURE_ORDER = [  # AI 모델이 입력받는 숫자 정보(피처) 43개의 순서 (훈련할 때 쓴 순서와 반드시 같아야 해요)
+_FEATURE_ORDER = [  # AI 모델이 입력받는 숫자 정보(피처) 38개의 순서 (훈련할 때 쓴 순서와 반드시 같아야 해요)
     "a_duelist", "a_initiator", "a_controller", "a_sentinel",  # 팀A에 타격대·척후대·전략가·감시자가 각각 몇 명인지
     "b_duelist", "b_initiator", "b_controller", "b_sentinel",  # 팀B에 타격대·척후대·전략가·감시자가 각각 몇 명인지
     "diff_duelist", "diff_initiator", "diff_controller", "diff_sentinel",  # 팀A에서 팀B를 뺀 각 역할군 인원 차이 (양수면 팀A가 더 많음)
-    "has_controller_a", "has_controller_b",  # 팀A·팀B에 전략가(연막 요원)가 한 명이라도 있는지 (있으면 1, 없으면 0)
-    "is_double_duelist_a", "is_double_duelist_b",  # 팀A·팀B에 타격대가 2명 이상인지 (맞으면 1, 아니면 0)
     "map_encoded", "atk_side_advantage", "is_attacker_a",  # 맵의 번호, 해당 맵에서 공격 팀이 얼마나 유리한지, 팀A가 공격 측인지
     "a_avg_acs", "b_avg_acs", "a_avg_kd", "b_avg_kd",  # 팀A·팀B의 평균 ACS(활약 점수)·K/D(킬-데스 비율)
     "a_avg_kast", "b_avg_kast", "a_avg_adr", "b_avg_adr",  # 팀A·팀B의 평균 KAST(기여 라운드 비율)·ADR(라운드당 피해량)
-    "a_avg_hs", "b_avg_hs", "a_max_clutch", "b_max_clutch",  # 팀A·팀B의 평균 헤드샷 비율·팀 내 최고 클러치(역전) 비율
+    "a_avg_hs", "b_avg_hs",  # 팀A·팀B의 평균 헤드샷 비율
     "a_fk_fd_ratio", "b_fk_fd_ratio",  # 팀A·팀B의 퍼스트 킬 ÷ 퍼스트 데스 비율 (높을수록 선제권이 강함)
     "a_avg_assists", "b_avg_assists",  # 팀A·팀B의 평균 어시스트 수 (팀워크 지표)
     "a_kast_std", "b_kast_std",  # 팀A·팀B 내 선수들의 KAST 들쑥날쑥 정도 (낮을수록 팀 전체가 고르게 잘함)
     "a_avg_agent_map_wr", "b_avg_agent_map_wr",  # 팀A·팀B가 선택한 요원들이 이 맵에서 평균적으로 이겨온 비율
     "a_avg_agent_pick_rate", "b_avg_agent_pick_rate",  # 팀A·팀B가 선택한 요원들이 이 맵에서 얼마나 자주 선택됐는지
     "a_avg_agent_exp", "b_avg_agent_exp",  # 팀A·팀B 선수들이 해당 요원을 얼마나 많이 플레이해봤는지 경험치 평균
+    "diff_h2h_wr",  # 팀A-팀B 역대 맞대결 승률 차이 (앱에서는 히스토리 없어 기본값 0.0)
 ]
 
 _combo: dict | None = None  # 요원+맵 조합 통계를 한 번만 읽어두는 보관함 (None이면 아직 읽지 않은 상태)
@@ -65,7 +64,7 @@ def build_features(
     map_name: str,  # 경기가 진행될 맵 이름 (공식 맵 목록에 있는 이름이어야 해요)
     is_attacker_a: bool,  # 팀A가 공격 팀이면 True, 수비 팀이면 False
     player_stats: dict | None = None,  # 선수 통계를 직접 넣고 싶을 때 사용 (없으면 자동으로 파일에서 조회)
-) -> pd.DataFrame:  # AI 모델에 바로 넣을 수 있는 숫자 43개가 담긴 1행짜리 표(DataFrame) 반환
+) -> pd.DataFrame:  # AI 모델에 바로 넣을 수 있는 숫자 37개가 담긴 1행짜리 표(DataFrame) 반환
     from app.player_lookup import get_player_stats as _get_stats  # 선수 통계 조회 함수를 여기서 불러옴 (서로 불러오는 문제를 피하기 위해 나중에 가져와요)
 
     combo = _load_combo()  # 요원+맵 조합 통계 사전 가져오기 (이미 읽었으면 보관함에서 바로 꺼냄)
@@ -91,7 +90,6 @@ def build_features(
         avg_kast = float(np.mean([s["avg_kast"] for s in stats_list]))  # 팀 전체 KAST(기여 라운드 비율) 평균 계산
         avg_adr = float(np.mean([s["avg_adr"] for s in stats_list]))  # 팀 전체 ADR(라운드당 피해량) 평균 계산
         avg_hs = float(np.mean([s["avg_hs"] for s in stats_list]))  # 팀 전체 헤드샷 비율 평균 계산
-        max_clutch = float(np.max([s["max_clutch"] for s in stats_list]))  # 팀 내 클러치(역전) 비율이 가장 높은 선수의 값 (한 명이라도 클러치 잘하면 팀에 이득)
 
         avg_fk = float(np.mean([s["avg_fk"] for s in stats_list]))  # 팀 전체 퍼스트 킬 수 평균 계산
         avg_fd = float(np.mean([s["avg_fd"] for s in stats_list]))  # 팀 전체 퍼스트 데스 수 평균 계산
@@ -115,7 +113,6 @@ def build_features(
             f"{side}_avg_kast": avg_kast,  # 팀 평균 KAST
             f"{side}_avg_adr": avg_adr,  # 팀 평균 ADR
             f"{side}_avg_hs": avg_hs,  # 팀 평균 헤드샷 비율
-            f"{side}_max_clutch": max_clutch,  # 팀 내 최고 클러치 비율
             f"{side}_fk_fd_ratio": fk_fd_ratio,  # 팀 FK/FD 비율
             f"{side}_avg_assists": avg_assists,  # 팀 평균 어시스트 수
             f"{side}_kast_std": kast_std,  # 팀 KAST 들쑥날쑥 정도
@@ -137,13 +134,10 @@ def build_features(
         "diff_initiator": rc_a["Initiator"] - rc_b["Initiator"],  # 팀A 척후대 수 - 팀B 척후대 수
         "diff_controller": rc_a["Controller"] - rc_b["Controller"],  # 팀A 전략가 수 - 팀B 전략가 수
         "diff_sentinel": rc_a["Sentinel"] - rc_b["Sentinel"],  # 팀A 감시자 수 - 팀B 감시자 수
-        "has_controller_a": int(rc_a["Controller"] > 0),  # 팀A에 전략가(연막 담당)가 1명이라도 있으면 1, 없으면 0
-        "has_controller_b": int(rc_b["Controller"] > 0),  # 팀B에 전략가(연막 담당)가 1명이라도 있으면 1, 없으면 0
-        "is_double_duelist_a": int(rc_a["Duelist"] >= 2),  # 팀A에 타격대가 2명 이상이면 1 (더블 타격대 구성), 아니면 0
-        "is_double_duelist_b": int(rc_b["Duelist"] >= 2),  # 팀B에 타격대가 2명 이상이면 1 (더블 타격대 구성), 아니면 0
         "map_encoded": map_encoded,  # 맵 이름을 순서 번호로 변환한 값 (모르는 맵이면 -1)
         "atk_side_advantage": atk_adv,  # 이 맵에서 공격 팀이 얼마나 유리한지 나타내는 값 (양수면 공격 유리)
         "is_attacker_a": int(is_attacker_a),  # 팀A가 공격 팀이면 1, 수비 팀이면 0
+        "diff_h2h_wr": 0.0,  # 앱에서는 직전 맞대결 히스토리 없어 기본값 0.0 사용
     }
     rec.update(_team_stats(team_a, "a", map_name))  # 팀A의 선수 통계 숫자들을 위 사전에 추가
     rec.update(_team_stats(team_b, "b", map_name))  # 팀B의 선수 통계 숫자들을 위 사전에 추가

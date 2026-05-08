@@ -21,22 +21,9 @@ OUTPUT_DIR = Path("data/raw/kaggle")  # 다운로드한 파일들을 저장할 �
 # 수집 기준: agent + map + winner 필수 / K·D·A 개별 분리 / 선수-경기-맵 1행 단위
 # 결측률 < 30%(핵심 스탯) / 전체 학습셋 비중 < 20% / 프로·준프로 경기만
 DATASETS: list[tuple[str, str]] = [  # 내려받을 데이터 목록이에요. 마치 도서관에서 빌릴 책 목록처럼 (Kaggle 주소, 저장할 폴더 이름) 쌍으로 적혀 있어요
-    # ── 핵심 소스 (대용량, 다년도) ──────────────────────────────────────────
     ("ryanluong1/valorant-champion-tour-2021-2023-data",      "vct_2021_2023"),  # 2021~2023년 VCT(발로란트 세계 대회) 경기 기록 — 가장 중요한 데이터예요
     ("ryanluong1/valorant-challengers-league-data",           "ryanluong1__valorant-challengers-league-data"),  # 챌린저스 리그(도전자 대회) 경기 기록이에요
     ("qualidea1217/valorant-pro-matches-since-april-2021",    "qualidea1217__valorant-pro-matches-since-april-2021"),  # 2021년 4월 이후의 프로 경기 기록이에요
-
-    # ── piyush86kumar 계열 (이벤트별 상세 스탯) ─────────────────────────────
-    # vct-2025-all-events 가 하위 이벤트(kickoff/stage/masters/champions)를 포함
-    ("piyush86kumar/valorant-champions-tour-2024-all-events", "piyush86kumar__valorant-champions-tour-2024-all-events"),  # 2024년에 열린 모든 VCT 대회의 선수 기록이에요
-    ("piyush86kumar/valorant-vct-2025-all-events",            "piyush86kumar__valorant-vct-2025-all-events"),  # 2025년에 열린 모든 VCT 대회의 선수 기록이에요
-
-    # ── 보조 소스 (이벤트 특화) ─────────────────────────────────────────────
-    ("ediashtarevin/vct-champions-2023-stats",                "ediashtarevin__vct-champions-2023-stats"),  # 2023년 챔피언스(세계 최고 대회) 특별 기록이에요
-
-    # ── 확장 실험용 신규 소스 (piyush 동일 스키마, 2025 추가 이벤트) ──────────
-    ("piyush86kumar/valorant-champions-tour-2025-paris",      "piyush86kumar__valorant-champions-tour-2025-paris"),  # 2025년 파리에서 열린 VCT 대회 기록이에요
-    ("piyush86kumar/valorant-stage-2-2025-all-regions",       "piyush86kumar__valorant-stage-2-2025-all-regions"),  # 2025년 전 세계 지역에서 열린 스테이지 2 대회 기록이에요
 ]
 
 

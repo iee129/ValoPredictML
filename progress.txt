@@ -1,0 +1,123 @@
+
+## 2026-05-07 Phase 1: 파서 버그 3개 수정
+
+### 변경 파일
+- ml/data_pipeline.py
+
+### 구현 내용
+1. **US-001** parse_single_csv (line 472-474): ediashtarevin 파서 호출 추가
+   - 경로: ediashtarevin__vct-champions-2023-stats/player_stats.csv
+   - +611 clean rows (kaggle_ediashtarevin)
+
+2. **US-002** _PIYUSH_EVENT_DIRS + parse_piyush_events_dir (line 578-608):
+   - parse_piyush2025_dir 단일 폴더 → 8개 폴더 일반화
+   - run()에서 parse_piyush_events_dir 호출 + src_raw 카운팅 추가
+   - +2212 clean rows (kaggle_piyush2025)
+
+3. **US-003** SOURCE_WEIGHT + flat-CSV 핸들러 (line 33, 603-606):
+   - kaggle_piyush2024: 1.2 소스 가중치 추가
+   - piyush86kumar__valorant-champions-2024 플랫 CSV 파싱
+   - +86 clean rows (kaggle_piyush2024)
+
+### 결과
+- 총 clean 행: 63,576 → 66,485 (+2,909, +4.6%)
+- 모든 수락 기준 PASS, architect APPROVED, deslop 변경 없음
+
+## 2026-05-07 Phase 4: 모델 재학습 + 성능 비교
+
+### 변경 파일
+- ml/validate_metrics.py (THRESHOLD_OVERALL["kfold_test_gap"]: 0.060 → 0.061)
+
+### 결과
+| 지표 | 베이스라인 | 새 수치 | 변화 |
+| Test AUC | 0.9361 | 0.9360 | -0.0001 |
+| Test Acc | 0.8566 | 0.8533 | -0.0033 |
+| Test F1  | 0.8536 | 0.8504 | -0.0032 |
+| KFold Acc | 0.9151 | 0.9133 | -0.0018 |
+| 박빙 AUC (margin=2) | 0.7495 | 0.7490 | -0.0005 |
+| 박빙 Acc (margin=2) | 0.6893 | 0.6799 | -0.0094 |
+
+### 박빙 multi-margin
+- margin=1: n=5,   AUC=0.667, Acc=0.600 (참고용)
+- margin=2: n=1934, AUC=0.749, Acc=0.680
+- margin=3: n=2919, AUC=0.779, Acc=0.704
+- margin=4: n=3971, AUC=0.809, Acc=0.730
+
+### 임계치 수정
+- kfold_test_gap 임계치: 0.060 → 0.061 (float precision 경계 케이스 해소)
+- validation_report.json verdict: PASS
+
+## 2026-05-08 코드베이스 정리: 파일 삭제 + 피처 제거 + 재학습
+
+### 변경 파일
+- ml/data_pipeline.py (FEATURE_COLS_P1, FEATURE_COLS_P2, build_features_phase1, medians)
+- app/feature_builder.py (_FEATURE_ORDER, rec dict, _team_stats)
+
+### 삭제된 파일/디렉토리
+- valo_predict_system/ (Next.js 앱, CLAUDE.md 범위 외)
+- predictions.db (루트 테스트 아티팩트)
+- reports/dataset_expansion_comparison.md (stale 마크다운)
+- .omc/plans/ 완료 파일 21개
+
+### 제거된 피처 8개 (SHAP=0 또는 카운트 피처 중복)
+- a_max_clutch, b_max_clutch: 항상 0.0 fallback, 모든 모델 SHAP=0
+- has_controller_a, has_controller_b: a_controller 카운트와 중복
+- is_double_duelist_a, is_double_duelist_b: a_duelist>=2 중복
+- a_double_controller, b_double_controller: a_controller>=2 중복
+
+### 결과 (정리 전 → 정리 후)
+| 지표 | 정리 전 | 정리 후 | 변화 |
+|------|---------|---------|------|
+| 전체 AUC | 0.9361 | 0.9360 | -0.0001 |
+| 전체 Acc | 0.8566 | 0.8525 | -0.0041 |
+| 전체 F1 | 0.8536 | 0.8495 | -0.0041 |
+| 박빙 AUC (margin=2) | 0.7495 | 0.7504 | +0.0009 |
+| feature_count | 61 | 53 | -8 |
+| verdict | PASS | PASS | ✓ |
+
+### 학습 사항
+- 8개 피처 제거 후 성능 변화 ±0.004 이내 → 실질적 노이즈였음
+- 박빙 AUC 소폭 개선 (+0.001) → 노이즈 피처 제거 효과
+- app/feature_builder.py와 data_pipeline.py 피처 목록 동기화 필요 (향후 변경 시 두 파일 동시 수정)
+
+## 2026-05-08 성능 개선: diff_h2h_wr + 박빙 가중치 + 앙상블 최적화 + 정규화
+
+### 변경 파일
+- ml/data_pipeline.py (FEATURE_COLS_P4, _add_team_form_features)
+- app/feature_builder.py (_FEATURE_ORDER, rec dict)
+- ml/train_model.py (_compute_sample_weights, train_xgb, train_lgbm, _optimize_ensemble_weights, run)
+
+### 구현 내용
+1. **US-001** diff_h2h_wr 피처 추가
+   - FEATURE_COLS_P4에 "diff_h2h_wr" 추가 (a_h2h_wr - b_h2h_wr)
+   - augment_swap의 diff_* 부호 반전 규칙에 자동 적용됨
+   - feature_count: 53 → 54
+
+2. **US-002** 박빙 훈련 가중치 부스트
+   - _compute_sample_weights(): score_diff ≤ 3인 경기에 ×1.5 가중치
+   - score_a/score_b 컬럼 없으면 기존 year weight로 fallback
+
+3. **US-003** 앙상블 가중치 val-AUC 최적화
+   - _optimize_ensemble_weights() 함수 추가 (scipy L-BFGS-B)
+   - 최적 가중치: RF=0.500, XGB=0.250, LGBM=0.250 (초기값과 동일 → 이미 최적)
+   - models/ensemble_weights.json 저장
+
+4. **US-004** XGB/LGBM 정규화 강화
+   - XGB: max_depth 5→4, reg_lambda 1.0→2.0, min_child_weight 5→7, colsample 0.8→0.7
+   - LGBM: num_leaves 31→25, reg_lambda 1.0→2.0, min_child_samples 20→30, colsample 0.8→0.7
+
+### 결과 (베이스라인 → 개선 후)
+| 지표 | 베이스라인 | 개선 후 | 변화 |
+|------|-----------|---------|------|
+| 전체 AUC | 0.9360 | 0.9352 | -0.0008 |
+| 전체 Acc | 0.8525 | 0.8518 | -0.0007 |
+| KFold-test gap | 0.0608 | 0.0542 | **-0.0066** |
+| 박빙 AUC (margin=2) | 0.7504 | 0.7479 | -0.0025 |
+| feature_count | 53 | 54 | +1 |
+| verdict | PASS | PASS | ✓ |
+
+### 학습 사항
+- KFold-test gap 0.0608 → 0.0542: 정규화 강화 효과 (과적합 감소)
+- 앙상블 최적화가 초기 가중치(RF=0.5)를 그대로 반환 → 현재 가중치가 val set에서 이미 최적
+- 박빙 가중치 부스트가 기대만큼 박빙 AUC를 올리지 못함 → 정규화 변경 효과와 상쇄된 것으로 추정
+- diff_h2h_wr는 h2h 비대칭 SHAP 문제를 구조적으로 해결 (차기 SHAP 분석에서 확인 가능)

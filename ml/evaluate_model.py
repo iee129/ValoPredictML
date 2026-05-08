@@ -15,10 +15,11 @@ import xgboost as xgb  # XGBoost 선생님 모델 종류 확인과 검증 세트
 from sklearn.metrics import accuracy_score, f1_score, roc_auc_score  # 모델 성적표를 매기는 세 가지 채점 함수
 from sklearn.model_selection import GroupKFold  # 같은 경기 데이터가 훈련용과 시험용에 동시에 들어가지 않도록 조심해서 나누는 방법
 
-from ml.data_pipeline import FEATURE_COLS_P1, FEATURE_COLS_P2, FEATURE_COLS_P3  # 전처리 단계에서 만들어 둔 특징 컬럼 목록 가져오기
+from ml.data_pipeline import FEATURE_COLS_P1, FEATURE_COLS_P2, FEATURE_COLS_P3, FEATURE_COLS_P4  # 전처리 단계에서 만들어 둔 특징 컬럼 목록 가져오기
+from sklearn.linear_model import LogisticRegression
 from ml.train_model import ensemble_predict_proba  # 세 선생님의 예측 확률을 평균 내는 앙상블 함수 가져오기
 
-FEATURE_COLS: list[str] = FEATURE_COLS_P1 + FEATURE_COLS_P2 + FEATURE_COLS_P3  # 세 단계에서 만든 특징 목록을 합침
+FEATURE_COLS: list[str] = FEATURE_COLS_P1 + FEATURE_COLS_P2 + FEATURE_COLS_P3 + FEATURE_COLS_P4  # 네 단계에서 만든 특징 목록을 합침 (총 59개)
 
 
 # ── 모델 로드 ─────────────────────────────────────────────────────────────────
@@ -30,6 +31,21 @@ def load_models(models_dir: str) -> dict:  # 저장된 세 선생님 모델 파�
         "xgb":  joblib.load(base / "xgboost_model.joblib"),  # XGBoost 선생님 파일 불러오기
         "lgbm": joblib.load(base / "lgbm_model.joblib"),  # LightGBM 선생님 파일 불러오기
     }
+
+
+def load_calibrated_models(models_dir: str) -> dict | None:
+    """보정된 모델 파일이 있으면 로드해 반환하고, 없으면 None을 반환한다."""
+    base = Path(models_dir)
+    paths = {k: base / f"{k}_calibrated.joblib" for k in ("rf", "xgb", "lgbm")}
+    if all(p.exists() for p in paths.values()):
+        return {k: joblib.load(p) for k, p in paths.items()}
+    return None
+
+
+def load_meta_learner(models_dir: str) -> LogisticRegression | None:
+    """meta_learner.joblib가 있으면 로드해 반환하고, 없으면 None을 반환한다."""
+    path = Path(models_dir) / "meta_learner.joblib"
+    return joblib.load(path) if path.exists() else None
 
 
 # ── GroupKFold 교차검증 ────────────────────────────────────────────────────────
@@ -103,23 +119,24 @@ def kfold_evaluate(
 # ── test 최종 평가 ────────────────────────────────────────────────────────────
 
 def test_evaluate(
-    models: dict,  # 평가할 선생님 모델들이 담긴 묶음
-    df_test: pd.DataFrame,  # 최종 실력 확인에 쓸 시험 데이터프레임 (기말고사 같은 것)
-    feature_cols: list[str],  # 모델에 넣어줄 특징 컬럼 이름 목록
-) -> dict:  # 각 모델·앙상블의 시험 성적을 담은 묶음을 돌려줌
+    models: dict,
+    df_test: pd.DataFrame,
+    feature_cols: list[str],
+    meta_learner: LogisticRegression | None = None,
+) -> dict:
     """test.csv 1회 최종 평가. K-Fold 중 절대 사용 안 함."""
-    X = df_test[feature_cols]  # 시험 데이터에서 특징 표만 꺼냄
-    y = df_test["label"]  # 시험 데이터에서 정답만 꺼냄
-    results: dict[str, dict] = {}  # 각 모델의 시험 성적을 담아둘 빈 묶음
-    for name, model in models.items():  # 각 선생님 모델을 하나씩 꺼내 시험 평가 수행
-        pred = model.predict(X)  # 시험 데이터의 승패를 예측
-        prob = model.predict_proba(X)[:, 1]  # 팀A가 이길 확률을 0~1 숫자로 출력
-        results[name] = dict(  # 이 선생님의 시험 성적표 작성
-            accuracy=float(accuracy_score(y, pred)),  # 정확도: 맞힌 비율
-            f1=float(f1_score(y, pred, average="macro")),  # F1 점수: 이기는 팀과 지는 팀 모두 공평하게 평가한 점수
-            roc_auc=float(roc_auc_score(y, prob)),  # AUC: 모델이 승리팀을 맞힐 확률을 0~1로 나타낸 점수 (1에 가까울수록 훌륭)
+    X = df_test[feature_cols]
+    y = df_test["label"]
+    results: dict[str, dict] = {}
+    for name, model in models.items():
+        pred = model.predict(X)
+        prob = model.predict_proba(X)[:, 1]
+        results[name] = dict(
+            accuracy=float(accuracy_score(y, pred)),
+            f1=float(f1_score(y, pred, average="macro")),
+            roc_auc=float(roc_auc_score(y, prob)),
         )
-    ens_prob = ensemble_predict_proba(models, X)  # 세 선생님의 예측 확률을 평균 낸 앙상블 최종 확률
+    ens_prob = ensemble_predict_proba(models, X, meta_learner=meta_learner)
     ens_pred = (ens_prob >= 0.5).astype(int)  # 앙상블 확률이 50% 이상이면 팀A 승리(1), 미만이면 팀B 승리(0)
     results["ensemble"] = dict(  # 앙상블의 시험 성적표 작성
         accuracy=float(accuracy_score(y, ens_pred)),  # 앙상블 정확도
@@ -139,6 +156,7 @@ def close_match_evaluate(
     df_test: pd.DataFrame,
     feature_cols: list[str],
     margin: int = 2,
+    meta_learner: LogisticRegression | None = None,
 ) -> dict:
     """박빙(접전) 경기만 추려서 모델 성능을 평가한다.
 
@@ -165,6 +183,10 @@ def close_match_evaluate(
     y = df_close["label"]
     results: dict = {"subset_size": subset_size}
 
+    if y.nunique() < 2:
+        print(f"[WARNING] margin={margin} 서브셋에 단일 클래스만 존재 — AUC 계산 불가, 건너뜀")
+        return {}
+
     for name, model in models.items():
         pred = model.predict(X)
         prob = model.predict_proba(X)[:, 1]
@@ -174,7 +196,7 @@ def close_match_evaluate(
             roc_auc=float(roc_auc_score(y, prob)),
         )
 
-    ens_prob = ensemble_predict_proba(models, X)
+    ens_prob = ensemble_predict_proba(models, X, meta_learner=meta_learner)
     ens_pred = (ens_prob >= 0.5).astype(int)
     results["ensemble"] = dict(
         accuracy=float(accuracy_score(y, ens_pred)),
@@ -188,6 +210,27 @@ def close_match_evaluate(
             continue
         print(f"  {name:10s} Acc={m['accuracy']:.4f}  F1={m['f1']:.4f}  AUC={m['roc_auc']:.4f}")
 
+    return results
+
+
+# ── 박빙 다중 margin 평가 ─────────────────────────────────────────────────────
+
+def close_match_evaluate_multi(
+    models: dict,
+    df_test: pd.DataFrame,
+    feature_cols: list[str],
+    margins: list[int] | None = None,
+) -> dict:
+    """margin=1,2,3,4 각각에 대해 close_match_evaluate()를 실행, {margin: result} 반환.
+
+    score_a/score_b 없거나 해당 margin 서브셋 0건이면 해당 key를 None으로 저장.
+    """
+    if margins is None:
+        margins = [1, 2, 3, 4]
+    results: dict[int, dict | None] = {}
+    for m in margins:
+        r = close_match_evaluate(models, df_test, feature_cols, margin=m)
+        results[m] = r if r else None
     return results
 
 
@@ -221,16 +264,19 @@ def save_reports(
     shap_series: dict[str, pd.Series],  # 모델별 SHAP 중요도 목록 묶음
     reports_dir: str,  # 리포트 파일을 저장할 폴더 경로
     close_metrics: dict | None = None,  # close_match_evaluate()가 돌려준 박빙 경기 성적 (없으면 None)
+    close_metrics_multi: dict | None = None,  # close_match_evaluate_multi()가 돌려준 margin별 박빙 성적 (없으면 None)
 ) -> None:  # 파일만 저장하고 아무것도 돌려주지 않음
     Path(reports_dir).mkdir(parents=True, exist_ok=True)  # 리포트 폴더가 없으면 새로 만듦
 
-    # eval_summary.json: kfold + test + close_match 통합
+    # eval_summary.json: kfold + test + close_match + close_match_multi 통합
     summary: dict = {}  # 교차검증 결과와 시험 결과를 하나로 합칠 묶음
     for name in kfold_metrics:  # 교차검증 결과를 summary에 복사
         summary[name] = {**kfold_metrics[name]}  # 각 모델의 교차검증 성적을 그대로 복사
     summary["test"] = test_metrics  # 시험 결과를 별도 항목으로 추가
     if close_metrics:
-        summary["close_match"] = close_metrics  # 박빙 경기 평가 결과를 별도 항목으로 추가
+        summary["close_match"] = close_metrics  # 하위호환: margin=2 단일 결과 유지
+    if close_metrics_multi is not None:
+        summary["close_match_multi"] = {str(k): v for k, v in close_metrics_multi.items()}
     # ensemble의 kfold mean/std도 최상위에 노출 (AC-6 요구사항)
     for key in ("accuracy_mean", "f1_mean", "roc_auc_mean"):  # 앙상블 교차검증 평균 성적을 최상위에 노출
         summary["ensemble"][key] = kfold_metrics["ensemble"][key]  # 앙상블 교차검증 평균 성적 반영
@@ -266,16 +312,18 @@ def run(args: argparse.Namespace) -> None:  # 터미널에서 받은 옵션들�
     models = load_models(args.models)  # 저장된 원본 선생님 모델을 다시 불러와 시험 평가에 씀 (교차검증 중 변형된 복사본이 아닌 원본 사용)
     test_metrics = test_evaluate(models, df_test, FEATURE_COLS)  # 시험 데이터로 딱 한 번만 최종 성적 확인
 
-    # 박빙(접전) 경기 서브셋 평가
-    print(f"\n[Evaluate] 박빙(접전) 경기 평가 중 (margin={args.close_margin})...")
-    close_metrics = close_match_evaluate(models, df_test, FEATURE_COLS, margin=args.close_margin)
+    # 박빙(접전) 경기 다중 margin 평가
+    print(f"\n[Evaluate] 박빙(접전) 경기 평가 중 (margins=1,2,3,4)...")
+    close_metrics_multi = close_match_evaluate_multi(models, df_test, FEATURE_COLS)
+    close_metrics = close_metrics_multi.get(args.close_margin)  # 하위호환용 단일 margin 결과
 
     # SHAP 실패 시 메트릭 손실 방지 — 선저장
     Path(args.reports).mkdir(parents=True, exist_ok=True)  # 리포트 폴더가 없으면 새로 만듦
     _summary: dict = {name: {**kfold_metrics[name]} for name in kfold_metrics}  # 교차검증 결과를 임시 묶음에 복사
     _summary["test"] = test_metrics  # 시험 결과를 임시 묶음에 추가
     if close_metrics:
-        _summary["close_match"] = close_metrics  # 박빙 평가 결과 선저장
+        _summary["close_match"] = close_metrics  # 하위호환: margin=close_margin 단일 결과
+    _summary["close_match_multi"] = {str(k): v for k, v in close_metrics_multi.items()}
     for key in ("accuracy_mean", "f1_mean", "roc_auc_mean"):  # 앙상블 교차검증 평균 성적 최상위 노출
         _summary["ensemble"][key] = kfold_metrics["ensemble"][key]  # 앙상블 교차검증 평균 성적 반영
     with open(Path(args.reports) / "eval_summary.json", "w", encoding="utf-8") as f:  # SHAP 계산 전에 먼저 성적 파일을 저장 (SHAP 계산이 실패해도 성적은 보존됨)
@@ -289,7 +337,7 @@ def run(args: argparse.Namespace) -> None:  # 터미널에서 받은 옵션들�
         print(f"  SHAP: {name}...")  # 지금 어떤 선생님의 SHAP를 계산 중인지 출력
         shap_series[name] = compute_shap(model, X_train, name, sample_size=args.shap_samples)  # 지정된 샘플 수로 SHAP 기여도 점수 계산
 
-    save_reports(kfold_metrics, test_metrics, shap_series, args.reports, close_metrics)  # 교차검증·시험·SHAP·박빙 결과를 파일로 저장
+    save_reports(kfold_metrics, test_metrics, shap_series, args.reports, close_metrics, close_metrics_multi)  # 교차검증·시험·SHAP·박빙(단일+다중) 결과를 파일로 저장
     print("\n[INFO] 완료 ✅")  # 모든 평가 과정이 끝났다고 화면에 알림
 
 

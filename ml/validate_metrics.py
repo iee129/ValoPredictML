@@ -10,6 +10,7 @@ from __future__ import annotations  # 파이썬이 오래된 버전이어도 최
 
 import argparse  # 터미널에서 '--input 폴더명' 처럼 옵션을 받아오는 도구
 import json  # 분석 결과를 메모장(JSON 파일)에 저장할 때 쓰는 도구
+import sys  # sys.exit(1)로 검증 실패를 CI에 알리기 위해 사용
 from pathlib import Path  # 파일 경로를 다루기 편하게 해주는 도구
 
 import numpy as np  # ROC 커브를 그릴 때 세 선생님의 확률을 평균 내기 위해 쓰는 도구
@@ -20,6 +21,21 @@ from sklearn.metrics import roc_curve, auc  # ROC 커브의 좌표를 계산하�
 from ml.data_pipeline import FEATURE_COLS_P1, FEATURE_COLS_P2  # 전처리 단계에서 만들어 둔 특징 컬럼 목록 가져오기
 
 FEATURE_COLS: list[str] = FEATURE_COLS_P1 + FEATURE_COLS_P2  # 1단계와 2단계에서 만든 특징 목록을 합쳐서 하나의 큰 목록으로 만듦 (총 43개)
+
+# ── 합격 임계치 ──────────────────────────────────────────────────────────────
+
+THRESHOLD_OVERALL: dict[str, float] = {
+    "auc":            0.920,
+    "acc":            0.840,
+    "f1":             0.830,
+    "kfold_test_gap": 0.061,
+}
+
+THRESHOLD_CLOSE: dict[str, float] = {
+    "auc": 0.700,
+    "acc": 0.650,
+    "f1":  0.640,
+}
 
 _DOMAIN_MAP: dict[str, str] = {  # 특징 이름의 키워드 → 발로란트 게임 맥락 설명 매핑표 (SHAP 분석 결과를 사람이 이해하기 쉽게 해설하기 위해)
     "avg_assists":   "어시스트(assists)는 팀 플레이 기여도 지표 → 높을수록 협력 전투력 강함",  # 어시스트 특징 설명
@@ -74,6 +90,56 @@ def _find_models_dir(models_hint: str | None) -> Path:  # 모델 파일들이 �
     raise FileNotFoundError("모델 디렉토리를 찾을 수 없습니다. --models 옵션으로 지정하세요.")  # 어디에도 모델이 없으면 "직접 알려주세요!"라고 하며 멈춤
 
 
+# ── 합격 임계치 판정 ──────────────────────────────────────────────────────────
+
+def verdict_overall(eval_summary: dict, strict: bool = False) -> dict:
+    """전체 성능(Test set) 합격 여부를 THRESHOLD_OVERALL 기준으로 판정한다."""
+    thr = {k: v + 0.01 for k, v in THRESHOLD_OVERALL.items()} if strict else THRESHOLD_OVERALL
+    ens = eval_summary.get("test", {}).get("ensemble", {})
+    if not ens:
+        raise ValueError("eval_summary에 test.ensemble 없음 — evaluate_model을 먼저 실행하세요")
+    kfold_acc = eval_summary.get("ensemble", {}).get("accuracy_mean", 0.0)
+    test_acc = ens["accuracy"]
+    gap = abs(kfold_acc - test_acc)
+
+    checks = {
+        "auc":            {"value": ens["roc_auc"],  "threshold": thr["auc"],            "pass": ens["roc_auc"]  >= thr["auc"]},
+        "acc":            {"value": ens["accuracy"], "threshold": thr["acc"],            "pass": ens["accuracy"] >= thr["acc"]},
+        "f1":             {"value": ens["f1"],       "threshold": thr["f1"],             "pass": ens["f1"]       >= thr["f1"]},
+        "kfold_test_gap": {"value": gap,             "threshold": thr["kfold_test_gap"], "pass": gap             <  thr["kfold_test_gap"]},
+    }
+    overall_pass = all(v["pass"] for v in checks.values())
+    return {"checks": checks, "overall_pass": overall_pass}
+
+
+def verdict_close(eval_summary: dict, margin: int = 2, strict: bool = False) -> dict:
+    """박빙 경기 성능(margin 기준) 합격 여부를 THRESHOLD_CLOSE 기준으로 판정한다."""
+    thr = {k: v + 0.01 for k, v in THRESHOLD_CLOSE.items()} if strict else THRESHOLD_CLOSE
+
+    # close_match_multi 우선, fallback으로 close_match
+    multi = eval_summary.get("close_match_multi", {})
+    key = str(margin)
+    if key in multi:
+        cm = multi[key]
+    else:
+        cm = eval_summary.get("close_match", {})
+
+    if not cm:
+        return {"checks": {}, "close_pass": None, "note": f"margin={margin} 서브셋 없음 — 판정불가"}
+
+    ens = cm.get("ensemble", {})
+    if not ens:
+        return {"checks": {}, "close_pass": None, "note": "ensemble 결과 없음 — 판정불가"}
+
+    checks = {
+        "auc": {"value": ens["roc_auc"],  "threshold": thr["auc"], "pass": ens["roc_auc"]  >= thr["auc"]},
+        "acc": {"value": ens["accuracy"], "threshold": thr["acc"], "pass": ens["accuracy"] >= thr["acc"]},
+        "f1":  {"value": ens["f1"],       "threshold": thr["f1"],  "pass": ens["f1"]       >= thr["f1"]},
+    }
+    close_pass = all(v["pass"] for v in checks.values())
+    return {"checks": checks, "close_pass": close_pass, "subset_size": cm.get("subset_size", 0)}
+
+
 # ── US-1.1 Baseline 비교 ──────────────────────────────────────────────────────
 
 def baseline_compare(df_test: pd.DataFrame, eval_summary: dict, reports_dir: Path) -> dict:  # 무작위 예측·다수 클래스 예측 대비 앙상블이 얼마나 더 잘 맞히는지 비교하는 함수
@@ -107,21 +173,22 @@ def generalization_check(eval_summary: dict, reports_dir: Path) -> dict:  # 교�
     kfold_acc = eval_summary["ensemble"]["accuracy_mean"]  # 교차검증에서 앙상블이 받은 평균 정확도
     test_acc = eval_summary["test"]["ensemble"]["accuracy"]  # 최종 시험에서 앙상블이 받은 정확도
     gap = abs(kfold_acc - test_acc)  # 교차검증과 시험 정확도의 차이 (절댓값)
-    overfitting_flag = gap >= 0.03  # 차이가 3% 이상이면 "혹시 훈련 데이터를 외운 거 아닐까?" 경고 깃발 세움
+    thr_gap = THRESHOLD_OVERALL["kfold_test_gap"]
+    overfitting_flag = gap >= thr_gap
 
     result = {  # 일관성 검사 결과를 담은 묶음
         "kfold_acc_mean": kfold_acc,  # 교차검증 평균 정확도
         "test_acc": test_acc,  # 시험 정확도
         "gap": gap,  # 교차검증과 시험 정확도의 차이
         "overfitting_flag": overfitting_flag,  # 과적합(외우기) 가능성 여부 (True=위험, False=안전)
-        "verdict": "PASS — 과적합 없음" if not overfitting_flag else f"WARN — gap={gap:.4f} ≥ 0.03",  # 결론: 안전하거나 경고
+        "verdict": "PASS — 과적합 없음" if not overfitting_flag else f"WARN — gap={gap:.4f} ≥ {thr_gap}",
     }
     with open(reports_dir / "generalization_check.json", "w", encoding="utf-8") as f:  # 일관성 검사 결과 파일을 쓰기 모드로 열기
         json.dump(result, f, indent=2, ensure_ascii=False)  # 들여쓰기 2칸, 한글이 깨지지 않게 저장
 
-    status = "PASS (과적합 없음)" if not overfitting_flag else "WARN (과적합 가능성)"  # 화면 출력용 상태 문자열
+    status = "PASS (과적합 없음)" if not overfitting_flag else f"WARN (과적합 가능성, gap≥{thr_gap})"
     print(f"[Generalization] K-Fold Acc={kfold_acc:.4f}  Test Acc={test_acc:.4f}  "
-          f"gap={gap:.4f} → {status}")  # 교차검증·시험 정확도와 차이, 최종 결론 출력
+          f"gap={gap:.4f} → {status}")
     return result  # 일관성 검사 결과 묶음을 돌려줌
 
 
@@ -278,7 +345,47 @@ def run(args: argparse.Namespace) -> None:  # 터미널에서 받은 옵션들�
         shap_df = _load_shap_csv(rpt)  # SHAP 중요도 CSV 파일 불러오기 (없으면 대안 폴더 탐색)
         shap_analysis(shap_df, rpt)  # 선생님 간 SHAP 중요도 순위 유사도와 상위 특징 게임 해설 계산
 
+    # ── 합격 판정 ──────────────────────────────────────────────────────────────
+    strict = getattr(args, "strict", False)
+    close_margin = getattr(args, "close_margin", 2)
+
+    print("\n[Validate] 전체 성능 합격 판정...")
+    v_overall = verdict_overall(eval_summary, strict=strict)
+    for k, c in v_overall["checks"].items():
+        flag = "✓" if c["pass"] else "✗"
+        print(f"  {flag} {k}: {c['value']:.4f} (임계치 {c['threshold']})")
+    print(f"  → overall_pass = {v_overall['overall_pass']}")
+
+    print(f"\n[Validate] 박빙 경기 합격 판정 (margin={close_margin})...")
+    v_close = verdict_close(eval_summary, margin=close_margin, strict=strict)
+    if v_close.get("close_pass") is None:
+        print(f"  ⚠ {v_close.get('note', '판정불가')}")
+    else:
+        for k, c in v_close["checks"].items():
+            flag = "✓" if c["pass"] else "✗"
+            print(f"  {flag} {k}: {c['value']:.4f} (임계치 {c['threshold']})")
+        print(f"  → close_pass = {v_close['close_pass']}")
+
+    overall_verdict = "PASS" if (
+        v_overall["overall_pass"] and v_close.get("close_pass") is not False
+    ) else "FAIL"
+
+    validation_report = {
+        "overall": v_overall,
+        "close_match": v_close,
+        "verdict": overall_verdict,
+        "strict": strict,
+        "close_margin": close_margin,
+    }
+    with open(rpt / "validation_report.json", "w", encoding="utf-8") as f:
+        json.dump(validation_report, f, indent=2, ensure_ascii=False)
+    print(f"\n[Validate] validation_report.json 저장 완료")
+    print(f"[Validate] 최종 판정: {overall_verdict}")
+
     print("\n[INFO] 완료 ✅")  # 모든 검증 과정이 끝났다고 화면에 알림
+
+    if overall_verdict == "FAIL":
+        sys.exit(1)
 
 
 def main() -> None:  # 터미널에서 이 파일을 실행할 때 가장 먼저 호출되는 함수
@@ -287,9 +394,13 @@ def main() -> None:  # 터미널에서 이 파일을 실행할 때 가장 먼저
     parser.add_argument("--reports",       required=True, help="reports/ 디렉토리 (출력)")  # 리포트 저장 폴더 경로 (반드시 넣어야 함)
     parser.add_argument("--models",        default=None,  help="models/ 디렉토리 (ROC curve용)")  # 모델 폴더 경로 (ROC 커브를 그릴 때만 필요, 선택)
     parser.add_argument("--roc-curve",     action="store_true", dest="roc_curve",
-                        help="ROC Curve PNG 생성")  # 이 옵션을 붙이면 ROC 커브 그림을 만들어 저장함 (선택)
+                        help="ROC Curve PNG 생성")
     parser.add_argument("--shap-analysis", action="store_true", dest="shap_analysis",
-                        help="SHAP Spearman 상관관계 분석")  # 이 옵션을 붙이면 SHAP 상관관계 분석을 실행함 (선택)
+                        help="SHAP Spearman 상관관계 분석")
+    parser.add_argument("--close-margin", type=int, default=2, dest="close_margin",
+                        help="박빙 판정 margin (기본 2); verdict_close에 사용")
+    parser.add_argument("--strict", action="store_true",
+                        help="임계치를 auc/acc/f1 각 +0.01 강화")
     args = parser.parse_args()  # 터미널에서 입력한 옵션들을 읽어서 변수에 담음
     run(args)  # 읽어온 옵션으로 전체 검증 파이프라인 실행
 

@@ -29,23 +29,22 @@ SOURCE_WEIGHT: dict[str, float] = {  # 데이터 출처별로 얼마나 믿을 �
     "kaggle_vct":            1.0,  # VCT 공식 대회 데이터 — 기본 점수예요 (1.0점)
     "kaggle_qualidea":       1.0,  # Qualidea가 모은 데이터 — 기본 점수예요 (1.0점)
     "kaggle_ediashtarevin":  0.9,  # Ediashtarevin이 모은 데이터 — 가장 낮은 점수예요 (0.9점)
+    "kaggle_piyush2025":     1.0,  # piyush86kumar VCT 2025 전 대회 데이터 — 기본 점수예요 (1.0점)
+    "kaggle_piyush2024":     1.2,  # piyush86kumar VCT Champions 2024 국제 대회 데이터 — VCT 공식 수준이에요 (1.2점)
 }
 
 FEATURE_COLS_P1 = [  # AI가 예측할 때 참고하는 숫자 정보 중 "요원 역할군 기반" 19가지 항목 이름이에요
     "a_duelist", "a_initiator", "a_controller", "a_sentinel",  # 팀A에 각 역할군이 몇 명인지예요 (4개)
     "b_duelist", "b_initiator", "b_controller", "b_sentinel",  # 팀B에 각 역할군이 몇 명인지예요 (4개)
     "diff_duelist", "diff_initiator", "diff_controller", "diff_sentinel",  # 팀A 수 - 팀B 수 차이예요 (4개)
-    "has_controller_a", "has_controller_b",  # 팀A/팀B에 전략가(Controller)가 1명이라도 있으면 1, 없으면 0이에요
-    "is_double_duelist_a", "is_double_duelist_b",  # 팀A/팀B에 타격대(Duelist)가 2명 이상이면 1, 아니면 0이에요
     "map_encoded", "atk_side_advantage", "is_attacker_a",  # 맵 번호, 공격 유리도, 팀A가 공격 측인지 여부예요
-    "a_double_controller", "b_double_controller",  # 팀에 전략가가 2명 이상이면 1이에요
     "a_double_initiator", "b_double_initiator",  # 팀에 척후대가 2명 이상이면 1이에요
 ]
 
 FEATURE_COLS_P2 = [  # AI가 예측할 때 참고하는 숫자 정보 중 "선수 개인 스탯 기반" 24가지 항목 이름이에요
     "a_avg_acs", "b_avg_acs", "a_avg_kd", "b_avg_kd",  # 팀별 평균 전투점수(ACS)와 킬/데스 비율이에요
     "a_avg_kast", "b_avg_kast", "a_avg_adr", "b_avg_adr",  # 팀별 평균 생존기여율(KAST)과 라운드당 피해량(ADR)이에요
-    "a_avg_hs", "b_avg_hs", "a_max_clutch", "b_max_clutch",  # 팀별 평균 헤드샷 비율과 최다 클러치(1:다수 역전) 수예요
+    "a_avg_hs", "b_avg_hs",  # 팀별 평균 헤드샷 비율이에요
     "a_fk_fd_ratio", "b_fk_fd_ratio",  # 팀이 얼마나 먼저 적을 잡는지(선제킬 ÷ 선제사) 비율이에요
     "a_avg_assists", "b_avg_assists",  # 팀별 평균 어시스트 수 — 팀워크를 보여주는 숫자예요
     "a_kast_std", "b_kast_std",  # 팀원들 사이에서 KAST가 얼마나 고른지 나타내는 숫자예요 (작을수록 균형 잡혀요)
@@ -58,6 +57,23 @@ FEATURE_COLS_P3 = [  # 맵별 요원 승률 기반 피처 (train 집계 기반, 
     "a_map_wr_mean", "b_map_wr_mean",  # 팀별 5요원의 이 맵에서의 역사적 평균 승률이에요
     "diff_map_wr",  # a_map_wr_mean - b_map_wr_mean 차이예요
 ]
+
+FEATURE_COLS_P4 = [  # 팀 최근 폼 기반 피처 (train 집계 기반, 데이터 누수 없음)
+    "a_team_wr",         # 팀A의 훈련 기간 전체 승률이에요
+    "b_team_wr",         # 팀B의 훈련 기간 전체 승률이에요
+    "a_team_recent_wr",  # 팀A의 훈련 기간 내 최근 10경기 승률이에요
+    "b_team_recent_wr",  # 팀B의 훈련 기간 내 최근 10경기 승률이에요
+    "a_win_streak",      # 팀A의 연승(양수) / 연패(음수) 수예요
+    "b_win_streak",      # 팀B의 연승(양수) / 연패(음수) 수예요
+    "a_h2h_wr",          # 팀A의 팀B 상대 역대 승률이에요 (데이터 없으면 0.5)
+    "b_h2h_wr",          # 팀B의 팀A 상대 역대 승률이에요 (데이터 없으면 0.5)
+    "diff_h2h_wr",       # a_h2h_wr - b_h2h_wr 차이예요 (augment_swap에서 자동 부호 반전)
+    "diff_team_wr",      # a_team_wr - b_team_wr 차이예요 (augment_swap에서 자동 부호 반전)
+]
+
+# Laplace 스무딩 강도: 극단값(0/1) 방지를 위해 α=5 prior 경기수 적용
+_FORM_SMOOTH_K: float = 5.0
+_FORM_SMOOTH_PRIOR: float = 0.5
 
 
 # ── 유틸 ──────────────────────────────────────────────────────────────────────
@@ -451,7 +467,143 @@ def parse_single_csv(base_dir: Path) -> list[Row]:  # qualidea·ediashtarevin CS
     if q.exists():  # 파일이 실제로 있으면
         rows.extend(_parse_qualidea(q))  # qualidea 파싱 결과를 목록에 추가해요
 
-    return rows  # qualidea 전체 파싱 결과를 돌려줘요
+    e = base / "ediashtarevin__vct-champions-2023-stats" / "player_stats.csv"  # ediashtarevin CSV 파일 경로예요
+    if e.exists():  # 파일이 실제로 있으면
+        rows.extend(_parse_ediashtarevin(e))  # ediashtarevin 파싱 결과를 목록에 추가해요
+
+    return rows  # 전체 파싱 결과를 돌려줘요
+
+
+# ── 파서 C: piyush86kumar VCT 2025 ───────────────────────────────────────────
+
+def _parse_piyush2025(event_folder: Path, source: str, weight: float) -> list[Row]:
+    stats_path = event_folder / "detailed_matches_player_stats.csv"
+    maps_path = event_folder / "detailed_matches_maps.csv"
+    df_stats = _read_csv(stats_path)
+    df_maps = _read_csv(maps_path)
+    if df_stats is None or df_maps is None:
+        return []
+
+    df_stats = df_stats[df_stats["stat_type"] == "map"].copy()
+
+    # (match_id, map_name) → (score_team1, score_team2) — "12 - 14" 형식 파싱
+    map_scores: dict[tuple, tuple[int, int]] = {}
+    for _, r in df_maps.iterrows():
+        parts = str(r.get("score", "")).split("-")
+        if len(parts) == 2:
+            try:
+                map_scores[(r["match_id"], r["map_name"])] = (int(parts[0].strip()), int(parts[1].strip()))
+            except (ValueError, TypeError):
+                pass
+
+    rows: list[Row] = []
+    for (match_id, map_name), grp in df_stats.groupby(["match_id", "map_name"]):
+        map_norm = normalize_map(str(map_name))
+        if map_norm is None:
+            continue
+
+        team1_raw = str(grp["team1"].iloc[0]).strip()
+        team2_raw = str(grp["team2"].iloc[0]).strip()
+        df_t1 = grp[grp["player_team"] == team1_raw]
+        df_t2 = grp[grp["player_team"] == team2_raw]
+        if len(df_t1) != 5 or len(df_t2) != 5:
+            continue
+
+        team1_norm = normalize_team(team1_raw)
+        team2_norm = normalize_team(team2_raw)
+        winner_raw = str(grp["map_winner"].iloc[0]).strip()
+        winner_norm = normalize_team(winner_raw)
+        if winner_norm.lower() == team1_norm.lower():
+            label = 1
+        elif winner_norm.lower() == team2_norm.lower():
+            label = 0
+        else:
+            continue
+
+        s1, s2 = map_scores.get((match_id, map_name), (13 if label == 1 else 0, 0 if label == 1 else 13))
+
+        def _build_p(team_df: pd.DataFrame) -> list[dict]:
+            ps = []
+            for _, r in team_df.iterrows():
+                kills = _safe_float(r.get("k", 0))
+                deaths = _safe_float(r.get("d", 1))
+                ps.append({
+                    "player": normalize_player(str(r.get("player_name", ""))),
+                    "agent": normalize_agent(str(r.get("agent", ""))),
+                    "acs": _safe_float(r.get("acs")),
+                    "kd": kills / max(deaths, 1),
+                    "kast": _pct_to_float(r.get("kast")),
+                    "adr": _safe_float(r.get("adr")),
+                    "fk": _safe_float(r.get("fk", 0)),
+                    "fd": _safe_float(r.get("fd", 0)),
+                    "assists": _safe_float(r.get("a", 0)),
+                    "hs": _pct_to_float(r.get("hs_percent")),
+                    "clutch": float("nan"),
+                })
+            return ps
+
+        players_a = _build_p(df_t1)
+        players_b = _build_p(df_t2)
+        agents_a = _clean_agents([p["agent"] for p in players_a])
+        agents_b = _clean_agents([p["agent"] for p in players_b])
+        if len(agents_a) != 5 or len(agents_b) != 5:
+            continue
+
+        date_str = str(grp["match_date"].iloc[0]) if "match_date" in grp.columns else ""
+        event_norm = normalize_event(str(grp["event_name"].iloc[0])) if "event_name" in grp.columns else ""
+
+        rows.append({
+            "source": source,
+            "weight": weight,
+            "match_key": make_match_key(source, str(event_folder), str(match_id), map_norm),
+            "dedup_key": make_dedup_key(date_str, event_norm, map_norm, team1_norm, team2_norm, agents_a, agents_b, s1, s2),
+            "date": date_str,
+            "event": event_norm,
+            "map": map_norm,
+            "team_a": team1_norm,
+            "team_b": team2_norm,
+            "players_a": players_a,
+            "players_b": players_b,
+            "score_a": s1,
+            "score_b": s2,
+            "atk_a": None,
+            "def_a": None,
+            "label": label,
+        })
+    return rows
+
+
+_PIYUSH_EVENT_DIRS = [  # _csvs 서브폴더 구조를 가진 piyush 이벤트 폴더 목록이에요
+    "piyush86kumar__valorant-champions-tour-2024-all-events",
+    "piyush86kumar__valorant-champions-tour-2025-paris",
+    "piyush86kumar__valorant-kickoff-2025-all-regions",
+    "piyush86kumar__valorant-masters-bangkok-2025",
+    "piyush86kumar__valorant-masters-toronto-2025",
+    "piyush86kumar__valorant-stage-1-2025-all-regions",
+    "piyush86kumar__valorant-stage-2-2025-all-regions",
+    "piyush86kumar__valorant-vct-2025-all-events",
+]
+
+
+def parse_piyush_events_dir(base_dir: Path) -> list[Row]:
+    base = Path(base_dir)
+    rows: list[Row] = []
+
+    # _csvs 서브폴더 구조의 이벤트 폴더들을 처리해요
+    for dirname in _PIYUSH_EVENT_DIRS:
+        root = base / dirname
+        if not root.exists():
+            continue
+        for event_folder in sorted(root.iterdir()):
+            if event_folder.is_dir() and event_folder.name.endswith("_csvs"):
+                rows.extend(_parse_piyush2025(event_folder, "kaggle_piyush2025", 1.0))
+
+    # piyush86kumar__valorant-champions-2024: 플랫 CSV 구조 (서브폴더 없음)
+    flat_dir = base / "piyush86kumar__valorant-champions-2024"
+    if flat_dir.exists():
+        rows.extend(_parse_piyush2025(flat_dir, "kaggle_piyush2024", 1.2))
+
+    return rows
 
 
 # ── 품질 게이트 ───────────────────────────────────────────────────────────────
@@ -581,14 +733,7 @@ def build_features_phase1(rows: list[Row]) -> pd.DataFrame:  # 경기 목록에�
             "diff_initiator": rc_a["Initiator"] - rc_b["Initiator"],  # 팀A 척후대 수 - 팀B 척후대 수예요
             "diff_controller": rc_a["Controller"] - rc_b["Controller"],  # 팀A 전략가 수 - 팀B 전략가 수예요
             "diff_sentinel": rc_a["Sentinel"] - rc_b["Sentinel"],  # 팀A 감시자 수 - 팀B 감시자 수예요
-            # 파생 특징 (4개)
-            "has_controller_a": int(rc_a["Controller"] > 0),  # 팀A에 전략가가 1명이라도 있으면 1, 없으면 0이에요
-            "has_controller_b": int(rc_b["Controller"] > 0),  # 팀B에 전략가가 1명이라도 있으면 1, 없으면 0이에요
-            "is_double_duelist_a": int(rc_a["Duelist"] >= 2),  # 팀A에 타격대가 2명 이상이면 1, 아니면 0이에요
-            "is_double_duelist_b": int(rc_b["Duelist"] >= 2),  # 팀B에 타격대가 2명 이상이면 1, 아니면 0이에요
-            # 시너지 피처 (4개)
-            "a_double_controller": int(rc_a["Controller"] >= 2),  # 팀A에 전략가가 2명 이상이면 1이에요
-            "b_double_controller": int(rc_b["Controller"] >= 2),  # 팀B에 전략가가 2명 이상이면 1이에요
+            # 시너지 피처 (2개)
             "a_double_initiator": int(rc_a["Initiator"] >= 2),  # 팀A에 척후대가 2명 이상이면 1이에요
             "b_double_initiator": int(rc_b["Initiator"] >= 2),  # 팀B에 척후대가 2명 이상이면 1이에요
             # 맵 관련 (3개)
@@ -741,7 +886,7 @@ def _add_phase2_features(  # 요원 역할군 숫자(Phase 1) 표에 선수 개�
         rec: dict[str, float] = {}  # 현재 경기의 Phase 2 숫자를 담을 빈 사전이에요
         for side, players in [("a", pa), ("b", pb)]:  # 팀A("a")와 팀B("b")를 차례로 처리해요
             for key, agg in [("avg_acs","mean"),("avg_kd","mean"),("avg_kast","mean"),  # 각 스탯과 집계 방법(평균 또는 최대) 쌍을 처리해요
-                              ("avg_adr","mean"),("avg_hs","mean"),("max_clutch","max")]:
+                              ("avg_adr","mean"),("avg_hs","mean")]:
                 rec[f"{side}_{key}"] = _stat(players, key, agg, side)  # 스탯 집계 숫자를 계산해서 저장해요
             rec.update(_synergy(players, side))  # 팀 협동 관련 숫자를 추가해요
             rec.update(_combo(players, side))  # 요원·맵 조합 숫자를 추가해요
@@ -753,6 +898,147 @@ def _add_phase2_features(  # 요원 역할군 숫자(Phase 1) 표에 선수 개�
 
 
 # ── 분할 + 증강 ───────────────────────────────────────────────────────────────
+
+def _build_team_form_lookup(df_train: pd.DataFrame) -> dict:
+    """훈련 경기만 보고 팀별 폼 통계를 계산한다. 데이터 누수 없음.
+
+    df_train에는 team_a, team_b, label, date 컬럼이 포함되어 있어야 한다.
+    미등장 팀 기본값: team_wr=0.5, team_recent_wr=0.5, team_streak=0, h2h_wr=0.5
+    date 빈값은 '0000-01-01'로 처리해 정렬에서 oldest 취급한다.
+
+    LOO(Leave-One-Out) 지원을 위해 team_wins / team_total / h2h_wins / h2h_total
+    원시 카운트도 함께 반환한다. _add_team_form_features(is_train=True) 시 활용.
+    """
+    team_matches: dict[str, list[tuple[str, int]]] = {}  # team → [(date, win)]
+    h2h: dict[tuple, list[int]] = {}  # (ta, tb) → [win_a, ...]
+
+    for _, row in df_train.drop_duplicates("match_key").iterrows():
+        ta = str(row.get("team_a", "") or "").strip()
+        tb = str(row.get("team_b", "") or "").strip()
+        if not ta or not tb:
+            continue
+        label = int(row.get("label", 0))
+        date_str = str(row.get("date", "") or "").strip() or "0000-01-01"
+        won_a = label == 1
+
+        team_matches.setdefault(ta, []).append((date_str, 1 if won_a else 0))
+        team_matches.setdefault(tb, []).append((date_str, 0 if won_a else 1))
+        h2h.setdefault((ta, tb), []).append(1 if won_a else 0)
+        h2h.setdefault((tb, ta), []).append(0 if won_a else 1)
+
+    team_wr: dict[str, float] = {}
+    team_recent_wr: dict[str, float] = {}
+    team_streak: dict[str, int] = {}
+    team_wins_count: dict[str, int] = {}
+    team_total_count: dict[str, int] = {}
+
+    for team, results in team_matches.items():
+        results.sort(key=lambda x: x[0])
+        wins = [w for _, w in results]
+        W, T = sum(wins), len(wins)
+        team_wins_count[team] = W
+        team_total_count[team] = T
+        # Laplace 스무딩: 경기 수 적을 때 극단값(0/1) 방지
+        team_wr[team] = (W + _FORM_SMOOTH_K * _FORM_SMOOTH_PRIOR) / (T + _FORM_SMOOTH_K)
+        recent = wins[-10:] if len(wins) >= 10 else wins
+        rW, rT = sum(recent), len(recent)
+        team_recent_wr[team] = (rW + _FORM_SMOOTH_K * _FORM_SMOOTH_PRIOR) / (rT + _FORM_SMOOTH_K) if rT else 0.5
+        streak = 0
+        for w in reversed(wins):
+            if streak == 0:
+                streak = 1 if w else -1
+            elif (w == 1 and streak > 0) or (w == 0 and streak < 0):
+                streak += 1 if w else -1
+            else:
+                break
+        team_streak[team] = streak
+
+    h2h_wr: dict[tuple, float] = {
+        k: (sum(v) + _FORM_SMOOTH_K * _FORM_SMOOTH_PRIOR) / (len(v) + _FORM_SMOOTH_K)
+        for k, v in h2h.items() if v
+    }
+    h2h_wins_count: dict[tuple, int] = {k: sum(v) for k, v in h2h.items()}
+    h2h_total_count: dict[tuple, int] = {k: len(v) for k, v in h2h.items()}
+
+    return {
+        "team_wr": team_wr,
+        "team_recent_wr": team_recent_wr,
+        "team_streak": team_streak,
+        "h2h_wr": h2h_wr,
+        "team_wins": team_wins_count,
+        "team_total": team_total_count,
+        "h2h_wins": h2h_wins_count,
+        "h2h_total": h2h_total_count,
+    }
+
+
+def _add_team_form_features(
+    df: pd.DataFrame, form_lookup: dict, is_train: bool = False
+) -> pd.DataFrame:
+    """팀별 폼 피처 9개를 추가한다. augment_swap() 호출 전에 사용해야 한다.
+
+    team_a/team_b 컬럼을 직접 참조하므로 rows_map 불필요.
+    미등장 팀: wr=0.5, recent_wr=0.5, streak=0, h2h=0.5
+
+    is_train=True 시 LOO(Leave-One-Out)로 자기참조 누수를 제거한다.
+    team_wr / h2h_wr에만 LOO 적용; recent_wr·streak은 집계 특성상 그대로 사용.
+    """
+    tw = form_lookup["team_wr"]
+    rw = form_lookup["team_recent_wr"]
+    ts = form_lookup["team_streak"]
+    h2h = form_lookup["h2h_wr"]
+    tw_wins = form_lookup.get("team_wins", {})
+    tw_total = form_lookup.get("team_total", {})
+    h2h_wins = form_lookup.get("h2h_wins", {})
+    h2h_total = form_lookup.get("h2h_total", {})
+
+    a_wr, b_wr, a_rwr, b_rwr, a_str, b_str, a_h2h, b_h2h = ([] for _ in range(8))
+
+    for _, row in df.iterrows():
+        ta = str(row.get("team_a", "") or "").strip()
+        tb = str(row.get("team_b", "") or "").strip()
+        label = int(row.get("label", 0))
+        won_a = label == 1
+
+        if is_train:
+            # LOO + Laplace 스무딩: 현재 경기 결과를 제외하되 극단값(0/1) 방지
+            _prior = _FORM_SMOOTH_K * _FORM_SMOOTH_PRIOR
+            W_a, T_a = tw_wins.get(ta, 0), tw_total.get(ta, 0)
+            loo_a = (W_a - (1 if won_a else 0) + _prior) / max(T_a - 1 + _FORM_SMOOTH_K, _FORM_SMOOTH_K)
+            W_b, T_b = tw_wins.get(tb, 0), tw_total.get(tb, 0)
+            loo_b = (W_b - (0 if won_a else 1) + _prior) / max(T_b - 1 + _FORM_SMOOTH_K, _FORM_SMOOTH_K)
+            W_ab, T_ab = h2h_wins.get((ta, tb), 0), h2h_total.get((ta, tb), 0)
+            loo_h2h_a = (W_ab - (1 if won_a else 0) + _prior) / max(T_ab - 1 + _FORM_SMOOTH_K, _FORM_SMOOTH_K)
+            W_ba, T_ba = h2h_wins.get((tb, ta), 0), h2h_total.get((tb, ta), 0)
+            loo_h2h_b = (W_ba - (0 if won_a else 1) + _prior) / max(T_ba - 1 + _FORM_SMOOTH_K, _FORM_SMOOTH_K)
+            a_wr.append(loo_a)
+            b_wr.append(loo_b)
+            a_h2h.append(loo_h2h_a)
+            b_h2h.append(loo_h2h_b)
+        else:
+            a_wr.append(tw.get(ta, 0.5))
+            b_wr.append(tw.get(tb, 0.5))
+            a_h2h.append(h2h.get((ta, tb), 0.5))
+            b_h2h.append(h2h.get((tb, ta), 0.5))
+
+        a_rwr.append(rw.get(ta, 0.5))
+        b_rwr.append(rw.get(tb, 0.5))
+        a_str.append(float(ts.get(ta, 0)))
+        b_str.append(float(ts.get(tb, 0)))
+
+    out = df.copy()
+    out["a_team_wr"] = a_wr
+    out["b_team_wr"] = b_wr
+    out["a_team_recent_wr"] = a_rwr
+    out["b_team_recent_wr"] = b_rwr
+    out["a_win_streak"] = a_str
+    out["b_win_streak"] = b_str
+    out["a_h2h_wr"] = a_h2h
+    out["b_h2h_wr"] = b_h2h
+    out["diff_h2h_wr"] = out["a_h2h_wr"] - out["b_h2h_wr"]
+    out["diff_team_wr"] = out["a_team_wr"] - out["b_team_wr"]
+    return out
+
 
 def augment_swap(df: pd.DataFrame) -> pd.DataFrame:  # 팀A와 팀B를 통째로 바꿔서 데이터를 두 배로 늘리는 함수예요 — 원본과 뒤집은 버전을 합쳐서 돌려줘요
     """A↔B 스왑 증강: prefix(a_/b_) + suffix(_a/_b) 피처 모두 교환, diff 부호 반전."""
@@ -833,14 +1119,18 @@ def run(args: argparse.Namespace) -> None:  # 전처리 파이프라인 7단계�
     print("[1/7] 파서 실행...")  # 1단계 시작을 알려요
     rows_vct = parse_vct_dir(input_dir)  # VCT·Challengers 데이터를 파싱해서 경기 목록을 만들어요
     rows_single = parse_single_csv(input_dir)  # qualidea·ediashtarevin 데이터를 파싱해서 경기 목록을 만들어요
-    all_rows = rows_vct + rows_single  # 두 목록을 하나로 합쳐요
+    rows_piyush = parse_piyush_events_dir(input_dir)  # piyush 이벤트 데이터를 파싱해서 경기 목록을 만들어요
+    all_rows = rows_vct + rows_single + rows_piyush  # 세 목록을 하나로 합쳐요
 
     src_raw = {  # 출처별로 원시 경기가 몇 건인지 세어두는 사전이에요
         "kaggle_vct": sum(1 for r in rows_vct if r["source"] == "kaggle_vct"),  # VCT 출처 경기 수예요
         "kaggle_challengers": sum(1 for r in rows_vct if r["source"] == "kaggle_challengers"),  # Challengers 출처 경기 수예요
         "kaggle_qualidea": sum(1 for r in rows_single if r["source"] == "kaggle_qualidea"),  # qualidea 출처 경기 수예요
+        "kaggle_ediashtarevin": sum(1 for r in rows_single if r["source"] == "kaggle_ediashtarevin"),  # ediashtarevin 출처 경기 수예요
+        "kaggle_piyush2025": sum(1 for r in rows_piyush if r["source"] == "kaggle_piyush2025"),  # piyush 2025 출처 경기 수예요
+        "kaggle_piyush2024": sum(1 for r in rows_piyush if r["source"] == "kaggle_piyush2024"),  # piyush 2024 출처 경기 수예요
     }
-    print(f"  A(vct+ch): {len(rows_vct)}  B(single): {len(rows_single)}")  # 출처 그룹별 경기 수를 화면에 보여줘요
+    print(f"  A(vct+ch): {len(rows_vct)}  B(single): {len(rows_single)}  C(piyush): {len(rows_piyush)}")  # 출처 그룹별 경기 수를 화면에 보여줘요
 
     print("[2/7] 품질 게이트 + dedup...")  # 2단계 시작을 알려요 — 불량 데이터 걸러내기 + 중복 제거예요
     clean_rows, rejected_df = quality_gate(all_rows, reports_dir)  # 검문소를 통과한 경기와 탈락한 경기를 나눠요
@@ -909,7 +1199,6 @@ def run(args: argparse.Namespace) -> None:  # 전처리 파이프라인 7단계�
         "a_avg_kast": 0.7, "b_avg_kast": 0.7,  # KAST 빈 값 대체값이에요 (0.7 = 프로 평균 수준)
         "a_avg_adr": 130.0, "b_avg_adr": 130.0,  # ADR 빈 값 대체값이에요 (130 = 프로 평균 수준)
         "a_avg_hs": 0.2, "b_avg_hs": 0.2,  # 헤드샷 비율 빈 값 대체값이에요 (20% = 프로 평균)
-        "a_max_clutch": 0.0, "b_max_clutch": 0.0,  # 클러치 빈 값 대체값이에요 (0 = 기록 없음)
     }
 
     print("[6/7] Phase 2 피처 추가 → train 증강...")  # 6단계 시작을 알려요 — 선수 스탯 숫자 추가 + 훈련 데이터 두 배 늘리기예요
@@ -922,13 +1211,20 @@ def run(args: argparse.Namespace) -> None:  # 전처리 파이프라인 7단계�
     df_val = _add_map_agent_features(df_val, combo_lookup)
     df_test = _add_map_agent_features(df_test, combo_lookup)
 
-    # Phase 2 + P3 숫자가 모두 채워진 후에 팀 교환 증강을 해요
+    # 팀 최근 폼 피처 추가 (train 집계 기반, augment_swap 전에 호출해야 함)
+    form_lookup = _build_team_form_lookup(df_train)
+    df_train = _add_team_form_features(df_train, form_lookup, is_train=True)
+    df_val = _add_team_form_features(df_val, form_lookup)
+    df_test = _add_team_form_features(df_test, form_lookup)
+
+    # Phase 2 + P3 + P4 숫자가 모두 채워진 후에 팀 교환 증강을 해요
     if augment_train:  # 팀 교환 증강 옵션이 켜져 있으면
         df_train = augment_swap(df_train)  # 팀A↔팀B를 뒤집어서 훈련 데이터를 두 배로 늘려요
 
     df_all = _add_phase2_features(df_feat, rows_map, player_lookup, combo_lookup, medians)  # 분할 전 전체 표에도 Phase 2 숫자를 추가해요
     df_all = _add_map_agent_features(df_all, combo_lookup)  # 전체 표에도 맵 승률 피처 추가
-    feat_cols = ["match_key", "dedup_key"] + FEATURE_COLS_P1 + FEATURE_COLS_P2 + FEATURE_COLS_P3 + ["label"]  # features_base.csv에 저장할 열 순서를 정해요
+    df_all = _add_team_form_features(df_all, form_lookup)  # 전체 표에도 팀 폼 피처 추가
+    feat_cols = ["match_key", "dedup_key"] + FEATURE_COLS_P1 + FEATURE_COLS_P2 + FEATURE_COLS_P3 + FEATURE_COLS_P4 + ["label"]  # features_base.csv에 저장할 열 순서를 정해요
     avail = [c for c in feat_cols if c in df_all.columns]  # 실제로 있는 열만 추려요
     df_all[avail].to_csv(output_dir / "features_base.csv", index=False)  # 전체 AI 참고 숫자 표를 features_base.csv로 저장해요
 

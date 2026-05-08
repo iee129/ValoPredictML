@@ -1,7 +1,7 @@
 {
   "version": "1.0.0",
-  "lastScanned": 1777125436758,
-  "projectRoot": "/Users/wovlf/Project/ValoPredictML",
+  "lastScanned": 1778213480625,
+  "projectRoot": "/Users/iee12/ValoPredicML",
   "techStack": {
     "languages": [
       {
@@ -25,7 +25,7 @@
     "scripts": {}
   },
   "conventions": {
-    "namingStyle": null,
+    "namingStyle": "snake_case",
     "importStyle": null,
     "testPattern": null,
     "fileOrganization": null
@@ -34,252 +34,145 @@
     "isMonorepo": false,
     "workspaces": [],
     "mainDirectories": [
-      "docs"
+      "app",
+      "docs",
+      "scripts"
     ],
-    "gitBranches": {
-      "defaultBranch": "master",
-      "branchingStrategy": null
-    }
+    "gitBranches": null
   },
   "customNotes": [],
   "directoryMap": {
+    "__pycache__": {
+      "path": "__pycache__",
+      "purpose": null,
+      "fileCount": 1,
+      "lastAccessed": 1778213480618,
+      "keyFiles": [
+        "dataload.cpython-314.pyc"
+      ]
+    },
+    "app": {
+      "path": "app",
+      "purpose": "Application code",
+      "fileCount": 6,
+      "lastAccessed": 1778213480618,
+      "keyFiles": [
+        "__init__.py",
+        "db.py",
+        "feature_builder.py",
+        "model_loader.py",
+        "player_lookup.py"
+      ]
+    },
+    "data": {
+      "path": "data",
+      "purpose": "Data files",
+      "fileCount": 1,
+      "lastAccessed": 1778213480619,
+      "keyFiles": []
+    },
     "docs": {
       "path": "docs",
       "purpose": "Documentation",
-      "fileCount": 0,
-      "lastAccessed": 1777125436747,
-      "keyFiles": []
-    },
-    "valo_predict_system": {
-      "path": "valo_predict_system",
-      "purpose": null,
-      "fileCount": 11,
-      "lastAccessed": 1777125436747,
+      "fileCount": 10,
+      "lastAccessed": 1778213480619,
       "keyFiles": [
-        "AGENTS.md",
-        "CLAUDE.md",
         "README.md",
-        "eslint.config.mjs",
-        "jsconfig.json"
+        "TODO.md",
+        "competitive_analysis.md",
+        "datasets.md",
+        "overview.md"
       ]
     },
-    "valo_predict_system/node_modules": {
-      "path": "valo_predict_system/node_modules",
-      "purpose": "Dependencies",
+    "ml": {
+      "path": "ml",
+      "purpose": null,
+      "fileCount": 6,
+      "lastAccessed": 1778213480619,
+      "keyFiles": [
+        "__init__.py",
+        "agent_roles.py",
+        "data_pipeline.py",
+        "evaluate_model.py",
+        "train_model.py"
+      ]
+    },
+    "models": {
+      "path": "models",
+      "purpose": "Data models",
+      "fileCount": 5,
+      "lastAccessed": 1778213480619,
+      "keyFiles": [
+        "ensemble_weights.json",
+        "lgbm_model.joblib",
+        "model_metadata.json",
+        "rf_model.joblib",
+        "xgboost_model.joblib"
+      ]
+    },
+    "reports": {
+      "path": "reports",
+      "purpose": null,
+      "fileCount": 11,
+      "lastAccessed": 1778213480619,
+      "keyFiles": [
+        "baseline_comparison.json",
+        "eval_summary.json",
+        "generalization_check.json",
+        "metric_analysis.json",
+        "preprocess_summary.json"
+      ]
+    },
+    "scripts": {
+      "path": "scripts",
+      "purpose": "Build/utility scripts",
       "fileCount": 1,
-      "lastAccessed": 1777125436748,
-      "keyFiles": []
+      "lastAccessed": 1778213480619,
+      "keyFiles": [
+        "validate_dataset.py"
+      ]
+    },
+    "app/views": {
+      "path": "app/views",
+      "purpose": "View templates",
+      "fileCount": 5,
+      "lastAccessed": 1778213480620,
+      "keyFiles": [
+        "__init__.py",
+        "guide.py",
+        "history.py"
+      ]
     }
   },
   "hotPaths": [
     {
-      "path": "docs/06_model_test/model_test.md",
-      "accessCount": 1,
-      "lastAccessed": 1777125848855,
+      "path": "ml/train_model.py",
+      "accessCount": 15,
+      "lastAccessed": 1778219025825,
       "type": "file"
     },
     {
-      "path": "docs/06_model_test/01_test_strategy/01_test_environment_setup.md",
-      "accessCount": 1,
-      "lastAccessed": 1777125900492,
+      "path": "ml/evaluate_model.py",
+      "accessCount": 10,
+      "lastAccessed": 1778219098956,
       "type": "file"
     },
     {
-      "path": "docs/05_data_learning/01_model_strategy/01_model_comparison.md",
-      "accessCount": 1,
-      "lastAccessed": 1777125905433,
+      "path": "ml/data_pipeline.py",
+      "accessCount": 3,
+      "lastAccessed": 1778218360688,
       "type": "file"
     },
     {
-      "path": "docs/06_model_test/01_test_strategy/02_test_principles.md",
+      "path": "reports/shap_analysis.json",
       "accessCount": 1,
-      "lastAccessed": 1777125954705,
+      "lastAccessed": 1778218359835,
       "type": "file"
     },
     {
-      "path": "docs/05_data_learning/01_model_strategy/02_selection_rationale.md",
+      "path": "reports/eval_summary.json",
       "accessCount": 1,
-      "lastAccessed": 1777125960680,
-      "type": "file"
-    },
-    {
-      "path": "docs/05_data_learning/01_model_strategy/03_ensemble_design.md",
-      "accessCount": 1,
-      "lastAccessed": 1777126023871,
-      "type": "file"
-    },
-    {
-      "path": "docs/06_model_test/02_api_specification/01_predict_endpoint.md",
-      "accessCount": 1,
-      "lastAccessed": 1777126056356,
-      "type": "file"
-    },
-    {
-      "path": "docs/06_model_test/02_api_specification/02_agents_endpoint.md",
-      "accessCount": 1,
-      "lastAccessed": 1777126091385,
-      "type": "file"
-    },
-    {
-      "path": "docs/05_data_learning/02_baseline_models/01_logistic_regression.md",
-      "accessCount": 1,
-      "lastAccessed": 1777126093109,
-      "type": "file"
-    },
-    {
-      "path": "docs/06_model_test/02_api_specification/03_maps_endpoint.md",
-      "accessCount": 1,
-      "lastAccessed": 1777126123086,
-      "type": "file"
-    },
-    {
-      "path": "docs/05_data_learning/02_baseline_models/02_random_forest.md",
-      "accessCount": 1,
-      "lastAccessed": 1777126151143,
-      "type": "file"
-    },
-    {
-      "path": "docs/06_model_test/02_api_specification/04_history_endpoint.md",
-      "accessCount": 1,
-      "lastAccessed": 1777126172950,
-      "type": "file"
-    },
-    {
-      "path": "docs/06_model_test/02_api_specification/05_health_endpoint.md",
-      "accessCount": 1,
-      "lastAccessed": 1777126206437,
-      "type": "file"
-    },
-    {
-      "path": "docs/05_data_learning/02_baseline_models/03_baseline_evaluation.md",
-      "accessCount": 1,
-      "lastAccessed": 1777126210002,
-      "type": "file"
-    },
-    {
-      "path": "docs/06_model_test/03_test_scenarios/01_normal_cases.md",
-      "accessCount": 1,
-      "lastAccessed": 1777126268800,
-      "type": "file"
-    },
-    {
-      "path": "docs/05_data_learning/03_xgboost/01_algorithm_deep_dive.md",
-      "accessCount": 1,
-      "lastAccessed": 1777126276530,
-      "type": "file"
-    },
-    {
-      "path": "docs/06_model_test/03_test_scenarios/02_edge_cases.md",
-      "accessCount": 1,
-      "lastAccessed": 1777126319062,
-      "type": "file"
-    },
-    {
-      "path": "docs/05_data_learning/03_xgboost/02_hyperparameters_guide.md",
-      "accessCount": 1,
-      "lastAccessed": 1777126329334,
-      "type": "file"
-    },
-    {
-      "path": "docs/06_model_test/03_test_scenarios/03_error_cases.md",
-      "accessCount": 1,
-      "lastAccessed": 1777126373215,
-      "type": "file"
-    },
-    {
-      "path": "docs/05_data_learning/03_xgboost/03_training_implementation.md",
-      "accessCount": 1,
-      "lastAccessed": 1777126386181,
-      "type": "file"
-    },
-    {
-      "path": "docs/06_model_test/03_test_scenarios/04_game_logic_validation.md",
-      "accessCount": 1,
-      "lastAccessed": 1777126432609,
-      "type": "file"
-    },
-    {
-      "path": "docs/05_data_learning/03_xgboost/04_feature_importance.md",
-      "accessCount": 1,
-      "lastAccessed": 1777126453303,
-      "type": "file"
-    },
-    {
-      "path": "docs/06_model_test/04_performance_testing/01_response_time_testing.md",
-      "accessCount": 1,
-      "lastAccessed": 1777126488164,
-      "type": "file"
-    },
-    {
-      "path": "docs/06_model_test/04_performance_testing/02_load_testing.md",
-      "accessCount": 1,
-      "lastAccessed": 1777126530794,
-      "type": "file"
-    },
-    {
-      "path": "docs/05_data_learning/04_lightgbm/01_algorithm_deep_dive.md",
-      "accessCount": 1,
-      "lastAccessed": 1777126531059,
-      "type": "file"
-    },
-    {
-      "path": "docs/06_model_test/04_performance_testing/03_database_performance.md",
-      "accessCount": 1,
-      "lastAccessed": 1777126578776,
-      "type": "file"
-    },
-    {
-      "path": "docs/05_data_learning/04_lightgbm/02_hyperparameters_guide.md",
-      "accessCount": 1,
-      "lastAccessed": 1777126587762,
-      "type": "file"
-    },
-    {
-      "path": "docs/06_model_test/05_fastapi_implementation/01_main_app_complete.md",
-      "accessCount": 1,
-      "lastAccessed": 1777126619163,
-      "type": "file"
-    },
-    {
-      "path": "docs/05_data_learning/04_lightgbm/03_training_implementation.md",
-      "accessCount": 1,
-      "lastAccessed": 1777126654411,
-      "type": "file"
-    },
-    {
-      "path": "docs/06_model_test/05_fastapi_implementation/02_routers_complete.md",
-      "accessCount": 1,
-      "lastAccessed": 1777126654532,
-      "type": "file"
-    },
-    {
-      "path": "docs/06_model_test/05_fastapi_implementation/03_services_complete.md",
-      "accessCount": 1,
-      "lastAccessed": 1777126695717,
-      "type": "file"
-    },
-    {
-      "path": "docs/05_data_learning/05_optimization/01_optuna_setup.md",
-      "accessCount": 1,
-      "lastAccessed": 1777126702174,
-      "type": "file"
-    },
-    {
-      "path": "docs/06_model_test/05_fastapi_implementation/04_schemas_complete.md",
-      "accessCount": 1,
-      "lastAccessed": 1777126748958,
-      "type": "file"
-    },
-    {
-      "path": "docs/06_model_test/06_ui_testing/01_predict_page_testing.md",
-      "accessCount": 1,
-      "lastAccessed": 1777126793993,
-      "type": "file"
-    },
-    {
-      "path": "docs/06_model_test/06_ui_testing/02_history_page_testing.md",
-      "accessCount": 1,
-      "lastAccessed": 1777126833433,
+      "lastAccessed": 1778218360014,
       "type": "file"
     }
   ],

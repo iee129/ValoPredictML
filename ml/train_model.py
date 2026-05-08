@@ -14,19 +14,23 @@ import pandas as pd  # 표(데이터프레임) 형태로 데이터를 다루는 
 import xgboost as xgb  # XGBoost 선생님 모델을 만들고 쓰는 도구
 from sklearn.ensemble import RandomForestClassifier  # Random Forest(랜덤 포레스트) 선생님 모델
 from sklearn.metrics import accuracy_score, f1_score, roc_auc_score  # 모델 성적표를 매기는 세 가지 채점 함수
+from scipy.optimize import minimize  # 앙상블 가중치 val-AUC 최적화에 사용
+from sklearn.calibration import CalibratedClassifierCV
+from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import GroupKFold  # 같은 경기 데이터가 훈련용과 시험용에 동시에 들어가지 않도록 조심해서 나누는 방법
 
-from ml.data_pipeline import FEATURE_COLS_P1, FEATURE_COLS_P2, FEATURE_COLS_P3  # 전처리 단계에서 만들어 둔 피처(특징) 컬럼 목록 가져오기
+from ml.data_pipeline import FEATURE_COLS_P1, FEATURE_COLS_P2, FEATURE_COLS_P3, FEATURE_COLS_P4  # 전처리 단계에서 만들어 둔 피처(특징) 컬럼 목록 가져오기
 
 optuna.logging.set_verbosity(optuna.logging.WARNING)  # Optuna가 실험할 때마다 너무 많은 로그를 출력하지 않도록 경고 수준만 보이게 설정
 
-FEATURE_COLS: list[str] = FEATURE_COLS_P1 + FEATURE_COLS_P2 + FEATURE_COLS_P3  # 세 단계에서 만든 특징 목록을 합침
+FEATURE_COLS: list[str] = FEATURE_COLS_P1 + FEATURE_COLS_P2 + FEATURE_COLS_P3 + FEATURE_COLS_P4  # 네 단계에서 만든 특징 목록을 합침 (총 59개)
 
 _YEAR_WEIGHTS: dict[int, float] = {2025: 2.0, 2024: 1.8, 2023: 1.4, 2022: 1.2}
+_CLOSE_MATCH_BOOST: float = 1.5  # 박빙 경기(스코어 차 ≤3)에 부여하는 추가 가중치
 
 
 def _compute_sample_weights(df_train: pd.DataFrame) -> np.ndarray:
-    """event 이름에서 연도를 추출해 최신 경기에 높은 가중치를 부여한다. date가 빈 값이면 event 문자열로 대체."""
+    """연도 가중치 + 박빙 경기 부스트를 결합한 샘플 가중치를 반환한다."""
     def _year(row: pd.Series) -> int:
         date_str = str(row.get("date", ""))
         if date_str and len(date_str) >= 4 and date_str[:4].isdigit():
@@ -38,7 +42,11 @@ def _compute_sample_weights(df_train: pd.DataFrame) -> np.ndarray:
         return 2021
 
     years = df_train.apply(_year, axis=1)
-    return years.map(_YEAR_WEIGHTS).fillna(1.0).to_numpy(dtype=float)
+    weights = years.map(_YEAR_WEIGHTS).fillna(1.0)
+    if "score_a" in df_train.columns and "score_b" in df_train.columns:
+        score_diff = (df_train["score_a"] - df_train["score_b"]).abs()
+        weights = weights * score_diff.apply(lambda d: _CLOSE_MATCH_BOOST if d <= 3 else 1.0)
+    return weights.to_numpy(dtype=float)
 
 
 # ── 데이터 로드 ────────────────────────────────────────────────────────────────
@@ -88,13 +96,13 @@ def train_xgb(
 ) -> xgb.XGBClassifier:  # 학습을 마친 XGBoost 선생님 모델을 돌려줌
     default = dict(  # XGBoost의 기본 설정값들
         n_estimators=500,  # 최대 500라운드까지 조금씩 실력을 키워나감 (실제로는 일찍 멈출 수도 있음)
-        max_depth=5,  # 각 나무가 질문을 최대 5단계 깊이까지 할 수 있음 — 너무 깊으면 외워버려서 새 데이터에 약해짐
+        max_depth=4,  # 각 나무가 질문을 최대 4단계 깊이까지 할 수 있음 (5→4로 줄여 과적합 방지)
         learning_rate=0.05,  # 한 번에 조금씩(5%) 배우는 학습률 — 느리지만 실수를 줄여줌
         subsample=0.8,  # 매 라운드마다 훈련 데이터의 80%만 무작위로 골라 씀 — 다양한 관점을 배우게 함
-        colsample_bytree=0.8,  # 매 라운드마다 특징의 80%만 무작위로 골라 씀 — 역시 다양성을 높여줌
+        colsample_bytree=0.7,  # 매 라운드마다 특징의 70%만 무작위로 골라 씀 (0.8→0.7 강화)
         reg_alpha=0.1,  # 불필요한 특징의 영향을 줄여주는 L1 벌점 (작은 값들을 0으로 만드는 효과)
-        reg_lambda=1.0,  # 특징의 영향력이 너무 커지지 않게 눌러주는 L2 벌점
-        min_child_weight=5,  # 나무 가지 하나에 최소 5개 이상의 데이터가 있어야 함 — 너무 작은 가지를 만들지 않게 막아줌
+        reg_lambda=2.0,  # 특징의 영향력이 너무 커지지 않게 눌러주는 L2 벌점 (1.0→2.0 강화)
+        min_child_weight=7,  # 나무 가지 하나에 최소 7개 이상의 데이터가 있어야 함 (5→7로 올려 과적합 방지)
         gamma=0.1,  # 가지를 새로 만들 때 최소 이 만큼 나아져야 허락함 — 의미 없는 가지를 차단
         objective="binary:logistic",  # 이기거나(1) 지거나(0), 둘 중 하나를 맞히는 문제로 설정
         eval_metric="logloss",  # 중간 점검 때 예측이 얼마나 확신에 찼는지로 점수를 매김
@@ -122,15 +130,15 @@ def train_lgbm(
 ) -> lgb.LGBMClassifier:  # 학습을 마친 LightGBM 선생님 모델을 돌려줌
     default = dict(  # LightGBM의 기본 설정값들
         n_estimators=500,  # 최대 500라운드까지 조금씩 실력을 키워나감
-        num_leaves=31,  # 나무의 잎사귀(끝 가지) 수를 31개로 제한 — 너무 많으면 복잡해서 외워버림
+        num_leaves=25,  # 나무의 잎사귀(끝 가지) 수를 25개로 제한 (31→25, 과적합 방지)
         max_depth=-1,  # 나무 깊이는 제한 없음 (-1) — 대신 잎사귀 수(num_leaves)로 복잡도를 조절
         learning_rate=0.05,  # 한 번에 조금씩(5%) 배우는 학습률
         subsample=0.8,  # 매 라운드마다 훈련 데이터의 80%만 무작위로 골라 씀
         subsample_freq=1,  # 위 80% 샘플링을 매 라운드마다 적용
-        colsample_bytree=0.8,  # 매 라운드마다 특징의 80%만 무작위로 골라 씀
+        colsample_bytree=0.7,  # 매 라운드마다 특징의 70%만 무작위로 골라 씀 (0.8→0.7 강화)
         reg_alpha=0.1,  # 불필요한 특징을 줄여주는 L1 벌점
-        reg_lambda=1.0,  # 특징 영향력을 눌러주는 L2 벌점
-        min_child_samples=20,  # 잎사귀 하나에 최소 20개의 데이터가 있어야 만들 수 있음 — 너무 희귀한 패턴을 믿지 않음
+        reg_lambda=2.0,  # 특징 영향력을 눌러주는 L2 벌점 (1.0→2.0 강화)
+        min_child_samples=30,  # 잎사귀 하나에 최소 30개의 데이터가 있어야 만들 수 있음 (20→30, 과적합 방지)
         objective="binary",  # 이기거나(1) 지거나(0), 둘 중 하나를 맞히는 문제로 설정
         metric="binary_logloss",  # 중간 점검 때 예측이 얼마나 확신에 찼는지로 점수를 매김
         random_state=42,  # 결과를 재현할 수 있도록 랜덤 시드 고정
@@ -266,11 +274,88 @@ def optimize_model(
 
 # ── 앙상블 + 평가 ──────────────────────────────────────────────────────────────
 
-def ensemble_predict_proba(models: dict, X: pd.DataFrame) -> np.ndarray:  # 세 선생님에게 각각 답을 물어보고 평균을 내는 앙상블 함수 — 마치 세 심판의 점수를 평균 내는 것
-    rf_p   = models["rf"].predict_proba(X)[:, 1]  # 랜덤 포레스트 선생님이 예측한 팀A 승리 확률
-    xgb_p  = models["xgb"].predict_proba(X)[:, 1]  # XGBoost 선생님이 예측한 팀A 승리 확률
-    lgbm_p = models["lgbm"].predict_proba(X)[:, 1]  # LightGBM 선생님이 예측한 팀A 승리 확률
-    return (rf_p + xgb_p + lgbm_p) / 3.0  # 세 선생님의 예측 확률을 평균 내서 최종 답으로 사용 (각 선생님의 비중이 정확히 1/3)
+_ENSEMBLE_WEIGHTS = {"rf": 0.50, "xgb": 0.25, "lgbm": 0.25}  # RF가 박빙 경기에서 더 강해 비중을 높임
+
+
+def _optimize_ensemble_weights(
+    rf_val: np.ndarray,
+    xgb_val: np.ndarray,
+    lgbm_val: np.ndarray,
+    y_val: pd.Series,
+) -> dict[str, float]:
+    """validation AUC 기반으로 최적 앙상블 가중치를 scipy.optimize로 탐색한다."""
+    def neg_auc(w: np.ndarray) -> float:
+        w_abs = np.abs(w)
+        w_norm = w_abs / (w_abs.sum() + 1e-12)
+        probs = w_norm[0] * rf_val + w_norm[1] * xgb_val + w_norm[2] * lgbm_val
+        return -roc_auc_score(y_val, probs)
+
+    x0 = np.array([0.50, 0.25, 0.25])
+    bounds = [(0.15, 0.80), (0.05, 0.50), (0.05, 0.50)]
+    result = minimize(neg_auc, x0, method="L-BFGS-B", bounds=bounds)
+    w = np.abs(result.x)
+    w = w / w.sum()
+    return {"rf": float(w[0]), "xgb": float(w[1]), "lgbm": float(w[2])}
+
+
+def calibrate_models(models: dict, X_val: pd.DataFrame, y_val: pd.Series) -> dict:
+    """val set으로 각 기본 모델에 isotonic 확률 보정을 적용하고 보정된 모델 dict를 반환한다."""
+    calibrated: dict = {}
+    for name, model in models.items():
+        cal = CalibratedClassifierCV(model, cv="prefit", method="isotonic")
+        cal.fit(X_val, y_val)
+        calibrated[name] = cal
+    return calibrated
+
+
+def train_oof_stack(
+    df_trainval: pd.DataFrame,
+    X_trainval: pd.DataFrame,
+    y_trainval: pd.Series,
+    best_params: dict,
+) -> LogisticRegression:
+    """train+val 데이터로 OOF 예측을 생성하고 LogisticRegression 메타 학습기를 반환한다."""
+    groups = df_trainval["match_key"].str.replace(r"_swap$", "", regex=True)
+    gkf = GroupKFold(n_splits=5)
+    oof_rf   = np.zeros(len(df_trainval))
+    oof_xgb  = np.zeros(len(df_trainval))
+    oof_lgbm = np.zeros(len(df_trainval))
+
+    for tr_idx, vl_idx in gkf.split(X_trainval, y_trainval, groups=groups):
+        X_tr, X_vl = X_trainval.iloc[tr_idx], X_trainval.iloc[vl_idx]
+        y_tr = y_trainval.iloc[tr_idx]
+        df_tr = df_trainval.iloc[tr_idx]
+
+        sw = _compute_sample_weights(df_tr)
+        fold_rf = train_rf(X_tr, y_tr, sample_weight=sw)
+        fold_xgb = train_xgb(
+            X_tr, y_tr, X_vl, y_trainval.iloc[vl_idx],
+            best_params.get("xgb") or None, sample_weight=sw,
+        )
+        fold_lgbm = train_lgbm(
+            X_tr, y_tr, X_vl, y_trainval.iloc[vl_idx],
+            best_params.get("lgbm") or None, sample_weight=sw,
+        )
+        oof_rf[vl_idx]   = fold_rf.predict_proba(X_vl)[:, 1]
+        oof_xgb[vl_idx]  = fold_xgb.predict_proba(X_vl)[:, 1]
+        oof_lgbm[vl_idx] = fold_lgbm.predict_proba(X_vl)[:, 1]
+
+    oof_stack = np.column_stack([oof_rf, oof_xgb, oof_lgbm])
+    meta = LogisticRegression(C=1.0, max_iter=1000)
+    meta.fit(oof_stack, y_trainval)
+    return meta
+
+
+def ensemble_predict_proba(
+    models: dict, X: pd.DataFrame, meta_learner: LogisticRegression | None = None
+) -> np.ndarray:
+    rf_p   = models["rf"].predict_proba(X)[:, 1]
+    xgb_p  = models["xgb"].predict_proba(X)[:, 1]
+    lgbm_p = models["lgbm"].predict_proba(X)[:, 1]
+    if meta_learner is not None:
+        stack = np.column_stack([rf_p, xgb_p, lgbm_p])
+        return meta_learner.predict_proba(stack)[:, 1]
+    return _ENSEMBLE_WEIGHTS["rf"] * rf_p + _ENSEMBLE_WEIGHTS["xgb"] * xgb_p + _ENSEMBLE_WEIGHTS["lgbm"] * lgbm_p
 
 
 def evaluate_split(
@@ -304,25 +389,32 @@ def evaluate_split(
 # ── 저장 ──────────────────────────────────────────────────────────────────────
 
 def save_models(
-    models: dict,  # 저장할 세 선생님 모델 묶음 {"rf": ..., "xgb": ..., "lgbm": ...}
-    best_params: dict,  # Optuna가 찾아낸 가장 좋은 설정값 (Optuna를 안 썼으면 빈 묶음)
-    metrics: dict,  # 검증·시험 데이터에서 받은 성적표 묶음
-    train_samples: int,  # 훈련에 쓰인 데이터 행의 수 (경기 수)
-    output_dir: str,  # 모델 파일을 저장할 폴더 경로
-) -> None:  # 파일만 저장하고 아무것도 돌려주지 않음
-    Path(output_dir).mkdir(parents=True, exist_ok=True)  # 저장 폴더가 없으면 새로 만듦 (있으면 그냥 넘어감)
-    name_map = {"rf": "rf_model", "xgb": "xgboost_model", "lgbm": "lgbm_model"}  # 내부 이름 → 파일 이름 변환표
-    for key, fname in name_map.items():  # 세 선생님 모델을 각각 파일로 저장
-        joblib.dump(models[key], Path(output_dir) / f"{fname}.joblib")  # 모델 객체를 .joblib 파일로 변환해 저장 (나중에 다시 불러올 수 있음)
+    models: dict,
+    best_params: dict,
+    metrics: dict,
+    train_samples: int,
+    output_dir: str,
+    calibrated_models: dict | None = None,
+    meta_learner: LogisticRegression | None = None,
+) -> None:
+    Path(output_dir).mkdir(parents=True, exist_ok=True)
+    name_map = {"rf": "rf_model", "xgb": "xgboost_model", "lgbm": "lgbm_model"}
+    for key, fname in name_map.items():
+        joblib.dump(models[key], Path(output_dir) / f"{fname}.joblib")
+    if calibrated_models:
+        for key in ("rf", "xgb", "lgbm"):
+            joblib.dump(calibrated_models[key], Path(output_dir) / f"{key}_calibrated.joblib")
+    if meta_learner is not None:
+        joblib.dump(meta_learner, Path(output_dir) / "meta_learner.joblib")
     metadata = dict(  # 모델 학습 정보를 정리한 메모장 내용
         trained_at=datetime.now().isoformat(),  # 이 모델을 저장한 날짜와 시각
         feature_cols=FEATURE_COLS,  # 학습에 사용한 특징 목록 (나중에 예측할 때 같은 특징을 넣어야 함)
-        feature_count=len(FEATURE_COLS),  # 특징의 개수 (43개)
+        feature_count=len(FEATURE_COLS),  # 특징의 개수 (54개)
         train_samples=train_samples,  # 훈련에 쓰인 경기 수
         val_metrics=metrics.get("val", {}),  # 검증 데이터에서의 성적표
         test_metrics=metrics.get("test", {}),  # 시험 데이터에서의 성적표
         best_params=best_params,  # Optuna가 찾아낸 가장 좋은 설정값 기록
-        ensemble_weights={"rf": 1 / 3, "xgb": 1 / 3, "lgbm": 1 / 3},  # 앙상블에서 세 선생님의 비중이 각각 동일하게 1/3임을 기록
+        ensemble_weights=dict(_ENSEMBLE_WEIGHTS),  # 앙상블 가중치 스냅샷 (최적화 후 갱신된 값)
     )
     with open(Path(output_dir) / "model_metadata.json", "w", encoding="utf-8") as f:  # 메모장 파일을 쓰기 모드로 열기
         json.dump(metadata, f, indent=2, ensure_ascii=False)  # 들여쓰기 2칸, 한글이 깨지지 않게 그대로 저장
@@ -358,15 +450,39 @@ def run(args: argparse.Namespace) -> None:  # 터미널에서 받은 옵션들�
 
     models = {"rf": rf_model, "xgb": xgb_model, "lgbm": lgbm_model}  # 세 선생님 모델을 이름표를 달아 한 묶음으로 모음
 
-    val_metrics  = evaluate_split(models, X_val,  y_val,  "Val")  # 검증 데이터로 세 선생님과 앙상블의 성적 확인
-    test_metrics = evaluate_split(models, X_test, y_test, "Test")  # 시험 데이터로 최종 성적 확인
+    print("\n[Ensemble] validation AUC 기반 가중치 최적화 중...")
+    rf_val_p   = rf_model.predict_proba(X_val)[:, 1]
+    xgb_val_p  = xgb_model.predict_proba(X_val)[:, 1]
+    lgbm_val_p = lgbm_model.predict_proba(X_val)[:, 1]
+    opt_weights = _optimize_ensemble_weights(rf_val_p, xgb_val_p, lgbm_val_p, y_val)
+    _ENSEMBLE_WEIGHTS.update(opt_weights)
+    print(f"[Ensemble] 최적 가중치: RF={opt_weights['rf']:.3f}, XGB={opt_weights['xgb']:.3f}, LGBM={opt_weights['lgbm']:.3f}")
+    Path(args.output).mkdir(parents=True, exist_ok=True)
+    with open(Path(args.output) / "ensemble_weights.json", "w", encoding="utf-8") as _f:
+        json.dump(opt_weights, _f, indent=2)
 
-    save_models(  # 학습된 모델과 성적 정보를 파일로 저장
+    print("\n[Calibration] val set으로 확률 보정 중...")
+    calibrated_models = calibrate_models(models, X_val, y_val)
+    print("[Calibration] 완료")
+
+    print("\n[OOF Stack] train+val OOF 스태킹 메타 학습기 훈련 중...")
+    df_trainval = pd.concat([df_train, df_val], ignore_index=True)
+    X_trainval  = df_trainval[FEATURE_COLS]
+    y_trainval  = df_trainval["label"]
+    meta_learner = train_oof_stack(df_trainval, X_trainval, y_trainval, best_params)
+    print("[OOF Stack] 완료")
+
+    val_metrics  = evaluate_split(calibrated_models, X_val,  y_val,  "Val")
+    test_metrics = evaluate_split(calibrated_models, X_test, y_test, "Test")
+
+    save_models(
         models=models,
         best_params=best_params,
         metrics={"val": val_metrics, "test": test_metrics},
         train_samples=len(df_train),
         output_dir=args.output,
+        calibrated_models=calibrated_models,
+        meta_learner=meta_learner,
     )
 
     Path(args.reports).mkdir(parents=True, exist_ok=True)  # 리포트 저장 폴더가 없으면 새로 만듦
