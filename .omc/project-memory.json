@@ -147,20 +147,44 @@
   "hotPaths": [
     {
       "path": "ml/train_model.py",
-      "accessCount": 15,
-      "lastAccessed": 1778219025825,
+      "accessCount": 39,
+      "lastAccessed": 1778231394499,
       "type": "file"
     },
     {
       "path": "ml/evaluate_model.py",
-      "accessCount": 12,
-      "lastAccessed": 1778219127314,
+      "accessCount": 25,
+      "lastAccessed": 1778221673766,
       "type": "file"
     },
     {
       "path": "ml/data_pipeline.py",
-      "accessCount": 3,
-      "lastAccessed": 1778218360688,
+      "accessCount": 15,
+      "lastAccessed": 1778231373191,
+      "type": "file"
+    },
+    {
+      "path": "progress.txt",
+      "accessCount": 6,
+      "lastAccessed": 1778230823191,
+      "type": "file"
+    },
+    {
+      "path": "ml/calibration.py",
+      "accessCount": 4,
+      "lastAccessed": 1778228770223,
+      "type": "file"
+    },
+    {
+      "path": "reports/eval_summary.json",
+      "accessCount": 4,
+      "lastAccessed": 1778228770388,
+      "type": "file"
+    },
+    {
+      "path": "ml/validate_metrics.py",
+      "accessCount": 2,
+      "lastAccessed": 1778228770043,
       "type": "file"
     },
     {
@@ -170,9 +194,9 @@
       "type": "file"
     },
     {
-      "path": "reports/eval_summary.json",
+      "path": "reports/validation_report.json",
       "accessCount": 1,
-      "lastAccessed": 1778218360014,
+      "lastAccessed": 1778220980837,
       "type": "file"
     }
   ],
