@@ -12,14 +12,18 @@ AGENT_ROLE_MAP: dict[str, str] = {  # 발로란트 요원 이름을 보면 그 �
     # Controller (6종)
     "Viper": "Controller", "Omen": "Controller", "Brimstone": "Controller",  # 바이퍼·오멘·브림스톤은 전략가(Controller) — 연기나 불꽃으로 지역을 막아 팀을 돕는 역할이에요
     "Astra": "Controller", "Harbor": "Controller", "Clove": "Controller",  # 아스트라·하버·클로브도 전략가(Controller) — 싸움터를 우리 팀에게 유리하게 만들어줘요
-    # Sentinel (6종)
+    # Sentinel (7종 — 2025-10 신규 Veto 추가)
     "Killjoy": "Sentinel", "Cypher": "Sentinel", "Sage": "Sentinel",  # 킬조이·사이퍼·세이지는 감시자(Sentinel) — 아군을 보호하고 적의 움직임을 감시하는 역할이에요
     "Chamber": "Sentinel", "Deadlock": "Sentinel", "Vyse": "Sentinel",  # 체임버·데드락·바이스도 감시자(Sentinel) — 팀이 안전하게 싸울 수 있도록 지켜줘요
+    "Veto": "Sentinel",  # 베토는 7번째 감시자(Sentinel) — 2025년 10월에 새로 나온 요원이에요 (mutation DNA 능력)
+    # Controller에 Miks 추가 (위 Controller 줄에 추가됨)
+    "Miks": "Controller",  # 믹스는 7번째 전략가(Controller) — 2026년 3월에 새로 나온 요원이에요 (음파 능력)
 }
 
 MAP_ORDER: list[str] = [  # 발로란트에 있는 공식 맵(전투 장소) 목록이에요 — 이 순서가 나중에 맵마다 번호를 붙일 때 쓰여요
     "Ascent", "Bind", "Haven", "Split", "Icebox", "Breeze",  # 게임 출시 초기에 나온 맵 6개예요
-    "Fracture", "Pearl", "Lotus", "Sunset", "Abyss", "Drift",  # 나중에 추가된 맵 6개예요
+    "Fracture", "Pearl", "Lotus", "Sunset", "Abyss", "Drift",  # 나중에 추가된 맵 6개예요 (Drift는 TDM 모드용)
+    "Corrode",  # 코로드는 2025년 6월에 새로 나온 spike 모드 맵이에요 (12번째 정식 맵, France 테마)
 ]
 MAP_TO_INDEX: dict[str, int] = {m: i for i, m in enumerate(MAP_ORDER)}  # 맵 이름을 보면 그 번호(0, 1, 2...)를 바로 찾을 수 있는 표예요 — 컴퓨터가 맵 이름 대신 숫자로 처리할 수 있게 해줘요
 
@@ -37,6 +41,7 @@ ATK_ADV_MAP: dict[str, float] = {  # 각 맵에서 공격하는 팀이 얼마나
     "Sunset":   0.0,  # 선셋: 공격과 수비가 공평해요
     "Abyss":    0.0,  # 어비스: 공격과 수비가 공평해요
     "Drift":    0.0,  # 드리프트: 공격과 수비가 공평해요
+    "Corrode":  0.014,  # 코로드: VCT 2025 Champions 어택 51.4%로 살짝 어택이 유리해요 (Liquipedia 검증 2026-05-09)
 }
 
 TEAM_NAME_ALIASES: dict[str, str] = {  # 같은 팀인데 여러 가지 이름으로 불리는 경우, 하나의 공식 이름으로 통일하는 표예요 — 마치 친구의 별명을 본명으로 바꿔 주는 것처럼
@@ -72,6 +77,9 @@ _AGENT_ALIASES: dict[str, str] = {  # 요원 이름이 소문자로 오거나 �
     "harbor":   "Harbor",  # 소문자를 공식 표기 "Harbor"로 바꿔줘요 (전략가 역할)
     "neon":     "Neon",  # 소문자를 공식 표기 "Neon"으로 바꿔줘요 (타격대 역할)
     "yoru":     "Yoru",  # 소문자를 공식 표기 "Yoru"로 바꿔줘요 (타격대 역할)
+    "miks":     "Miks",  # 소문자를 공식 표기 "Miks"로 바꿔줘요 (2026-03 신규 전략가/Controller)
+    "veto":     "Veto",  # 소문자를 공식 표기 "Veto"로 바꿔줘요 (2025-10 신규 감시자/Sentinel)
+    "corrode":  "Corrode",  # 맵 alias도 추가하지만 normalize_map은 따로 처리됨 (이 항목은 통일성을 위해 표기)
 }
 
 
