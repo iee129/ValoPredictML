@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "lastScanned": 1778213480625,
+  "lastScanned": 1778511852142,
   "projectRoot": "/Users/iee12/ValoPredicML",
   "techStack": {
     "languages": [
@@ -36,7 +36,8 @@
     "mainDirectories": [
       "app",
       "docs",
-      "scripts"
+      "scripts",
+      "tests"
     ],
     "gitBranches": null
   },
@@ -46,7 +47,7 @@
       "path": "__pycache__",
       "purpose": null,
       "fileCount": 1,
-      "lastAccessed": 1778213480618,
+      "lastAccessed": 1778511852131,
       "keyFiles": [
         "dataload.cpython-314.pyc"
       ]
@@ -54,89 +55,100 @@
     "app": {
       "path": "app",
       "purpose": "Application code",
-      "fileCount": 6,
-      "lastAccessed": 1778213480618,
+      "fileCount": 7,
+      "lastAccessed": 1778511852132,
       "keyFiles": [
         "__init__.py",
         "db.py",
         "feature_builder.py",
-        "model_loader.py",
-        "player_lookup.py"
+        "insights.py",
+        "model_loader.py"
       ]
     },
     "data": {
       "path": "data",
       "purpose": "Data files",
       "fileCount": 1,
-      "lastAccessed": 1778213480619,
+      "lastAccessed": 1778511852133,
       "keyFiles": []
     },
     "docs": {
       "path": "docs",
       "purpose": "Documentation",
-      "fileCount": 10,
-      "lastAccessed": 1778213480619,
+      "fileCount": 11,
+      "lastAccessed": 1778511852133,
       "keyFiles": [
         "README.md",
         "TODO.md",
         "competitive_analysis.md",
-        "datasets.md",
-        "overview.md"
+        "competitive_matrix.md",
+        "datasets.md"
       ]
     },
     "ml": {
       "path": "ml",
       "purpose": null,
-      "fileCount": 6,
-      "lastAccessed": 1778213480619,
+      "fileCount": 14,
+      "lastAccessed": 1778511852133,
       "keyFiles": [
         "__init__.py",
         "agent_roles.py",
-        "data_pipeline.py",
-        "evaluate_model.py",
-        "train_model.py"
+        "calibration.py",
+        "collect_local_research.py",
+        "collect_vlrgg.py"
       ]
     },
     "models": {
       "path": "models",
       "purpose": "Data models",
-      "fileCount": 5,
-      "lastAccessed": 1778213480619,
+      "fileCount": 12,
+      "lastAccessed": 1778511852134,
       "keyFiles": [
+        "dt_model.joblib",
         "ensemble_weights.json",
+        "lgbm_calibrated.joblib",
         "lgbm_model.joblib",
-        "model_metadata.json",
-        "rf_model.joblib",
-        "xgboost_model.joblib"
+        "lr_model.joblib"
       ]
     },
     "reports": {
       "path": "reports",
       "purpose": null,
-      "fileCount": 11,
-      "lastAccessed": 1778213480619,
+      "fileCount": 19,
+      "lastAccessed": 1778511852134,
       "keyFiles": [
         "baseline_comparison.json",
+        "data_source_coverage.json",
         "eval_summary.json",
         "generalization_check.json",
-        "metric_analysis.json",
-        "preprocess_summary.json"
+        "metric_analysis.json"
       ]
     },
     "scripts": {
       "path": "scripts",
       "purpose": "Build/utility scripts",
-      "fileCount": 1,
-      "lastAccessed": 1778213480619,
+      "fileCount": 2,
+      "lastAccessed": 1778511852134,
       "keyFiles": [
+        "run_vlrgg_pipeline_experiment.py",
         "validate_dataset.py"
+      ]
+    },
+    "tests": {
+      "path": "tests",
+      "purpose": "Test files",
+      "fileCount": 2,
+      "lastAccessed": 1778511852135,
+      "keyFiles": [
+        "test_app_insights.py",
+        "test_vlrgg_offline.py"
       ]
     },
     "app/views": {
       "path": "app/views",
       "purpose": "View templates",
-      "fileCount": 5,
-      "lastAccessed": 1778213480620,
+      "fileCount": 6,
+      "lastAccessed": 1778511852135,
       "keyFiles": [
         "__init__.py",
         "guide.py",
@@ -144,73 +156,6 @@
       ]
     }
   },
-  "hotPaths": [
-    {
-      "path": "ml/train_model.py",
-      "accessCount": 39,
-      "lastAccessed": 1778231394499,
-      "type": "file"
-    },
-    {
-      "path": "ml/evaluate_model.py",
-      "accessCount": 25,
-      "lastAccessed": 1778221673766,
-      "type": "file"
-    },
-    {
-      "path": "ml/data_pipeline.py",
-      "accessCount": 15,
-      "lastAccessed": 1778231373191,
-      "type": "file"
-    },
-    {
-      "path": "progress.txt",
-      "accessCount": 6,
-      "lastAccessed": 1778230823191,
-      "type": "file"
-    },
-    {
-      "path": "ml/calibration.py",
-      "accessCount": 4,
-      "lastAccessed": 1778228770223,
-      "type": "file"
-    },
-    {
-      "path": "reports/eval_summary.json",
-      "accessCount": 4,
-      "lastAccessed": 1778228770388,
-      "type": "file"
-    },
-    {
-      "path": "ml/validate_metrics.py",
-      "accessCount": 2,
-      "lastAccessed": 1778228770043,
-      "type": "file"
-    },
-    {
-      "path": "reports/shap_analysis.json",
-      "accessCount": 1,
-      "lastAccessed": 1778218359835,
-      "type": "file"
-    },
-    {
-      "path": "reports/validation_report.json",
-      "accessCount": 1,
-      "lastAccessed": 1778220980837,
-      "type": "file"
-    },
-    {
-      "path": "docs/10_valorant/README.md",
-      "accessCount": 1,
-      "lastAccessed": 1778241594252,
-      "type": "file"
-    },
-    {
-      "path": "docs/10_valorant/valorant.md",
-      "accessCount": 1,
-      "lastAccessed": 1778241595127,
-      "type": "file"
-    }
-  ],
+  "hotPaths": [],
   "userDirectives": []
 }

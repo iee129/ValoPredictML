@@ -20,11 +20,9 @@ from sklearn.linear_model import LogisticRegression
 from ml.calibration import _IsotonicCalibratedModel
 from sklearn.model_selection import GroupKFold  # 같은 경기 데이터가 훈련용과 시험용에 동시에 들어가지 않도록 조심해서 나누는 방법
 
-from ml.data_pipeline import FEATURE_COLS_P1, FEATURE_COLS_P2, FEATURE_COLS_P3, FEATURE_COLS_P4  # 전처리 단계에서 만들어 둔 피처(특징) 컬럼 목록 가져오기
+from ml.data_pipeline import FEATURE_COLS  # 전처리 단계에서 만들어 둔 활성 피처(특징) 컬럼 목록 가져오기
 
 optuna.logging.set_verbosity(optuna.logging.WARNING)  # Optuna가 실험할 때마다 너무 많은 로그를 출력하지 않도록 경고 수준만 보이게 설정
-
-FEATURE_COLS: list[str] = FEATURE_COLS_P1 + FEATURE_COLS_P2 + FEATURE_COLS_P3 + FEATURE_COLS_P4  # 네 단계에서 만든 특징 목록을 합침 (총 57개)
 
 _YEAR_WEIGHTS: dict[int, float] = {2025: 2.0, 2024: 1.8, 2023: 1.4, 2022: 1.2}
 _CLOSE_MATCH_BOOST: float = 2.0  # 박빙 경기(스코어 차 ≤3)에 부여하는 추가 가중치 (1.5→2.0으로 올려서 박빙 경기를 더 열심히 배우게 해요)
@@ -279,6 +277,54 @@ def optimize_model(
 # ── 앙상블 + 평가 ──────────────────────────────────────────────────────────────
 
 _ENSEMBLE_WEIGHTS = {"rf": 0.50, "xgb": 0.25, "lgbm": 0.25}  # RF가 박빙 경기에서 더 강해 비중을 높임
+_ENSEMBLE_MODEL_KEYS = ("rf", "xgb", "lgbm")
+
+
+def normalize_ensemble_weights(weights: dict | None) -> dict[str, float]:
+    """RF/XGB/LGBM 가중치를 검증하고 합이 1이 되도록 정규화한다."""
+    if not weights:
+        return dict(_ENSEMBLE_WEIGHTS)
+
+    missing = [key for key in _ENSEMBLE_MODEL_KEYS if key not in weights]
+    extra = [key for key in weights if key not in _ENSEMBLE_MODEL_KEYS]
+    if missing or extra:
+        raise ValueError(f"ensemble_weights 키 불일치: missing={missing}, extra={extra}")
+
+    clean = {key: float(weights[key]) for key in _ENSEMBLE_MODEL_KEYS}
+    if any(value < 0 for value in clean.values()):
+        raise ValueError(f"ensemble_weights는 음수일 수 없습니다: {clean}")
+
+    total = sum(clean.values())
+    if total <= 0:
+        raise ValueError("ensemble_weights 합이 0입니다")
+    return {key: value / total for key, value in clean.items()}
+
+
+def set_ensemble_weights(weights: dict | None) -> dict[str, float]:
+    """현재 프로세스의 앙상블 가중치를 갱신하고 갱신된 값을 반환한다."""
+    normalized = normalize_ensemble_weights(weights)
+    _ENSEMBLE_WEIGHTS.update(normalized)
+    return dict(_ENSEMBLE_WEIGHTS)
+
+
+def load_ensemble_weights(models_dir: str | Path) -> dict[str, float]:
+    """model_metadata.json을 우선으로 앙상블 가중치를 로드한다."""
+    base = Path(models_dir)
+    metadata_path = base / "model_metadata.json"
+    weights_path = base / "ensemble_weights.json"
+
+    if metadata_path.exists():
+        with open(metadata_path, encoding="utf-8") as f:
+            metadata = json.load(f)
+        weights = metadata.get("ensemble_weights")
+        if weights:
+            return set_ensemble_weights(weights)
+
+    if weights_path.exists():
+        with open(weights_path, encoding="utf-8") as f:
+            return set_ensemble_weights(json.load(f))
+
+    return dict(_ENSEMBLE_WEIGHTS)
 
 
 def _optimize_ensemble_weights(
@@ -352,7 +398,10 @@ def train_oof_stack(
 
 
 def ensemble_predict_proba(
-    models: dict, X: pd.DataFrame, meta_learner: LogisticRegression | None = None
+    models: dict,
+    X: pd.DataFrame,
+    meta_learner: LogisticRegression | None = None,
+    weights: dict | None = None,
 ) -> np.ndarray:
     rf_p   = models["rf"].predict_proba(X)[:, 1]
     xgb_p  = models["xgb"].predict_proba(X)[:, 1]
@@ -360,7 +409,8 @@ def ensemble_predict_proba(
     if meta_learner is not None:
         stack = np.column_stack([rf_p, xgb_p, lgbm_p])
         return meta_learner.predict_proba(stack)[:, 1]
-    return _ENSEMBLE_WEIGHTS["rf"] * rf_p + _ENSEMBLE_WEIGHTS["xgb"] * xgb_p + _ENSEMBLE_WEIGHTS["lgbm"] * lgbm_p
+    active_weights = normalize_ensemble_weights(weights or _ENSEMBLE_WEIGHTS)
+    return active_weights["rf"] * rf_p + active_weights["xgb"] * xgb_p + active_weights["lgbm"] * lgbm_p
 
 
 def evaluate_split(
@@ -496,6 +546,9 @@ def run(args: argparse.Namespace) -> None:  # 터미널에서 받은 옵션들�
         train_samples=len(df_train),  # 훈련에 쓰인 경기 수
         val_samples=len(df_val),  # 검증에 쓰인 경기 수
         test_samples=len(df_test),  # 시험에 쓰인 경기 수
+        feature_count=len(FEATURE_COLS),
+        feature_cols=FEATURE_COLS,
+        ensemble_weights=dict(_ENSEMBLE_WEIGHTS),
         val_metrics=val_metrics,  # 검증 성적표
         test_metrics=test_metrics,  # 시험 성적표
         best_params=best_params,  # Optuna 최적 설정값

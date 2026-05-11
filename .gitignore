@@ -22,3 +22,16 @@ AGENTS.md
 
 # 위 AGENTS.md 패턴(basename + core.ignorecase=true)이 발로란트 도메인 docs까지 매칭하므로 명시적 예외
 !docs/10_valorant/agents.md
+
+# OMX 런타임 상태는 로컬 전용
+.omx/
+
+# Codex/OMX 프로젝트 하네스: 실행 config/hooks는 로컬, agents/skills/prompts는 공유 가능
+.codex/*
+!.codex/agents/
+!.codex/agents/**
+!.codex/skills/
+!.codex/skills/**
+.codex/skills/.system/**
+!.codex/prompts/
+!.codex/prompts/**

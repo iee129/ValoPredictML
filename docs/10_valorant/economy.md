@@ -6,6 +6,20 @@ US-002의 visualize25 SQLite `Games` 테이블 (Eco/SemiEco/FullBuy/Pistol 라�
 
 ---
 
+## VLR 검증 블록 (report-backed, 2026-05-10)
+
+기준 리포트: `reports/research_validation.json` (`generated_at=2026-05-10T03:04:34Z`). 현재 VLR 검증 산출물은 economy round breakdown을 포함하지 않으므로 pistol/eco/full-buy 승률 문장은 갱신하지 않는다.
+
+| fact_id / section | metric | value | sample_size | source_url / dataset_id | verdict |
+|-------------------|--------|-------|-------------|--------------------------|---------|
+| FACT-VLR-INGESTION-MATCHES | vlrgg_match_rows | 11,400 rows | 11,400 | `data/processed/vlrgg_matches.csv` | CONFIRMED |
+| FACT-MODEL-FEATURE-CONTRACT | active_model_feature_count | 57 features | 66,711 rows | `data/processed/matches_clean.csv` / `reports/preprocess_summary.json` | CONFIRMED |
+| economy_report_facts | economy-specific VLR facts | 0 rows | 0 | `reports/research_validation.json` | INSUFFICIENT_DATA |
+
+경제 관련 수치는 현재도 Riot/Liquipedia/visualize25 기반 가설로 유지한다. VLR 기반 갱신 조건은 match detail 또는 round economy fields가 provenance와 함께 `report_facts`로 생성되는 것이다.
+
+---
+
 ## 출처 매핑 (sources.md anchor)
 
 본 문서의 모든 수치·메커니즘은 다음 두 출처로 추적된다.

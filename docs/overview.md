@@ -14,8 +14,8 @@ ValoPredictML — Valorant 5v5 라인업 기반 승률 예측 Streamlit 로컬 �
 |------|------|
 | 제품 형태 | Streamlit 기반 로컬 분석 도구 |
 | 핵심 흐름 | 조합 입력 → 승률 예측 → 영향 피처 확인 → 교체 시뮬레이션 |
-| 현재 구현 | 데이터 수집 완료 (`data/raw/kaggle/`, 2.3GB) + ML 파이프라인 완료 (`ml/data_pipeline.py`, `ml/train_model.py`, `ml/evaluate_model.py`, `ml/validate_metrics.py`) |
-| 미구현 | Streamlit UI |
+| 현재 구현 | 데이터 수집, ML 파이프라인, Streamlit 로컬 UI, SQLite 예측 기록 |
+| 진행 중 | P1-P4 57개 활성 피처 기준 산출물 재생성/검증 |
 | 제외 | FastAPI, React/Next.js, 클라우드 배포, 외부 API — 사용 안 함 |
 
 ### 개발 원칙
@@ -31,7 +31,7 @@ ValoPredictML — Valorant 5v5 라인업 기반 승률 예측 Streamlit 로컬 �
 | 선택 입력 | 선수 정보 (ACS, K/D/A, KAST, ADR, 클러치율) |
 | 시스템 생성 | 역할군 카운트/차이, map_encoded, Controller 여부, 팀 시너지 피처 |
 
-### 출력 (Streamlit UI 미구현)
+### 출력 (Streamlit UI)
 
 | 출력 | 설명 |
 |------|------|
@@ -56,16 +56,16 @@ Kaggle 원천 데이터 (data/raw/kaggle/, 2.3GB)
         ↓
 Random Forest / XGBoost / LightGBM 학습 → models/
         ↓
-Streamlit 앱 → 입력 조합 예측 + 설명
+Streamlit 앱 → 입력 조합 예측 + 설명 + SQLite 기록
         ↓
-PostgreSQL 예측 기록 저장 (후보)
+SQLite 예측 기록 저장 (기본)
 ```
 
 **목표 시스템 구조**:
 
 ```
 ┌─────────────────────────────────────┐
-│  Streamlit UI (미구현)               │
+│  Streamlit UI (구현)                 │
 │  - 선수/요원 조합 입력               │
 │  - 예측 결과 + 영향도 시각화         │
 └──────────────┬──────────────────────┘
@@ -80,8 +80,8 @@ PostgreSQL 예측 기록 저장 (후보)
                │ SQLAlchemy (후보)
                ↓
 ┌─────────────────────────────────────┐
-│  데이터 레이어 (후보)                 │
-│  - PostgreSQL 예측 기록              │
+│  데이터 레이어                        │
+│  - SQLite 예측 기록                  │
 └─────────────────────────────────────┘
 ```
 
@@ -91,10 +91,10 @@ PostgreSQL 예측 기록 저장 (후보)
 |------|------|------|
 | 언어 | Python 3.14.4 | 현재 구현 |
 | 데이터 처리 | pandas, NumPy | 현재 구현 |
-| UI | Streamlit | 미구현 |
+| UI | Streamlit | 구현 |
 | ML | Random Forest, XGBoost, LightGBM | 완료 |
 | 설명 | feature importance, SHAP | 완료 |
-| DB | PostgreSQL + SQLAlchemy | 미구현 |
+| DB | SQLite + SQLAlchemy | 구현 |
 
 ---
 
@@ -106,14 +106,14 @@ Phase 1 ✅  데이터 수집 (Kaggle 7개 데이터셋, 2.3GB)
 Phase 2 ✅  데이터 전처리 (ml/agent_roles.py, ml/data_pipeline.py)
 Phase 3 ✅  피처 엔지니어링 (역할군·선수스탯·시너지·요원조합 피처)
 Phase 4 ✅  모델 학습 및 평가 (RF, XGBoost, LightGBM)
-Phase 5 →   Streamlit UI 구현
-Phase 6     검증 및 발표 정리
+Phase 5 ✅  Streamlit UI 구현
+Phase 6 →   산출물 재생성 검증 및 발표 정리
 ```
 
 | Phase | 완료 기준 |
 |-------|----------|
 | 2 | `data/processed/train.csv`, `val.csv`, `test.csv` 생성, 품질 게이트 통과 |
-| 3 | 43개 피처 생성, `features_base.csv` 확인 |
+| 3 | P1-P4 57개 활성 피처 생성, `features_base.csv` 확인 |
 | 4 | RF/XGBoost/LightGBM Accuracy·ROC-AUC·F1 비교표 생성 |
 | 5 | 입력→예측→설명 흐름 Streamlit에서 동작 |
 | 6 | 발표 자료에 데이터/피처/모델/평가/한계 포함 |
@@ -208,5 +208,5 @@ ML 파이프라인 완료 기준 실제 측정값:
 |------|------|------|
 | 모델 성능 | Accuracy, ROC-AUC, F1 — K-Fold 교차 검증으로 일반화 성능 확인 | 완료 (AUC=0.935) |
 | 설명 가능성 | feature importance / SHAP / 교체 변화량으로 예측 근거 제시 | 완료 |
-| 사용자 가치 | 조합 선택·역할 균형·교체 영향 이해 가능 | Streamlit UI 미구현 |
+| 사용자 가치 | 조합 선택·역할 균형·교체 영향 이해 가능 | 구현 |
 | 발표 가능성 | 데이터/피처/모델/평가/한계 문서화 | 진행 중 |

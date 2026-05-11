@@ -10,17 +10,14 @@ import joblib  # 저장된 선생님 모델 파일(.joblib)을 불러올 때 쓰
 import lightgbm as lgb  # LightGBM 선생님 모델 종류 확인과 콜백 설정에 사용
 import numpy as np  # 숫자 배열 계산(평균, 절댓값 등)에 쓰는 도구
 import pandas as pd  # 표(데이터프레임) 형태로 데이터를 다루는 도구
-import shap  # 어떤 특징(피처)이 예측에 얼마나 영향을 줬는지 점수로 알려주는 도구
 import xgboost as xgb  # XGBoost 선생님 모델 종류 확인과 검증 세트 설정에 사용
 from sklearn.metrics import accuracy_score, f1_score, roc_auc_score  # 모델 성적표를 매기는 세 가지 채점 함수
 from sklearn.model_selection import GroupKFold  # 같은 경기 데이터가 훈련용과 시험용에 동시에 들어가지 않도록 조심해서 나누는 방법
 
-from ml.data_pipeline import FEATURE_COLS_P1, FEATURE_COLS_P2, FEATURE_COLS_P3, FEATURE_COLS_P4  # 전처리 단계에서 만들어 둔 특징 컬럼 목록 가져오기
+from ml.data_pipeline import FEATURE_COLS  # 전처리 단계에서 만들어 둔 활성 특징 컬럼 목록 가져오기
 from sklearn.linear_model import LogisticRegression
 from ml.calibration import _IsotonicCalibratedModel  # noqa: F401 — joblib unpickling에 필요
-from ml.train_model import ensemble_predict_proba  # 세 선생님의 예측 확률을 평균 내는 앙상블 함수 가져오기
-
-FEATURE_COLS: list[str] = FEATURE_COLS_P1 + FEATURE_COLS_P2 + FEATURE_COLS_P3 + FEATURE_COLS_P4  # 네 단계에서 만든 특징 목록을 합침 (총 59개)
+from ml.train_model import ensemble_predict_proba, load_ensemble_weights  # 앙상블 함수와 저장된 가중치 로더 가져오기
 
 
 # ── 모델 로드 ─────────────────────────────────────────────────────────────────
@@ -242,6 +239,8 @@ def compute_shap(
     sample_size: int = 2000,  # 계산 속도를 위해 최대 몇 개의 경기만 쓸지 (기본 2000개)
 ) -> pd.Series:  # 특징별 평균 SHAP 점수가 높은 순으로 정렬된 목록을 돌려줌
     """TreeExplainer로 mean |SHAP| per feature 계산. sample_size로 속도 제한."""
+    import shap  # 어떤 특징(피처)이 예측에 얼마나 영향을 줬는지 점수로 알려주는 도구
+
     if len(X) > sample_size:  # 경기 수가 sample_size보다 많으면 무작위로 그만큼만 골라 씀 (시간 단축)
         X = X.sample(n=sample_size, random_state=42)  # 시드 42를 써서 항상 같은 경기를 고르도록 고정
     explainer = shap.TreeExplainer(model)  # 나무 계열 모델 전용 SHAP 계산기 생성 — 각 특징이 예측에 얼마나 기여했는지 분석하는 도구
@@ -293,10 +292,117 @@ def save_reports(
     print(f"\n[INFO] 리포트 저장 완료 → {reports_dir}/")  # 저장이 끝났다고 화면에 알림
 
 
+# ── 시간축 / 지역축 일반화 검증 ─────────────────────────────────────────────────
+
+def _fit_ensemble_proba(
+    models: dict,
+    X_tr: pd.DataFrame,
+    y_tr: pd.Series,
+    X_te: pd.DataFrame,
+    y_te: pd.Series,
+) -> np.ndarray:
+    fold_preds: list[np.ndarray] = []
+    for _, model in models.items():
+        m = copy.deepcopy(model)
+        if isinstance(m, xgb.XGBClassifier):
+            m.fit(X_tr, y_tr, eval_set=[(X_te, y_te)], verbose=False)
+        elif isinstance(m, lgb.LGBMClassifier):
+            m.fit(X_tr, y_tr, eval_set=[(X_te, y_te)],
+                  callbacks=[lgb.early_stopping(50, verbose=False), lgb.log_evaluation(-1)])
+        else:
+            m.fit(X_tr, y_tr)
+        fold_preds.append(m.predict_proba(X_te)[:, 1])
+    return np.mean(fold_preds, axis=0)
+
+
+def temporal_evaluate(
+    models: dict,
+    df_all: pd.DataFrame,
+    feature_cols: list[str],
+) -> dict:
+    """season_q 기반 시간축 일반화 검증.
+
+    season_q <= 2 (2024 이하) → train, season_q == 3 (2025-H1) → test.
+    season_q == 0 (날짜 없음) → train에만 포함.
+    test 50건 미만이면 {'split': '2024→2025', 'status': 'insufficient_data'} 반환.
+    """
+    if "season_q" not in df_all.columns:
+        return {"split": "2024→2025", "status": "no_season_q_column"}
+
+    df_train = df_all[df_all["season_q"].isin([0, 1, 2])].copy()
+    df_test = df_all[df_all["season_q"] == 3].copy()
+
+    avail = [c for c in feature_cols if c in df_all.columns]
+    if len(df_test) < 50:
+        return {"split": "2024→2025", "status": "insufficient_data", "n_test": len(df_test)}
+
+    X_tr, y_tr = df_train[avail], df_train["label"]
+    X_te, y_te = df_test[avail], df_test["label"]
+
+    proba = _fit_ensemble_proba(models, X_tr, y_tr, X_te, y_te)
+    pred = (proba >= 0.5).astype(int)
+    return {
+        "split": "2024→2025",
+        "auc": float(roc_auc_score(y_te, proba)),
+        "acc": float(accuracy_score(y_te, pred)),
+        "f1": float(f1_score(y_te, pred, zero_division=0)),
+        "n_train": int(len(df_train)),
+        "n_test": int(len(df_test)),
+    }
+
+
+def region_evaluate(
+    models: dict,
+    df_all: pd.DataFrame,
+    feature_cols: list[str],
+    min_test_size: int = 50,
+) -> list[dict]:
+    """leave-one-region-out 지역축 일반화 검증.
+
+    region_encoded 1·2·3 각각을 test로, 나머지를 train으로 사용.
+    region_encoded == 0 데이터는 항상 train에 포함.
+    test < min_test_size 지역은 'insufficient_data' status로 스킵.
+    """
+    if "region_encoded" not in df_all.columns:
+        return [{"status": "no_region_encoded_column"}]
+
+    avail = [c for c in feature_cols if c in df_all.columns]
+    results: list[dict] = []
+
+    for region in [1, 2, 3]:
+        df_test = df_all[df_all["region_encoded"] == region].copy()
+        df_train = df_all[df_all["region_encoded"] != region].copy()
+
+        if len(df_test) < min_test_size:
+            results.append({"region": region, "status": "insufficient_data", "n_test": len(df_test)})
+            continue
+
+        X_tr, y_tr = df_train[avail], df_train["label"]
+        X_te, y_te = df_test[avail], df_test["label"]
+
+        proba = _fit_ensemble_proba(models, X_tr, y_tr, X_te, y_te)
+        pred = (proba >= 0.5).astype(int)
+        results.append({
+            "region": region,
+            "auc": float(roc_auc_score(y_te, proba)),
+            "acc": float(accuracy_score(y_te, pred)),
+            "f1": float(f1_score(y_te, pred, zero_division=0)),
+            "n_train": int(len(df_train)),
+            "n_test": int(len(df_test)),
+        })
+
+    return results
+
+
 # ── 메인 ──────────────────────────────────────────────────────────────────────
 
 def run(args: argparse.Namespace) -> None:  # 터미널에서 받은 옵션들을 보고 전체 평가 과정을 순서대로 실행하는 함수
     print("[Evaluate] 모델 로드 중...")
+    ensemble_weights = load_ensemble_weights(args.models)
+    print(
+        "[Evaluate] ensemble_weights: "
+        f"RF={ensemble_weights['rf']:.3f}, XGB={ensemble_weights['xgb']:.3f}, LGBM={ensemble_weights['lgbm']:.3f}"
+    )
     models = load_models(args.models)
     if load_meta_learner(args.models) is not None:
         print("[Evaluate] meta_learner.joblib 존재 (base 가중 앙상블 사용 중; 향후 활성화 가능)")

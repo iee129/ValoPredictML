@@ -1,6 +1,6 @@
 # 08. 전체 작업 Todo List
 
-> 마지막 업데이트: 2026-05-05
+> 마지막 업데이트: 2026-05-10
 > 현재 브랜치: `iee`
 
 ---
@@ -25,7 +25,7 @@
   - [x] Random Forest (n_estimators=300)
   - [x] XGBoost (n=500, Optuna HPO)
   - [x] LightGBM (n=500, Optuna HPO)
-  - [x] 앙상블 — 3모델 확률 단순 평균
+  - [x] 앙상블 — metadata 기반 RF/XGBoost/LightGBM 가중 평균
   - [x] K-Fold 교차검증 (K=5, GroupKFold, match_key 기준)
   - [x] 모델 파일 저장 (`models/`, git 제외)
 - [x] **4단계: 모델 평가 (`ml/evaluate_model.py`, `ml/validate_metrics.py`)** — 완료
@@ -34,19 +34,20 @@
   - [x] Baseline(다수 클래스) 대비 **+29.13%p** 개선
   - [x] SHAP feature importance 분석
   - [x] `reports/eval_summary.json`, `reports/baseline_comparison.json` 출력
+- [x] **5단계: Streamlit UI (`app/streamlit_app.py`)**
+  - [x] Feature Builder — 선수/요원 입력 → P1-P4 57개 피처 자동 생성
+  - [x] 예측 결과 — 승률, 주요 영향 피처 bar chart, 선수 기여도 표
+  - [x] 교체 실험 — 요원 교체 전후 승률 delta 계산
+  - [x] 기록 화면 — SQLite 예측 기록 조회/필터
+  - [x] 가이드 화면 — 역할군, 맵별 강세 요원, 인기 승리 조합
 
 ---
 
-## 미구현
+## 진행 중
 
-### 5단계: Streamlit UI (`app/streamlit_app.py`)
-
-- [ ] **Feature Builder** — 선수/요원 입력 → 45개 피처 자동 생성
-- [ ] **홈 화면** — Team A / Team B 입력, 예측 실행 버튼
-- [ ] **예측 결과** — 승률 게이지, 주요 영향 피처 bar chart, 선수-요원 적합도 표
-- [ ] **교체 실험** — 요원/선수 교체 전후 승률 delta 계산
-- [ ] **기록 화면** — 예측 기록 조회, 필터, 재실행
-- [ ] **분석 화면** — 모델 비교, feature importance, 리포트 출력
+- [ ] P1-P4 57개 활성 피처 기준으로 `data_pipeline -> train_model -> evaluate_model -> validate_metrics` 산출물 재생성
+- [ ] v7 데이터 확장 (`visualize25` SQLite loader, provenance, leakage guard)
+- [ ] 가설 검증 확장 (`ml/hypothesis_test.py` 100+ hypothesis cross-validation)
 
 ---
 
@@ -55,9 +56,9 @@
 - HenrikDev API — 외부 API 미사용 방침으로 제외
 - Riot VCT S3 API — 외부 API 미사용 방침으로 제외
 - FastAPI / Next.js / 클라우드 배포 — 로컬 Streamlit 도구가 목표
-- PostgreSQL — 후보지만 현재 범위 외
+- PostgreSQL — 후보지만 현재 범위 외. 기본 저장소는 SQLite
 - 일반 유저 데이터 수집 — 현재 프로/준프로 경기 데이터로 한정
-- 선수 스탯 피처 고도화 (`Team_Avg_Rating` 등) — 현재 45개 피처로 충분, 향후 개선 항목
+- VLR.gg 직접 scraping — robots 정책 리스크로 기본 비활성화
 
 ---
 

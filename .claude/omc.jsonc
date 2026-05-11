@@ -1,0 +1,34 @@
+{
+  // Project-local OMC settings for Claude Code + Codex interop.
+  // OMC still uses Claude as the orchestrator; Codex is available for review-heavy team roles.
+  "externalModels": {
+    "defaults": {
+      "provider": "codex",
+      "codexModel": "gpt-5.5"
+    },
+    "fallbackPolicy": {
+      "onModelFailure": "provider_chain",
+      "allowCrossProvider": false,
+      "crossProviderOrder": ["codex"]
+    }
+  },
+  "team": {
+    "ops": {
+      "defaultAgentType": "claude"
+    },
+    "roleRouting": {
+      "critic": {
+        "provider": "codex",
+        "model": "gpt-5.5"
+      },
+      "code-reviewer": {
+        "provider": "codex",
+        "model": "gpt-5.5"
+      },
+      "security-reviewer": {
+        "provider": "codex",
+        "model": "gpt-5.5"
+      }
+    }
+  }
+}

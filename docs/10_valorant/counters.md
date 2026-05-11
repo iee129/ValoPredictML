@@ -6,6 +6,20 @@ US-005에서 데이터 통계로 검증 → CONFIRMED / CONTRADICTED / REFINED �
 
 ---
 
+## VLR 검증 블록 (report-backed, 2026-05-10)
+
+기준 리포트: `reports/research_validation.json` (`generated_at=2026-05-10T03:04:34Z`). 현재 산출물은 카운터 페어별 라운드 이벤트를 포함하지 않으므로 C-01~C-18 강도는 아직 report-backed 수치로 갱신하지 않는다.
+
+| fact_id / section | metric | value | sample_size | source_url / dataset_id | verdict |
+|-------------------|--------|-------|-------------|--------------------------|---------|
+| FACT-VLR-INGESTION-PLAYERS | vlrgg_player_stat_rows | 1,254 rows | 1,254 | `data/processed/vlrgg_player_stats.csv` | CONFIRMED |
+| FACT-HYP-H-07 | initiator >=2 hypothesis | r=-0.0211, p=0.0 | 66,711 | `data/processed/features_base.csv` / `reports/research_validation.json` | CONTRADICTED |
+| counter_pair_report_facts | counter-pair facts | 0 rows | 0 | `reports/research_validation.json` | INSUFFICIENT_DATA |
+
+따라서 아래 카운터 매트릭스는 Riot/Liquipedia 능력 메커니즘 기반 가설로 유지한다. VLR 기반으로 갱신하려면 round-level utility, ult, kill-event facts가 별도 report fact로 추가되어야 한다.
+
+---
+
 ## 출처 라벨 → sources.md anchor 매핑
 
 | 인라인 라벨 | sources.md anchor | URL |

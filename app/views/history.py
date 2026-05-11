@@ -3,6 +3,8 @@ from __future__ import annotations  # 오래된 파이썬에서도 새로운 방
 import pandas as pd  # 예측 기록 목록을 엑셀처럼 생긴 표로 만들기 위한 도구
 import streamlit as st  # 화면에 버튼·글자·표를 그려주는 도구
 
+from app.insights import describe_factor
+
 
 def render() -> None:  # 예측 이력 화면 전체를 화면에 그려주는 함수
     st.title("기록 — 예측 이력")  # 페이지 맨 위에 크게 제목을 보여줌
@@ -63,3 +65,20 @@ def render() -> None:  # 예측 이력 화면 전체를 화면에 그려주는 �
             c2.markdown("**Team B**")  # 오른쪽 칸 위에 "Team B"를 굵은 글씨로 표시
             for p, a in zip(r["team_b_players"], r["team_b_agents"]):  # 팀B 선수와 요원을 짝지어 하나씩 꺼냄
                 c2.write(f"{p or '(미입력)'} — {a}")  # 선수 이름(없으면 "(미입력)")과 요원 이름을 한 줄에 보여줌
+            st.markdown("**당시 주요 원인**")
+            if r["top_factors"]:
+                factor_rows = []
+                for factor in r["top_factors"][:10]:
+                    feature = str(factor.get("feature", ""))
+                    try:
+                        value = float(factor.get("value", 0.0))
+                    except (TypeError, ValueError):
+                        value = 0.0
+                    factor_rows.append({
+                        "피처": factor.get("label") or feature,
+                        "기여도": f"{value:+.5f}",
+                        "해석": factor.get("description") or describe_factor(feature, value),
+                    })
+                st.dataframe(pd.DataFrame(factor_rows), use_container_width=True, hide_index=True)
+            else:
+                st.caption("이 기록에는 저장된 원인 정보가 없습니다.")

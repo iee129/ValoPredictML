@@ -96,7 +96,20 @@
 27i. **Liquipedia VCT/2025/Americas_League/Stage_1/Statistics** — https://liquipedia.net/valorant/VCT/2025/Americas_League/Stage_1/Statistics (S-50 anchor)
 27j. **Liquipedia VCT/2025/Pacific_League/Stage_1/Statistics** — https://liquipedia.net/valorant/VCT/2025/Pacific_League/Stage_1/Statistics (S-51 anchor)
 28. **axsddlr/vlrggapi (GitHub 비공식 API)** — https://github.com/axsddlr/vlrggapi
-    - FastAPI 기반 비공식 VLR.gg 스크래퍼. US-003에서 활용 (rate limit 1 req/s, 세션당 ≤5,000 요청).
+    - FastAPI 기반 비공식 VLR.gg 스크래퍼. README 기준 공개 Vercel URL은 free-tier 초과로 down 상태이므로 self-host/local `http://127.0.0.1:3001` + `/v2`를 기본으로 사용. 본 프로젝트는 1 req/s 보수 운영.
+
+### VLR report-backed baseline (2026-05-10)
+
+기준 리포트: `reports/vlrgg_ingestion_summary.json` (`generated_at=2026-05-10T03:04:33Z`) + `reports/research_validation.json` (`generated_at=2026-05-10T03:04:34Z`).
+
+| fact_id | metric | value | sample_size | source_url / dataset_id | verdict |
+|---------|--------|-------|-------------|--------------------------|---------|
+| FACT-VLR-COLLECTION-NETWORK | network_requests | 0 requests | 12,654 rows | https://www.vlr.gg/robots.txt / `reports/vlrgg_ingestion_summary.json` | CONFIRMED |
+| FACT-VLR-INGESTION-MATCHES | vlrgg_match_rows | 11,400 rows | 11,400 | `data/processed/vlrgg_matches.csv` | CONFIRMED |
+| FACT-VLR-INGESTION-PLAYERS | vlrgg_player_stat_rows | 1,254 rows | 1,254 | `data/processed/vlrgg_player_stats.csv` | CONFIRMED |
+| FACT-MODEL-FEATURE-CONTRACT | active_model_feature_count | 57 features | 66,711 rows | `data/processed/matches_clean.csv` / `reports/preprocess_summary.json` | CONFIRMED |
+
+수집 조건: `mode=from_cache_only`, `network_requests=0`, `direct_html_allowed=false`, `robots_checked_at=2026-05-10T03:04:33Z`, `blocked_paths=/search/auto,/rr/`, `allowed_paths=/,/stats,/events,/event/,/event/stats/,/matches/results`.
 
 ---
 

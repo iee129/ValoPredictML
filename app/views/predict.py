@@ -14,7 +14,7 @@ def render() -> None:  # 예측 화면 전체를 화면에 그려주는 함수
     try:
         from app.model_loader import load_models  # 모델을 불러오는 도구 가져오기 (필요할 때만 꺼냄)
         models = load_models()  # 저장해둔 AI 모델 파일 3개를 컴퓨터 기억장치에 올림 (한 번 올리면 다음엔 빠르게 재사용)
-    except FileNotFoundError as e:  # 모델 파일이 없으면 아래처럼 처리
+    except (FileNotFoundError, RuntimeError, ValueError) as e:  # 모델 파일이나 metadata 계약이 맞지 않으면 아래처럼 처리
         st.error(str(e))  # 빨간 경고 박스에 "파일을 찾을 수 없어요" 메시지를 보여줌
         st.stop()  # 여기서 멈추고 아래 코드는 실행하지 않음
 
@@ -48,7 +48,13 @@ def render() -> None:  # 예측 화면 전체를 화면에 그려주는 함수
     if not st.button("예측 실행", type="primary", key="pred_run", use_container_width=True):  # 파란색 넓은 버튼 — 누르지 않으면 아래 내용은 실행되지 않음
         return  # 버튼을 아직 안 눌렀으니 여기서 멈추고 예측 결과는 보여주지 않음
 
-    from app.feature_builder import PlayerInput, build_features  # 선수·요원 정보를 숫자로 바꾸는 도구 꺼내기 (버튼 누를 때만 꺼냄)
+    from app.feature_builder import PlayerInput, build_features, feature_source_status  # 선수·요원 정보를 숫자로 바꾸는 도구 꺼내기 (버튼 누를 때만 꺼냄)
+    from app.insights import (
+        describe_feature_changes,
+        enrich_top_factors,
+        load_vlr_evidence,
+        split_factor_insights,
+    )
     from app.model_loader import compute_shap, predict  # AI가 예측하고 이유를 설명하는 함수 꺼내기
 
     team_a = [PlayerInput(player=players_a[i], agent=agents_a[i]) for i in range(5)]  # 팀A의 선수·요원 5쌍을 깔끔한 묶음으로 포장
@@ -56,6 +62,7 @@ def render() -> None:  # 예측 화면 전체를 화면에 그려주는 함수
 
     try:
         features = build_features(team_a, team_b, map_name, is_attacker_a)  # 두 팀 정보를 AI가 읽을 수 있는 숫자 43개로 변환
+        source_status = feature_source_status(team_a, team_b, map_name)
         win_prob = predict(models, features)  # 3개의 AI 모델이 의견을 합쳐서 팀A의 승리 확률을 계산
     except Exception as e:  # 숫자 변환이나 예측 도중 문제가 생기면
         st.error(f"예측 오류: {e}")  # 빨간 경고 박스에 어떤 문제인지 보여줌
@@ -90,41 +97,158 @@ def render() -> None:  # 예측 화면 전체를 화면에 그려주는 함수
         st.metric("Team B 평균 KAST", f"{avg_b*100:.1f}%")  # 팀B 선수들의 평균 KAST를 예쁜 숫자 카드로 표시
         st.dataframe(pd.DataFrame(rows_b), use_container_width=True, hide_index=True)  # 팀B 선수별 KAST를 엑셀처럼 생긴 표로 보여줌 (왼쪽 번호 숨김)
 
-    st.markdown("---")  # 가로 줄로 섹션 구분
-    st.markdown("### 예측 근거 (SHAP 기여도)")  # "예측 근거" 중간 제목 표시
-    st.caption("양수: Team A에 유리, 음수: Team B에 유리")  # 점수가 플러스면 팀A에 좋고, 마이너스면 팀B에 좋다는 안내
+    shap_dict: dict[str, float] = {}
+    top_factors: list[dict] = []
+    shap_error: str | None = None
     try:
         shap_dict = compute_shap(models, features)  # 어떤 요소가 예측에 얼마나 영향을 줬는지 점수판(SHAP 값)을 계산
         top10 = sorted(shap_dict.items(), key=lambda x: abs(x[1]), reverse=True)[:10]  # 영향이 큰 순서대로 상위 10개 요소를 골라냄
-        st.bar_chart(pd.DataFrame(top10, columns=["피처", "기여도"]).set_index("피처"))  # 상위 10개 요소의 영향 크기를 막대 그래프로 보여줌
-    except Exception:  # SHAP 점수 계산이 안 될 경우 (조용히 처리)
-        st.caption("SHAP 분석 사용 불가")  # "지금은 분석을 보여줄 수 없어요"라고 작은 글씨로 안내
+        top_factors = enrich_top_factors([{"feature": k, "value": float(v)} for k, v in top10], features)
+    except Exception as e:  # SHAP 점수 계산이 안 될 경우 (조용히 처리)
+        shap_error = str(e)
 
-    st.markdown("---")  # 가로 줄로 섹션 구분
-    st.markdown("### 슬롯별 최선 요원 추천 (Team A)")  # "요원 추천" 중간 제목 표시
-    st.caption("각 슬롯에서 교체 시 승률이 가장 높아지는 요원을 자동으로 찾습니다.")  # 어떤 요원으로 바꾸면 이길 확률이 올라가는지 자동으로 찾아준다는 설명
-
+    replacement_rows: list[dict] = []
     with st.spinner("최적 요원 탐색 중..."):  # 계산이 좀 걸리니까 "로딩 중..." 빙글빙글 애니메이션을 보여주는 동안
-        rows = []  # 슬롯별 추천 결과를 모을 빈 바구니
         for i in range(5):  # 팀A의 선수 칸 5개를 하나씩 살펴봄
             best_agent, best_prob = agents_a[i], win_prob  # 일단 지금 선택한 요원을 "최선"으로 시작
+            best_features = features
             current_role = get_role(agents_a[i])  # 이 칸의 요원이 어떤 역할군인지 확인 (예: 타격대)
             candidates = [a for a in _AGENTS if a != agents_a[i] and get_role(a) == current_role]  # 같은 역할군이면서 지금 요원과 다른 후보 요원 목록을 만듦
             for candidate in candidates:  # 후보 요원을 하나씩 바꿔보면서 승률을 계산
                 new_team_a = list(team_a)  # 팀A 목록을 복사해서 실험용 새 목록을 만듦 (원본은 안 건드림)
                 new_team_a[i] = PlayerInput(player=players_a[i], agent=candidate)  # i번 칸의 요원만 후보 요원으로 교체
                 try:
-                    p = predict(models, build_features(new_team_a, team_b, map_name, is_attacker_a))  # 교체 후의 승률을 예측
+                    candidate_features = build_features(new_team_a, team_b, map_name, is_attacker_a)
+                    p = predict(models, candidate_features)  # 교체 후의 승률을 예측
                     if p > best_prob:  # 교체했을 때 승률이 더 높으면
-                        best_prob, best_agent = p, candidate  # 이 요원을 새로운 "최선"으로 업데이트
+                        best_prob, best_agent, best_features = p, candidate, candidate_features  # 이 요원을 새로운 "최선"으로 업데이트
                 except Exception:  # 예측이 실패하면 그냥 넘어감
                     continue  # 다음 후보 요원으로 넘어감
-            rows.append({  # 이 슬롯의 추천 결과를 한 줄로 정리
+            reasons = describe_feature_changes(features, best_features, shap_dict, limit=3)
+            replacement_rows.append({  # 이 슬롯의 추천 결과를 한 줄로 정리
                 "슬롯": i + 1,  # 슬롯 번호 (1번부터 5번까지)
                 "현재 요원": agents_a[i],  # 지금 선택된 요원 이름
                 "추천 요원": best_agent,  # 바꾸면 가장 이길 확률이 높아지는 요원 이름
                 "현재 승률": f"{win_prob*100:.1f}%",  # 지금 팀 구성으로 예측한 팀A 승률
                 "추천 시 승률": f"{best_prob*100:.1f}%",  # 추천 요원으로 바꿨을 때 예상되는 팀A 승률
                 "변화": f"{(best_prob - win_prob)*100:+.1f}%p",  # 바꾸기 전과 후의 승률 차이 (플러스/마이너스 표시 포함)
+                "변동 원인": " / ".join(reasons) if reasons else "동일 역할군 내 개선 후보 없음",
+                "_delta": best_prob - win_prob,
             })
-    st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)  # 슬롯별 요원 추천 결과를 화면 전체 너비의 표로 보여줌 (왼쪽 번호 숨김)
+
+    favorable, risks = split_factor_insights(top_factors, limit=3)
+    top_replacements = sorted(replacement_rows, key=lambda row: row["_delta"], reverse=True)[:3]
+
+    st.markdown("---")
+    st.markdown("### Insight Pack")
+    m1, m2 = st.columns(2)
+    m1.metric("Team A 승률", f"{win_prob*100:.1f}%")
+    m2.metric("Team B 승률", f"{(1-win_prob)*100:.1f}%")
+
+    fav_col, risk_col = st.columns(2)
+    with fav_col:
+        st.markdown("**주요 유리 요인**")
+        if favorable:
+            for item in favorable:
+                st.write(f"- {item}")
+        elif shap_error:
+            st.caption("SHAP 분석 사용 불가: 유리 요인을 계산하지 못했습니다.")
+        else:
+            st.caption("강한 유리 요인이 감지되지 않았습니다.")
+    with risk_col:
+        st.markdown("**주요 위험 요인**")
+        if risks:
+            for item in risks:
+                st.write(f"- {item}")
+        elif shap_error:
+            st.caption("SHAP 분석 사용 불가: 위험 요인을 계산하지 못했습니다.")
+        else:
+            st.caption("강한 위험 요인이 감지되지 않았습니다.")
+
+    st.markdown("**추천 교체 Top 3**")
+    replacement_display = [
+        {k: v for k, v in row.items() if not k.startswith("_")}
+        for row in top_replacements
+    ]
+    st.dataframe(pd.DataFrame(replacement_display), use_container_width=True, hide_index=True)
+
+    agent_map_status = source_status["agent_map_stats"]
+    if agent_map_status["neutral_used"]:
+        missing_preview = ", ".join(agent_map_status["missing"][:5])
+        suffix = f" 누락 예: {missing_preview}" if missing_preview else ""
+        st.warning(
+            f"요원-맵 통계 {agent_map_status['matched']}/{agent_map_status['total']}개를 사용했습니다. "
+            f"나머지는 중립값 50%를 사용했습니다.{suffix}"
+        )
+    else:
+        st.caption(f"요원-맵 통계는 {agent_map_status['path']}에서 10/10개 조합을 사용했습니다.")
+    st.caption(source_status["team_form"]["message"])
+
+    vlr_evidence = load_vlr_evidence()
+    with st.expander("VLR 근거", expanded=False):
+        st.caption("아래 수치는 현재 예측 모델에 직접 반영됐다는 뜻이 아니라, 수집 산출물 기반 근거 패널입니다.")
+        if vlr_evidence:
+            rows = vlr_evidence["rows"]
+            v1, v2, v3, v4 = st.columns(4)
+            v1.metric("수집 row 수", f"{vlr_evidence['total_rows']:,}")
+            v2.metric("요원/맵 표본", f"{int(rows.get('vlrgg_agent_map_stats', 0)):,}")
+            v3.metric("팀 맵 표본", f"{int(rows.get('vlrgg_team_map_stats', 0)):,}")
+            v4.metric("Pipeline-ready", f"{vlr_evidence['pipeline_matches']:,}")
+            st.caption(
+                f"리포트: {vlr_evidence['summary_path']} | "
+                f"생성 시각: {vlr_evidence['generated_at'] or 'unknown'}"
+            )
+        else:
+            st.info("아직 수집 리포트 없음")
+
+    st.markdown("---")  # 가로 줄로 섹션 구분
+    st.markdown("### 예측 근거 (SHAP 기여도)")  # "예측 근거" 중간 제목 표시
+    st.caption("양수: Team A에 유리, 음수: Team B에 유리")  # 점수가 플러스면 팀A에 좋고, 마이너스면 팀B에 좋다는 안내
+    if shap_error:
+        st.caption("SHAP 분석 사용 불가")  # "지금은 분석을 보여줄 수 없어요"라고 작은 글씨로 안내
+    elif top_factors:
+        chart_df = pd.DataFrame(
+            [{"피처": f["label"], "기여도": f["value"]} for f in top_factors]
+        ).set_index("피처")
+        st.bar_chart(chart_df)  # 상위 10개 요소의 영향 크기를 막대 그래프로 보여줌
+        st.dataframe(
+            pd.DataFrame([
+                {
+                    "피처": f["label"],
+                    "현재 값": f["feature_value_display"],
+                    "기여도": f"{f['value']:+.5f}",
+                    "해석": f["description"],
+                }
+                for f in top_factors
+            ]),
+            use_container_width=True,
+            hide_index=True,
+        )
+
+    try:
+        from app.db import get_engine, init_db, save_prediction
+
+        engine = get_engine()
+        init_db(engine)
+        save_prediction(
+            engine,
+            map_name=map_name,
+            team_a_players=players_a,
+            team_a_agents=agents_a,
+            team_b_players=players_b,
+            team_b_agents=agents_b,
+            win_probability=float(win_prob),
+            top_factors=top_factors,
+        )
+        st.caption("예측 이력이 저장되었습니다.")
+    except Exception as e:
+        st.caption(f"예측 이력 저장 실패: {e}")
+
+    st.markdown("---")  # 가로 줄로 섹션 구분
+    st.markdown("### 슬롯별 최선 요원 추천 (Team A)")  # "요원 추천" 중간 제목 표시
+    st.caption("각 슬롯에서 같은 역할군 내 교체 시 승률이 가장 높아지는 요원을 자동으로 찾습니다.")  # 어떤 요원으로 바꾸면 이길 확률이 올라가는지 자동으로 찾아준다는 설명
+    st.dataframe(
+        pd.DataFrame([{k: v for k, v in row.items() if not k.startswith("_")} for row in replacement_rows]),
+        use_container_width=True,
+        hide_index=True,
+    )  # 슬롯별 요원 추천 결과를 화면 전체 너비의 표로 보여줌 (왼쪽 번호 숨김)

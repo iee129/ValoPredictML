@@ -8,6 +8,7 @@ import numpy as np  # 평균, 표준편차, 최댓값 같은 수학 계산을 �
 import pandas as pd  # AI 모델에 넣을 숫자 표(DataFrame)를 만들기 위한 도구
 
 from ml.agent_roles import AGENT_ROLE_MAP, ATK_ADV_MAP, MAP_ORDER  # 요원→역할군 사전, 맵별 공격 유리값, 맵 이름 목록
+from ml.data_pipeline import FEATURE_COLS
 
 _AGENT_MAP_STATS_PATH = Path("data/processed/agent_map_stats.json")  # 요원과 맵을 조합했을 때의 승률·픽률·경험치 데이터가 담긴 파일 경로
 
@@ -39,6 +40,7 @@ _FEATURE_ORDER = [  # AI 모델이 입력받는 숫자 정보(피처) 57개의 �
     "a_h2h_wr", "b_h2h_wr",  # 팀A·팀B의 상대 팀 상대 역대 승률 (앱에서는 이력 없어 기본값 0.5 사용)
     "diff_h2h_wr", "diff_team_wr",  # 맞대결·전체 승률 차이 (앱에서는 기본값 0.0 사용)
 ]
+_FEATURE_ORDER = FEATURE_COLS
 
 _combo: dict | None = None  # 요원+맵 조합 통계를 한 번만 읽어두는 보관함 (None이면 아직 읽지 않은 상태)
 
@@ -53,6 +55,70 @@ def _load_combo() -> dict:  # 요원+맵 조합 통계 파일을 읽거나, 이�
     else:
         _combo = {"wr": {}, "pr": {}, "exp": {}}  # 파일이 없으면 모든 값이 비어있는 빈 사전으로 시작 (조회 시 기본값이 사용됨)
     return _combo  # 읽어온 또는 빈 사전 반환
+
+
+def _as_float(value: object, default: float) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _lookup_map_wr(combo: dict, agent: str, map_name: str) -> tuple[float, bool]:
+    key = f"{agent}|{map_name}"
+    wr_lookup = combo.get("wr", {}) if isinstance(combo, dict) else {}
+    if key not in wr_lookup:
+        return 0.5, False
+    return _as_float(wr_lookup.get(key), 0.5), True
+
+
+def _team_map_wr_values(team: list["PlayerInput"], map_name: str, combo: dict) -> tuple[list[float], list[str]]:
+    values: list[float] = []
+    missing: list[str] = []
+    for pi in team:
+        value, found = _lookup_map_wr(combo, pi.agent, map_name)
+        values.append(value)
+        if not found:
+            missing.append(f"{pi.agent}|{map_name}")
+    return values, missing
+
+
+def feature_source_status(
+    team_a: list["PlayerInput"],
+    team_b: list["PlayerInput"],
+    map_name: str,
+) -> dict:
+    combo = _load_combo()
+    _, missing_a = _team_map_wr_values(team_a, map_name, combo)
+    _, missing_b = _team_map_wr_values(team_b, map_name, combo)
+    total = len(team_a) + len(team_b)
+    missing = missing_a + missing_b
+    return {
+        "agent_map_stats": {
+            "path": str(_AGENT_MAP_STATS_PATH),
+            "available": _AGENT_MAP_STATS_PATH.exists(),
+            "matched": total - len(missing),
+            "total": total,
+            "missing": missing,
+            "neutral_used": bool(missing) or not _AGENT_MAP_STATS_PATH.exists(),
+        },
+        "team_form": {
+            "neutral_used": True,
+            "features": [
+                "a_team_wr",
+                "b_team_wr",
+                "a_team_recent_wr",
+                "b_team_recent_wr",
+                "a_win_streak",
+                "b_win_streak",
+                "a_h2h_wr",
+                "b_h2h_wr",
+                "diff_h2h_wr",
+                "diff_team_wr",
+            ],
+            "message": "팀 폼/H2H 데이터는 아직 앱 입력에서 식별되지 않아 중립값을 사용합니다.",
+        },
+    }
 
 
 @dataclass  # 이 데코레이터를 붙이면 __init__ 같은 기본 메서드를 자동으로 만들어줘요
@@ -111,13 +177,16 @@ def build_features(
         kast_vals = [s["avg_kast"] for s in stats_list]  # 선수별 KAST 값을 모아서 들쑥날쑥 정도를 구하기 위한 준비
         kast_std = float(np.std(kast_vals)) if len(kast_vals) > 1 else 0.0  # KAST 표준편차 계산 (값이 고를수록 0에 가까워요; 선수가 1명이면 0)
 
+        wr_lookup = combo.get("wr", {}) if isinstance(combo, dict) else {}
+        pr_lookup = combo.get("pr", {}) if isinstance(combo, dict) else {}
+        exp_lookup = combo.get("exp", {}) if isinstance(combo, dict) else {}
         wrs, prs, exps = [], [], []  # 요원+맵 승률, 픽률, 선수 경험치 값을 모을 빈 바구니 3개
         for pi in team:  # 팀 내 선수-요원 쌍을 하나씩 꺼내면서
             key = f"{pi.agent}|{map_n}"  # "제트|어센트" 같은 형식으로 요원+맵 조합 열쇠 만들기
-            wrs.append(combo["wr"].get(key, 0.5))  # 이 요원이 이 맵에서 이긴 비율 (데이터 없으면 50%로 가정)
-            prs.append(combo["pr"].get(key, 0.0))  # 이 요원이 이 맵에서 선택된 비율 (데이터 없으면 0%)
+            wrs.append(_as_float(wr_lookup.get(key, 0.5), 0.5))  # 이 요원이 이 맵에서 이긴 비율 (데이터 없으면 50%로 가정)
+            prs.append(_as_float(pr_lookup.get(key, 0.0), 0.0))  # 이 요원이 이 맵에서 선택된 비율 (데이터 없으면 0%)
             exp_key = f"{pi.player}|{pi.agent}"  # "TenZ|제트" 같은 형식으로 선수+요원 경험치 열쇠 만들기
-            exps.append(float(combo["exp"].get(exp_key, 0)))  # 이 선수의 이 요원 경험치 (데이터 없으면 0)
+            exps.append(_as_float(exp_lookup.get(exp_key, 0), 0.0))  # 이 선수의 이 요원 경험치 (데이터 없으면 0)
 
         return {  # "a_" 또는 "b_" 접두사를 붙인 팀 통계 사전 반환
             f"{side}_avg_acs": avg_acs,  # 팀 평균 ACS
@@ -161,10 +230,12 @@ def build_features(
     rec["diff_avg_kast"] = rec.get("a_avg_kast", 0.0) - rec.get("b_avg_kast", 0.0)  # 팀A KAST - 팀B KAST 차이예요
     rec["diff_avg_adr"]  = rec.get("a_avg_adr", 0.0)  - rec.get("b_avg_adr", 0.0)   # 팀A ADR - 팀B ADR 차이예요
     rec["diff_avg_hs"]   = rec.get("a_avg_hs", 0.0)   - rec.get("b_avg_hs", 0.0)    # 팀A 헤드샷% - 팀B 헤드샷% 차이예요
-    # P3: 맵별 요원 승률 평균 — 앱에서는 훈련 데이터 집계 없이 기본값 0.5를 사용해요
-    rec["a_map_wr_mean"] = 0.5   # 팀A 5요원의 이 맵 역사적 평균 승률 (앱에서는 이력 없어 50% 기본값)
-    rec["b_map_wr_mean"] = 0.5   # 팀B 5요원의 이 맵 역사적 평균 승률 (앱에서는 기본값 50%)
-    rec["diff_map_wr"]   = 0.0   # a_map_wr_mean - b_map_wr_mean 차이 (기본값 0.0)
+    # P3: 맵별 요원 승률 평균 — agent_map_stats.json이 없거나 개별 조합이 없으면 해당 조합만 50% 중립값을 사용해요
+    a_map_wrs, _ = _team_map_wr_values(team_a, map_name, combo)
+    b_map_wrs, _ = _team_map_wr_values(team_b, map_name, combo)
+    rec["a_map_wr_mean"] = float(np.mean(a_map_wrs)) if a_map_wrs else 0.5   # 팀A 5요원의 이 맵 역사적 평균 승률
+    rec["b_map_wr_mean"] = float(np.mean(b_map_wrs)) if b_map_wrs else 0.5   # 팀B 5요원의 이 맵 역사적 평균 승률
+    rec["diff_map_wr"]   = rec["a_map_wr_mean"] - rec["b_map_wr_mean"]   # a_map_wr_mean - b_map_wr_mean 차이
     # P4: 팀 폼·H2H 통계 — 앱에서는 역사 데이터 없이 기본값을 사용해요
     rec["a_team_wr"]        = 0.5  # 팀A 전체 승률 (앱에서는 이력 없어 50% 기본값)
     rec["b_team_wr"]        = 0.5  # 팀B 전체 승률 (앱에서는 50% 기본값)

@@ -31,7 +31,12 @@ def render() -> None:  # 소개 화면 전체를 화면에 그려주는 함수
     if _EVAL_PATH.exists():  # 평가 결과 파일이 있으면 실제 측정값을 사용
         with open(_EVAL_PATH, encoding="utf-8") as f:  # 한글이 깨지지 않도록 UTF-8 방식으로 파일을 열어서
             eval_data = json.load(f)  # 파이썬이 읽을 수 있는 사전 형태로 변환
-        ens = eval_data.get("ensemble_test", _FALLBACK)  # 앙상블(3개 모델 합산) 테스트 결과를 꺼냄 (없으면 기준값 사용)
+        ens_raw = eval_data.get("test", {}).get("ensemble", {})  # 앙상블(3개 모델 합산) 테스트 결과를 꺼냄
+        ens = {
+            "auc": ens_raw.get("roc_auc", _FALLBACK["auc"]),
+            "accuracy": ens_raw.get("accuracy", _FALLBACK["accuracy"]),
+            "f1": ens_raw.get("f1", _FALLBACK["f1"]),
+        }
         st.caption("출처: reports/eval_summary.json")  # 어디서 가져온 수치인지 작은 글씨로 안내
     else:  # 평가 파일이 없으면 미리 저장해둔 기준값을 대신 사용
         eval_data = {}  # 파일이 없으니 빈 사전으로 시작
@@ -44,13 +49,15 @@ def render() -> None:  # 소개 화면 전체를 화면에 그려주는 함수
     c3.metric("F1", f"{ens.get('f1', 0):.4f}")  # F1(정밀도와 재현율을 합친 종합 점수)을 예쁜 숫자 카드로 표시
 
     model_rows = []  # 모델별 성능 비교 표의 행(가로 줄)들을 모을 빈 바구니
-    for model_name, metrics in eval_data.get("per_model", {}).items():  # 각 모델(RF·XGBoost·LightGBM)의 성능 데이터를 하나씩 꺼냄
+    for model_name, metrics in eval_data.get("test", {}).items():  # 각 모델(RF·XGBoost·LightGBM)의 성능 데이터를 하나씩 꺼냄
+        if model_name == "ensemble":
+            continue
         model_rows.append({  # 이 모델의 성능 지표를 한 줄로 정리
             "모델": model_name,  # 모델 이름 (예: rf, xgboost, lgbm)
-            "AUC (KFold)": f"{metrics.get('kfold_auc', 0):.4f}",  # 여러 번 나눠서 검증한 평균 AUC 점수
-            "AUC (Test)": f"{metrics.get('test_auc', 0):.4f}",  # 최종 테스트 데이터로 측정한 AUC 점수
-            "Accuracy": f"{metrics.get('test_accuracy', 0):.4f}",  # 테스트 데이터에서 맞힌 비율
-            "F1": f"{metrics.get('test_f1', 0):.4f}",  # 테스트 데이터에서의 F1 종합 점수
+            "AUC (KFold)": f"{eval_data.get(model_name, {}).get('roc_auc_mean', 0):.4f}",  # 여러 번 나눠서 검증한 평균 AUC 점수
+            "AUC (Test)": f"{metrics.get('roc_auc', 0):.4f}",  # 최종 테스트 데이터로 측정한 AUC 점수
+            "Accuracy": f"{metrics.get('accuracy', 0):.4f}",  # 테스트 데이터에서 맞힌 비율
+            "F1": f"{metrics.get('f1', 0):.4f}",  # 테스트 데이터에서의 F1 종합 점수
         })
     if model_rows:  # 모델 데이터가 하나라도 있으면 비교 표를 보여줌
         st.markdown("### 모델별 성능 비교")  # "모델별 성능 비교"라는 중간 제목을 표시
@@ -73,6 +80,6 @@ def render() -> None:  # 소개 화면 전체를 화면에 그려주는 함수
             bl = json.load(f)  # 파이썬이 읽을 수 있는 사전 형태로 변환
         st.markdown("### 베이스라인 비교")  # "베이스라인 비교"라는 중간 제목을 표시
         b1, b2, b3 = st.columns(3)  # 3개의 비교 지표를 나란히 보여줄 세 칸을 만듦
-        b1.metric("앙상블 Accuracy", f"{bl.get('ensemble_accuracy', 0):.4f}")  # 우리 AI 모델의 정확도를 예쁜 숫자 카드로 표시
-        b2.metric("베이스라인 Accuracy", f"{bl.get('baseline_accuracy', 0):.4f}")  # 단순 예측(베이스라인)의 정확도를 예쁜 숫자 카드로 표시
-        b3.metric("개선폭", f"+{bl.get('improvement_pp', 0):.2f}%p")  # 베이스라인보다 얼마나 더 좋아졌는지를 예쁜 숫자 카드로 표시
+        b1.metric("앙상블 Accuracy", f"{bl.get('ensemble_test_acc', 0):.4f}")  # 우리 AI 모델의 정확도를 예쁜 숫자 카드로 표시
+        b2.metric("다수 클래스 Accuracy", f"{bl.get('majority_acc', 0):.4f}")  # 단순 예측(베이스라인)의 정확도를 예쁜 숫자 카드로 표시
+        b3.metric("개선폭", f"+{bl.get('improvement_over_majority_pct', 0):.2f}%p")  # 베이스라인보다 얼마나 더 좋아졌는지를 예쁜 숫자 카드로 표시

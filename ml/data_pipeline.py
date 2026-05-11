@@ -31,6 +31,7 @@ SOURCE_WEIGHT: dict[str, float] = {  # 데이터 출처별로 얼마나 믿을 �
     "kaggle_ediashtarevin":  0.9,  # Ediashtarevin이 모은 데이터 — 가장 낮은 점수예요 (0.9점)
     "kaggle_piyush2025":     1.0,  # piyush86kumar VCT 2025 전 대회 데이터 — 기본 점수예요 (1.0점)
     "kaggle_piyush2024":     1.2,  # piyush86kumar VCT Champions 2024 국제 대회 데이터 — VCT 공식 수준이에요 (1.2점)
+    "vlrgg_direct_detail":   1.1,  # VLR.gg 상세 페이지에서 검증된 map-level 경기 — 초기 opt-in 가중치예요
 }
 
 FEATURE_COLS_P1 = [  # AI가 예측할 때 참고하는 숫자 정보 중 "요원 역할군 기반" 17가지 항목 이름이에요
@@ -76,9 +77,87 @@ FEATURE_COLS_P4 = [  # 팀 최근 폼 기반 피처 (train 집계 기반, 데이
     "diff_team_wr",      # a_team_wr - b_team_wr 차이예요 (augment_swap에서 자동 부호 반전)
 ]
 
+FEATURE_COLS = FEATURE_COLS_P1 + FEATURE_COLS_P2 + FEATURE_COLS_P3 + FEATURE_COLS_P4
+
+FEATURE_COLS_P5 = [
+    "region_encoded",  # 토너먼트 지역 (0=Unknown,1=Americas,2=EMEA,3=Pacific,4=Global)
+    "event_tier",      # 대회 등급 (0=Unknown,1=Challengers,2=Regional,3=International)
+]
+
+FEATURE_COLS_P6 = [
+    "season_q",   # 시즌 분기 (0=Unknown,1=2024-H1,2=2024-H2,3=2025-H1,4=2025-H2,5=2026-H1)
+    "patch_era",  # 패치 시대 (0=Unknown,1=Pre-8.0,2=8.x,3=9.x,4=10.x,5=11+)
+]
+
+EXPERIMENTAL_FEATURE_COLS = FEATURE_COLS_P5 + FEATURE_COLS_P6
+
 # Laplace 스무딩 강도: 극단값(0/1) 방지를 위해 α=5 prior 경기수 적용
 _FORM_SMOOTH_K: float = 5.0
 _FORM_SMOOTH_PRIOR: float = 0.5
+
+
+# ── 컨텍스트 피처 헬퍼 ────────────────────────────────────────────────────────
+
+def _infer_region(event: str, source: str) -> int:
+    ev = event.lower()
+    if "emea" in ev:
+        return 2
+    if any(k in ev for k in ("americas", "north america", " na ", "kickoff")):
+        return 1
+    if any(k in ev for k in ("pacific", "apac", "asia")):
+        return 3
+    if any(k in ev for k in ("champions", "masters", "world")):
+        return 4
+    if source == "kaggle_challengers":
+        return 1
+    return 0
+
+
+def _infer_event_tier(event: str, source: str) -> int:
+    ev = event.lower()
+    if source == "kaggle_challengers" or "challengers" in ev:
+        return 1
+    if any(k in ev for k in ("champions", "masters")):
+        return 3
+    if any(k in ev for k in ("vct", "stage", "kickoff")):
+        return 2
+    return 0
+
+
+_SEASON_Q_BOUNDS = [
+    ("2026-01", "2026-12", 5),
+    ("2025-07", "2025-12", 4),
+    ("2025-01", "2025-06", 3),
+    ("2024-07", "2024-12", 2),
+    ("2024-01", "2024-06", 1),
+]
+
+
+def _date_to_season_q(date_str: str) -> int:
+    s = str(date_str).strip()[:7]
+    if not s or len(s) < 7 or s[4] != "-":
+        return 0
+    for lo, hi, q in _SEASON_Q_BOUNDS:
+        if lo <= s <= hi:
+            return q
+    return 0
+
+
+_PATCH_ERA_MAP: dict[int, int] = {0: 0, 1: 2, 2: 3, 3: 4, 4: 5, 5: 5}
+
+
+def _add_context_features(df: pd.DataFrame) -> pd.DataFrame:
+    df = df.copy()
+    df["region_encoded"] = df.apply(
+        lambda r: _infer_region(str(r.get("event", "")), str(r.get("source", ""))), axis=1
+    )
+    df["event_tier"] = df.apply(
+        lambda r: _infer_event_tier(str(r.get("event", "")), str(r.get("source", ""))), axis=1
+    )
+    date_col = df["date"] if "date" in df.columns else pd.Series([""] * len(df))
+    df["season_q"] = date_col.apply(_date_to_season_q)
+    df["patch_era"] = df["season_q"].map(_PATCH_ERA_MAP).fillna(0).astype(int)
+    return df
 
 
 # ── 유틸 ──────────────────────────────────────────────────────────────────────
@@ -611,6 +690,94 @@ def parse_piyush_events_dir(base_dir: Path) -> list[Row]:
     return rows
 
 
+def _parse_vlrgg_players_json(raw: Any) -> list[dict]:
+    try:
+        values = json.loads(str(raw)) if not isinstance(raw, list) else raw
+    except json.JSONDecodeError:
+        return []
+    if not isinstance(values, list):
+        return []
+    players: list[dict] = []
+    for item in values:
+        if not isinstance(item, dict):
+            continue
+        kills = _safe_float(item.get("kills", 0), 0.0)
+        deaths = _safe_float(item.get("deaths", 0), 0.0)
+        kd = _safe_float(item.get("kd"), float("nan"))
+        if pd.isna(kd):
+            kd = kills / max(deaths, 1.0)
+        players.append({
+            "player": normalize_player(str(item.get("player", ""))),
+            "agent": normalize_agent(str(item.get("agent", ""))),
+            "acs": _safe_float(item.get("acs")),
+            "kd": kd,
+            "kast": _pct_to_float(item.get("kast")),
+            "adr": _safe_float(item.get("adr")),
+            "fk": _safe_float(item.get("fk", item.get("fb", 0)), 0.0),
+            "fd": _safe_float(item.get("fd", 0), 0.0),
+            "assists": _safe_float(item.get("assists", 0), 0.0),
+            "hs": _pct_to_float(item.get("hs", item.get("hs_pct"))),
+            "clutch": _safe_float(item.get("clutch"), float("nan")),
+        })
+    return players
+
+
+def parse_vlrgg_pipeline_matches(path: Path) -> list[Row]:
+    path = Path(path)
+    if not path.exists():
+        return []
+    df = _read_csv(path)
+    if df is None or df.empty:
+        return []
+
+    rows: list[Row] = []
+    for _, r in df.iterrows():
+        map_norm = normalize_map(str(r.get("map", "")))
+        if map_norm is None:
+            continue
+        team_a = normalize_team(str(r.get("team_a", "")))
+        team_b = normalize_team(str(r.get("team_b", "")))
+        players_a = _parse_vlrgg_players_json(r.get("players_a_json", "[]"))
+        players_b = _parse_vlrgg_players_json(r.get("players_b_json", "[]"))
+        agents_a = _clean_agents([p.get("agent") for p in players_a])
+        agents_b = _clean_agents([p.get("agent") for p in players_b])
+        if len(players_a) != 5 or len(players_b) != 5 or len(agents_a) != 5 or len(agents_b) != 5:
+            continue
+        score_a = int(_safe_float(r.get("score_a"), 0.0))
+        score_b = int(_safe_float(r.get("score_b"), 0.0))
+        if score_a == score_b:
+            continue
+        label = int(_safe_float(r.get("label"), 1 if score_a > score_b else 0))
+        if label not in (0, 1):
+            continue
+        source = str(r.get("source", "vlrgg_direct_detail") or "vlrgg_direct_detail")
+        weight = float(SOURCE_WEIGHT.get(source, 1.1))
+        date_str = str(r.get("date", "") or "")
+        event_norm = normalize_event(str(r.get("event", "") or ""))
+        match_id = str(r.get("match_id", "") or "")
+        game_id = str(r.get("game_id", "") or "")
+        source_url = str(r.get("source_url", "") or path)
+        rows.append({
+            "source": source,
+            "weight": weight,
+            "match_key": str(r.get("match_key", "") or make_match_key(source, source_url, f"{match_id}|{game_id}", map_norm)),
+            "dedup_key": str(r.get("dedup_key", "") or make_dedup_key(date_str, event_norm, map_norm, team_a, team_b, agents_a, agents_b, score_a, score_b)),
+            "date": date_str,
+            "event": event_norm,
+            "map": map_norm,
+            "team_a": team_a,
+            "team_b": team_b,
+            "players_a": players_a,
+            "players_b": players_b,
+            "score_a": score_a,
+            "score_b": score_b,
+            "atk_a": int(_safe_float(r.get("atk_a"), 0.0)) if not pd.isna(_safe_float(r.get("atk_a"), float("nan"))) else None,
+            "def_a": int(_safe_float(r.get("def_a"), 0.0)) if not pd.isna(_safe_float(r.get("def_a"), float("nan"))) else None,
+            "label": label,
+        })
+    return rows
+
+
 # ── 품질 게이트 ───────────────────────────────────────────────────────────────
 
 def quality_gate(rows: list[Row], reports_dir: Path) -> tuple[list[Row], pd.DataFrame]:  # 불량 데이터를 걸러내는 검문소예요 — 통과한 경기와 탈락한 경기 목록을 함께 돌려줘요
@@ -1127,7 +1294,10 @@ def run(args: argparse.Namespace) -> None:  # 전처리 파이프라인 7단계�
     rows_vct = parse_vct_dir(input_dir)  # VCT·Challengers 데이터를 파싱해서 경기 목록을 만들어요
     rows_single = parse_single_csv(input_dir)  # qualidea·ediashtarevin 데이터를 파싱해서 경기 목록을 만들어요
     rows_piyush = parse_piyush_events_dir(input_dir)  # piyush 이벤트 데이터를 파싱해서 경기 목록을 만들어요
-    all_rows = rows_vct + rows_single + rows_piyush  # 세 목록을 하나로 합쳐요
+    include_vlrgg = bool(getattr(args, "include_vlrgg_detail", False))
+    vlrgg_path = Path(getattr(args, "vlrgg_pipeline_matches", "data/processed/vlrgg_pipeline_matches.csv"))
+    rows_vlrgg = parse_vlrgg_pipeline_matches(vlrgg_path) if include_vlrgg else []
+    all_rows = rows_vct + rows_single + rows_piyush + rows_vlrgg  # 세 목록과 opt-in VLR 상세 행을 하나로 합쳐요
 
     src_raw = {  # 출처별로 원시 경기가 몇 건인지 세어두는 사전이에요
         "kaggle_vct": sum(1 for r in rows_vct if r["source"] == "kaggle_vct"),  # VCT 출처 경기 수예요
@@ -1136,8 +1306,9 @@ def run(args: argparse.Namespace) -> None:  # 전처리 파이프라인 7단계�
         "kaggle_ediashtarevin": sum(1 for r in rows_single if r["source"] == "kaggle_ediashtarevin"),  # ediashtarevin 출처 경기 수예요
         "kaggle_piyush2025": sum(1 for r in rows_piyush if r["source"] == "kaggle_piyush2025"),  # piyush 2025 출처 경기 수예요
         "kaggle_piyush2024": sum(1 for r in rows_piyush if r["source"] == "kaggle_piyush2024"),  # piyush 2024 출처 경기 수예요
+        "vlrgg_direct_detail": len(rows_vlrgg),
     }
-    print(f"  A(vct+ch): {len(rows_vct)}  B(single): {len(rows_single)}  C(piyush): {len(rows_piyush)}")  # 출처 그룹별 경기 수를 화면에 보여줘요
+    print(f"  A(vct+ch): {len(rows_vct)}  B(single): {len(rows_single)}  C(piyush): {len(rows_piyush)}  VLR:{len(rows_vlrgg)}")  # 출처 그룹별 경기 수를 화면에 보여줘요
 
     print("[2/7] 품질 게이트 + dedup...")  # 2단계 시작을 알려요 — 불량 데이터 걸러내기 + 중복 제거예요
     clean_rows, rejected_df = quality_gate(all_rows, reports_dir)  # 검문소를 통과한 경기와 탈락한 경기를 나눠요
@@ -1164,6 +1335,7 @@ def run(args: argparse.Namespace) -> None:  # 전처리 파이프라인 7단계�
 
     print("[3/7] Phase 1 피처 생성...")  # 3단계 시작을 알려요 — 요원 역할군 기반 AI 참고 숫자 만들기예요
     df_feat = build_features_phase1(clean_rows)  # 통과한 경기들로 Phase 1 AI 참고 숫자 표를 만들어요
+    df_feat = _add_context_features(df_feat)  # P5/P6: 지역·등급·시즌·패치 피처 추가
     rows_map = {r["match_key"]: r for r in clean_rows}  # 경기 이름표 → 원본 데이터 사전을 만들어요 (Phase 2에서 선수 정보를 다시 꺼낼 때 써요)
 
     print("[4/7] 데이터 분할 (70/15/15)...")  # 4단계 시작을 알려요 — 훈련/검증/테스트 세트로 나누기예요
@@ -1231,7 +1403,7 @@ def run(args: argparse.Namespace) -> None:  # 전처리 파이프라인 7단계�
     df_all = _add_phase2_features(df_feat, rows_map, player_lookup, combo_lookup, medians)  # 분할 전 전체 표에도 Phase 2 숫자를 추가해요
     df_all = _add_map_agent_features(df_all, combo_lookup)  # 전체 표에도 맵 승률 피처 추가
     df_all = _add_team_form_features(df_all, form_lookup)  # 전체 표에도 팀 폼 피처 추가
-    feat_cols = ["match_key", "dedup_key"] + FEATURE_COLS_P1 + FEATURE_COLS_P2 + FEATURE_COLS_P3 + FEATURE_COLS_P4 + ["label"]  # features_base.csv에 저장할 열 순서를 정해요
+    feat_cols = ["match_key", "dedup_key"] + FEATURE_COLS + EXPERIMENTAL_FEATURE_COLS + ["label"]  # features_base.csv에 저장할 열 순서를 정해요
     avail = [c for c in feat_cols if c in df_all.columns]  # 실제로 있는 열만 추려요
     df_all[avail].to_csv(output_dir / "features_base.csv", index=False)  # 전체 AI 참고 숫자 표를 features_base.csv로 저장해요
 
@@ -1261,7 +1433,11 @@ def run(args: argparse.Namespace) -> None:  # 전처리 파이프라인 7단계�
         "source_raw": src_raw,  # 출처별 원시 경기 수 사전이에요
         "source_clean": src_clean,  # 출처별 통과 경기 수 사전이에요
         "split": manifest,  # 세트 분할 결과 사전이에요
-        "feature_count": len(avail) - 1,  # 레이블 제외 AI 참고 숫자 개수예요 (경기 이름표·중복 도장 포함)
+        "active_feature_count": len(FEATURE_COLS),  # 학습/평가/UI에서 쓰는 P1-P4 피처 개수예요
+        "experimental_feature_count": len(EXPERIMENTAL_FEATURE_COLS),  # ablation 전 후보 피처 개수예요
+        "feature_count": len(avail) - 1,  # 레이블 제외 저장 열 개수예요 (경기 이름표·중복 도장 포함)
+        "vlrgg_detail_included": include_vlrgg,
+        "vlrgg_pipeline_matches_path": str(vlrgg_path),
     }
     with open(reports_dir / "preprocess_summary.json", "w") as f:  # preprocess_summary.json 파일을 열어요
         json.dump(summary, f, indent=2, ensure_ascii=False)  # 전처리 요약을 보기 좋게 UTF-8 JSON으로 저장해요
@@ -1276,4 +1452,6 @@ if __name__ == "__main__":  # 이 파일을 직접 실행할 때만 아래 코�
     parser.add_argument("--output", required=True)  # 출력 데이터 폴더 경로는 반드시 입력해야 해요
     parser.add_argument("--reports", required=True)  # 리포트 저장 폴더 경로는 반드시 입력해야 해요
     parser.add_argument("--no-augment-train", action="store_true")  # 이 옵션을 붙이면 팀 교환 증강을 하지 않아요
+    parser.add_argument("--include-vlrgg-detail", action="store_true")  # 검증된 VLR.gg 상세 경기 행을 opt-in으로 포함해요
+    parser.add_argument("--vlrgg-pipeline-matches", default="data/processed/vlrgg_pipeline_matches.csv")  # VLR.gg 정규화 경기 CSV 경로예요
     run(parser.parse_args())  # 터미널 옵션을 읽어서 run() 함수를 실행해요

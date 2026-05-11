@@ -16,12 +16,13 @@ st.set_page_config(  # 웹 페이지의 기본 모양을 정하는 곳 (가장 �
     layout="wide",  # 화면을 꽉 차게 넓게 쓰는 레이아웃 (기본값은 가운데 좁게 표시)
 )
 
-from app.views import guide, history, intro, predict  # noqa: E402  # 각 화면(소개, 예측, 기록, 가이드)을 담당하는 파일들을 불러옴 (페이지 설정 다음에 불러와야 해서 이 위치에 있어요)
+from app.views import guide, history, intro, predict, research_validation  # noqa: E402  # 각 화면(소개, 예측, 기록, 가이드)을 담당하는 파일들을 불러옴 (페이지 설정 다음에 불러와야 해서 이 위치에 있어요)
 
 PAGES = {  # 사이드바에 보여줄 메뉴 이름과 실제 화면 파일을 짝지어 놓은 목록
     "소개 — ValoPredictML": intro,  # '소개' 메뉴를 누르면 intro 화면을 보여줌
     "예측 — 팀 구성 + 승률": predict,  # '예측' 메뉴를 누르면 predict 화면을 보여줌
     "기록 — 예측 이력": history,  # '기록' 메뉴를 누르면 history 화면을 보여줌
+    "리서치 검증 — 데이터 근거": research_validation,
     "가이드 — 역할군 + 메타": guide,  # '가이드' 메뉴를 누르면 guide 화면을 보여줌
 }
 

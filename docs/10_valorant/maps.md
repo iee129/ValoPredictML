@@ -5,6 +5,18 @@
 
 `ml/agent_roles.py`의 `MAP_ORDER` 기준 12개 맵 + 2025년 신규 맵(Corrode) 포함. 활성 경쟁 풀(active competitive pool)은 시즌마다 7-9개로 로테이션됨.
 
+## VLR 검증 블록 (report-backed, 2026-05-10)
+
+기준 리포트: `reports/research_validation.json` (`generated_at=2026-05-10T03:04:34Z`). 현재 VLR 검증 산출물은 맵별 사이드 어드밴티지 수치를 새로 승격하지 않는다.
+
+| fact_id / section | metric | value | sample_size | source_url / dataset_id | verdict |
+|-------------------|--------|-------|-------------|--------------------------|---------|
+| doc_metric_diffs | map-side doc diff rows | 0 rows | 0 | `reports/research_validation.json` | INSUFFICIENT_DATA |
+| FACT-MODEL-FEATURE-CONTRACT | active_model_feature_count | 57 features | 66,711 rows | `data/processed/matches_clean.csv` / `reports/preprocess_summary.json` | CONFIRMED |
+| H-12 | attacker-side-advantage correlation | r=0.0073, p=0.0585 | 66,711 rows | `data/processed/features_base.csv` / `reports/research_validation.json` | INSUFFICIENT_DATA |
+
+따라서 아래 맵별 사이드 어드밴티지 문장은 기존 Riot/Liquipedia/VLR reference 기반 후보로 유지하며, VLR report-backed 수치로 갱신하려면 map-level fact가 `report_facts` 또는 `doc_metric_diffs`에 추가되어야 한다.
+
 ---
 
 ## 맵 카드 형식

@@ -13,6 +13,19 @@
 
 ⚠️ **코드 동기화 필요**: `ml/agent_roles.py`의 `AGENT_ROLE_MAP`에 Miks/Veto 미등록 상태. `normalize_agent("Miks")` / `normalize_agent("Veto")` 호출 시 None 반환. US-002에서 코드 동기화 + 데이터셋(visualize25 SQLite, vct_2025) 신규 요원 row 처리 필요.
 
+## VLR 검증 블록 (report-backed, 2026-05-10)
+
+기준 리포트: `reports/research_validation.json` (`generated_at=2026-05-10T03:04:34Z`) + `reports/vlrgg_ingestion_summary.json` (`generated_at=2026-05-10T03:04:33Z`). 이 블록의 수치는 문서 검증용 row coverage이며 픽률/승률로 해석하지 않는다.
+
+| fact_id | metric | value | sample_size | source_url / dataset_id | verdict |
+|---------|--------|-------|-------------|--------------------------|---------|
+| FACT-VLR-INGESTION-PLAYERS | vlrgg_player_stat_rows | 1,254 rows | 1,254 | `data/processed/vlrgg_player_stats.csv`; `http://127.0.0.1:3001/v2/stats?region=eu&timespan=30`, `http://127.0.0.1:3001/v2/stats?region=na&timespan=30`, Kaggle VLR stats cache | CONFIRMED |
+| FACT-VLR-SHARED-AGENTS | shared_agent_count | 28 agents | 1,254 | `data/processed/vlrgg_player_stats.csv` | CONFIRMED |
+| FACT-VLR-ONLY-AGENTS | vlr_only_agent_count | 1 agent (`Miks`) | 1,254 | `data/processed/vlrgg_player_stats.csv` | REFINED |
+| FACT-HYP-H-07 | H-07 initiator >=2 hypothesis | r=-0.0211, p=0.0 | 66,711 | `data/processed/features_base.csv` / `reports/research_validation.json` | CONTRADICTED |
+
+Top VLR player-stat row coverage: Astra 364, Viper 84, Neon 84, Omen 73, Sova 64 (`FACT-VLR-TOP-AGENT-01`~`05`, `fetched_at=2026-05-10T03:04:33Z`). 이 순위는 row count 기준이므로 요원 메타 위상 문장을 직접 대체하지 않는다.
+
 각 요원 카드 형식:
 ```
 ### 요원명 (역할군)

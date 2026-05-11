@@ -18,9 +18,8 @@ import pandas as pd  # SHAP 표와 시험 데이터를 데이터프레임으로 
 from scipy.stats import spearmanr  # 두 선생님의 SHAP 중요도 순서가 얼마나 비슷한지 점수로 계산하는 도구
 from sklearn.metrics import roc_curve, auc  # ROC 커브의 좌표를 계산하고 곡선 아래 면적(AUC)을 구하는 함수
 
-from ml.data_pipeline import FEATURE_COLS_P1, FEATURE_COLS_P2  # 전처리 단계에서 만들어 둔 특징 컬럼 목록 가져오기
-
-FEATURE_COLS: list[str] = FEATURE_COLS_P1 + FEATURE_COLS_P2  # 1단계와 2단계에서 만든 특징 목록을 합쳐서 하나의 큰 목록으로 만듦 (총 43개)
+from ml.data_pipeline import FEATURE_COLS  # 전처리 단계에서 만들어 둔 활성 특징 컬럼 목록 가져오기
+from ml.train_model import load_ensemble_weights
 
 # ── 합격 임계치 ──────────────────────────────────────────────────────────────
 
@@ -204,6 +203,7 @@ def roc_curve_plot(models_dir: Path, df_test: pd.DataFrame, reports_dir: Path) -
         return  # 이 함수를 여기서 끝냄
 
     import joblib  # 모델 파일을 불러오기 위해 여기서 가져옴 (필요할 때만 불러오는 방식)
+    ensemble_weights = load_ensemble_weights(models_dir)
     models = {  # 세 선생님 모델 파일을 읽어서 이름표를 달아 묶음으로 구성
         "RF":       joblib.load(models_dir / "rf_model.joblib"),  # 랜덤 포레스트 선생님 불러오기
         "XGBoost":  joblib.load(models_dir / "xgboost_model.joblib"),  # XGBoost 선생님 불러오기
@@ -221,7 +221,11 @@ def roc_curve_plot(models_dir: Path, df_test: pd.DataFrame, reports_dir: Path) -
         auc_val = auc(fpr, tpr)  # ROC 커브 아래 면적(AUC) 계산 — 1에 가까울수록 훌륭한 모델
         ax.plot(fpr, tpr, label=f"{name} (AUC={auc_val:.3f})")  # 이 선생님의 ROC 커브를 AUC 점수와 함께 범례에 추가
 
-    ens_prob = np.mean(list(probs.values()), axis=0)  # 세 선생님의 예측 확률을 평균 내서 앙상블 확률 계산
+    ens_prob = (
+        ensemble_weights["rf"] * probs["RF"]
+        + ensemble_weights["xgb"] * probs["XGBoost"]
+        + ensemble_weights["lgbm"] * probs["LightGBM"]
+    )  # 저장된 metadata/weights 기준으로 앙상블 확률 계산
     fpr, tpr, _ = roc_curve(y, ens_prob)  # 앙상블 ROC 커브 좌표 계산
     auc_val = auc(fpr, tpr)  # 앙상블 AUC 계산
     ax.plot(fpr, tpr, label=f"Ensemble (AUC={auc_val:.3f})", linewidth=2.5, linestyle="--")  # 앙상블 ROC 커브를 굵은 점선으로 눈에 띄게 강조

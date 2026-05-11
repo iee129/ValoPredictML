@@ -6,6 +6,21 @@
 
 ---
 
+## VLR 검증 블록 (report-backed, 2026-05-10)
+
+기준 리포트: `reports/research_validation.json` (`generated_at=2026-05-10T03:04:34Z`) + `reports/vlrgg_ingestion_summary.json` (`generated_at=2026-05-10T03:04:33Z`). 현재 VLR 데이터는 메타 문장 검증 후보를 제공하며, 모델 재학습 피처에는 투입하지 않는다.
+
+| fact_id | metric | value | sample_size | source_url / dataset_id | verdict |
+|---------|--------|-------|-------------|--------------------------|---------|
+| FACT-VLR-INGESTION-PLAYERS | vlrgg_player_stat_rows | 1,254 rows | 1,254 | `data/processed/vlrgg_player_stats.csv`; self-host `/v2/stats` cache + Kaggle VLR stats cache | CONFIRMED |
+| FACT-VLR-ONLY-AGENTS | vlr_only_agent_count | 1 (`Miks`) | 1,254 | `data/processed/vlrgg_player_stats.csv` | REFINED |
+| FACT-VLR-TOP-AGENT-01~05 | top row coverage | Astra 364, Viper 84, Neon 84, Omen 73, Sova 64 | 1,254 | `data/processed/vlrgg_player_stats.csv` | CONFIRMED |
+| FACT-HYP-H-07 | initiator >=2 hypothesis | r=-0.0211, p=0.0 | 66,711 | `data/processed/features_base.csv` / `reports/research_validation.json` | CONTRADICTED |
+
+메타 해석 규칙: 위 top-agent 값은 row coverage이지 대회 픽률이 아니다. 시즌·패치별 픽률 문장은 Liquipedia/Riot 출처를 유지하고, VLR row coverage는 검증 UI의 후보 fact로만 사용한다.
+
+---
+
 ## 출처 라벨 → sources.md anchor 매핑
 
 | 인라인 라벨 | sources.md anchor | URL |
