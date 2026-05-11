@@ -1,154 +1,163 @@
-# ValoPredictML 경쟁 차별점 분석
+# ValoPredicML 경쟁 프로젝트 분석
 
-조사일: 2026-05-05  
-비교 대상: GitHub/Kaggle/학술 논문에서 수집한 Valorant ML 예측 프로젝트 8개
-
----
-
-## 1. 경쟁 프로젝트 현황
-
-### 1.1 주요 프로젝트 요약표
-
-| 프로젝트 | 예측 목표 | 주요 모델 | 최고 성능 | 데이터 누수 방지 | UI/배포 |
-|----------|-----------|-----------|-----------|-----------------|---------|
-| [kleinaitis/valorant-match-predictor](https://github.com/kleinaitis/valorant-match-predictor) | 일반 랭크 게임 승패 | 비공개 | **미공개** | 불명확 | PyInstaller 실행파일 |
-| [jasonlow2307/valo-prediction](https://github.com/jasonlow2307/valo-prediction) | 실시간 라운드/매치 승패 | CNN + RF | Acc **96%** ⚠️자가보고 | 불명확 | Matplotlib 실시간 |
-| [Juniorffonseca/valorant-predictor](https://github.com/Juniorffonseca/valorant-predictor) | 프로 씬 매치 승패 | Neural Network | **미공개** | 부분적 | Flask API |
-| [lucaspellegrinelli/valorant-agent-embeddings](https://github.com/lucaspellegrinelli/valorant-agent-embeddings) | 팀 구성 요원 임베딩 학습 | BERT 오토인코더 | **미공개** | N/A (생성 문제) | 없음 |
-| [DEF4LT-303/Valorant-Pro-Match-Analysis](https://github.com/DEF4LT-303/Valorant-Pro-Match-Analysis) | 토너먼트 우승 팀 예측 | Decision Tree + RF | Acc **93%** ⚠️train=1.0 과적합 | 없음 | 없음 |
-| [Pawar/NCI 석사 논문](https://norma.ncirl.ie/8770/) | 프로 매치 승패 + 베팅 시뮬레이션 | XGBoost 앙상블 | Acc **73%** | 불명확 | 프로토타입 |
-| [TechRxiv — Economy & Ultimate](https://www.techrxiv.org/users/916972/articles/1289732) | 라운드 경제력 기반 승패 | Logistic Regression | Acc **60.6%** | 부분적 | 없음 |
-| [arXiv 2510.17199](https://arxiv.org/abs/2510.17199) | 비디오 미니맵 기반 라운드 승패 | TimeSformer | Acc **80.6%** / 후반 **90.6%** | 명시적 시간 분리 | 없음 |
-
-> ⚠️ **자가보고**: 검증 방법론이 공개되지 않아 재현 불가능  
-> ⚠️ **과적합 의심**: train accuracy=1.0은 데이터 누수 또는 과적합의 강한 신호
-
-### 1.2 ValoPredictML 기준선
-
-| 지표 | 값 | 출처 |
-|------|-----|------|
-| Ensemble Test AUC | **0.9355** | `reports/eval_summary.json` |
-| Ensemble Test Acc | **0.8540** | `reports/eval_summary.json` |
-| Ensemble Test F1 | **0.8508** | `reports/eval_summary.json` |
-| K-Fold Ensemble AUC | **0.9414** | `reports/eval_summary.json` |
-| K-Fold vs Test gap | **0.0059** | AUC 기준, 과적합 없음 (기준 0.01 미만) |
-| Majority baseline 대비 | **+29.1%p** | `reports/baseline_comparison.json` |
-| 학습 데이터 규모 | **66,485 clean행** | `reports/preprocess_summary.json` |
-| 피처 수 | **45개** | `reports/preprocess_summary.json` |
+조사일: 2026-05-11
+범위: GitHub 공개 repository 검색 및 로컬 clone 기반 정적 분석
+분석 대상: 검색 후보 94개 중 clone 60개, eligibility 필터 후 primary 50개
+실행 원칙: 외부 repository 코드는 실행하지 않고 README, manifest, notebook, source, license만 확인
 
 ---
 
-## 2. 핵심 차별점 (5개)
+## 1. 결론 요약
 
-### 2.1 방법론적 엄밀성 — 데이터 누수 완전 차단
+이번 조사는 기존 8개 프로젝트 스냅샷을 50개 GitHub 경쟁/인접 프로젝트로 확장했다. 결과적으로 ValoPredicML의 차별성은 "Valorant 데이터를 쓴다" 또는 "ML로 승률을 예측한다"가 아니다. 이 두 영역은 이미 다수 프로젝트가 시도했다.
 
-**구현**: `ml/evaluate_model.py:51`
+현재 코드와 로컬 리포트 기준으로 방어 가능한 차별점은 다음이다.
 
-```python
-groups = df_train["match_key"].str.replace(r"_swap$", "", regex=True)
-```
+| 축 | ValoPredicML 현재 상태 | 50개 GitHub 조사 결과 |
+|---|---|---|
+| 경기 전 팀 구성 기반 예측 | 구현됨. 양 팀 요원, 맵, 선수 통계, 요원-맵 통계, 팀 폼을 입력 피처로 사용 | 일부 match predictor가 있지만 라운드 화면, VLR scraping, 단일 notebook, rank/earnings 예측으로 흩어짐 |
+| 피처 계약 | active feature 57개. `FEATURE_COLS_P1~P4`와 Streamlit feature builder가 같은 계약을 사용 | 단일 프로젝트에서 역할군 + 선수 폼 + 요원-맵 + 팀 폼을 함께 갖춘 사례는 확인하지 못함 |
+| 누수 방지 | `GroupKFold`와 `match_key`의 `_swap` 제거로 경기 단위/증강쌍 누수 방지 | 일부 프로젝트가 temporal split/leakage를 언급하지만, swap 증강쌍 누수 방지까지 명시한 사례는 확인하지 못함 |
+| 박빙 경기 평가 | margin 1~4 close-match subset 평가가 구현됨 | 별도 close-match evaluation metric을 문서화한 프로젝트는 확인하지 못함. 한 프로젝트는 close-game feature/heuristic만 보유 |
+| UI/사용자 가치 | Streamlit 예측 화면, Insight Pack, 추천 교체 Top 3, VLR 근거 패널이 source tree에 존재 | UI는 일부 있으나, 승률 + 원인 + 교체 실험을 한 화면에서 묶은 사례는 확인하지 못함 |
+| VLR/VCT 데이터 | 수집/검증 산출물은 연구 검증 및 UI 근거 패널 용도. 학습 피처 계약 변경은 별도 단계 | 50개 중 상당수가 VLR/VCT scraping/API를 사용. 이 자체는 더 이상 유일한 차별점이 아님 |
 
-- **무엇**: GroupKFold(5)에서 match_key 기준으로 경기 단위 폴드 분리. A/B swap 증강 쌍이 서로 다른 fold에 들어가는 것을 `_swap` suffix 제거로 방지.
-- **왜 중요**: 동일 경기의 증강 쌍이 train/val에 분리되면 eval 성능이 인위적으로 높아짐. DEF4LT-303의 train=1.0은 이 처리 없이 발생한 전형적 결과.
-- **비교**: 8개 프로젝트 중 이 수준의 누수 방지를 명시적으로 구현한 프로젝트는 0개 (arXiv 논문은 시간적 분리만, 경기 단위 분리 없음).
+핵심 메시지:
 
-### 2.2 멀티소스 SHA-1 dedup — 교차 소스 중복 자동 제거
-
-**구현**: `ml/data_pipeline.py:67`, `ml/data_pipeline.py:613-617`
-
-```python
-def make_dedup_key(date, event, map_norm, team_a, team_b, agents_a, agents_b, score_a, score_b):
-    # SHA-1 기반 24자 hex — 동일 경기가 여러 Kaggle 소스에 존재해도 자동 제거
-```
-
-- **검증된 효과**: Paris 2025 + Stage 2 2025 데이터셋 추가 시 450 raw행 → 전량 `DEDUP_LOW_WEIGHT` 탈락 (vct-2025-all-events와 완전 중복 자동 감지). `reports/dataset_expansion_comparison.md` 참조.
-- **소스 가중치** (`ml/data_pipeline.py:27-32`): 중복 시 고품질 소스 우선 보존 — challengers=1.8, vct/qualidea=1.0, ediashtarevin=0.9 (~~piyush=1.5 — 소스 제거됨~~)
-- **비교**: 단일 Kaggle 데이터셋만 사용하는 프로젝트들은 이 문제를 아예 고려하지 않음.
-
-### 2.3 도메인 특화 피처 — 27개 요원 × 역할 분류
-
-**구현**: `ml/agent_roles.py`, `ml/data_pipeline.py:36-54`
-
-피처 체계:
-- **역할 카운트**: `a_duelist`, `a_initiator`, `a_controller`, `a_sentinel` (팀 A 역할별 인원)
-- **역할 차이**: `diff_duelist`, `diff_initiator`, `diff_controller`, `diff_sentinel` (A-B 차이)
-- **역할 더미**: `has_controller_a/b`, `double_duelist_a/b` (전략적 구성 패턴)
-- **맵 인코딩**: 12개 맵 × 공격 우위 매핑 (`map_encoded`)
-
-27개 요원 (2026년 기준 최신): Duelist 8종 · Initiator 7종 · Controller 6종 · Sentinel 6종
-
-- **비교**: jasonlow2307는 실시간 화면 분석, TechRxiv는 경제력/얼티밋 포인트만 사용. 요원 역할 체계를 피처로 모델링한 프로젝트는 이 조사에서 ValoPredictML이 유일.
-
-### 2.4 검증된 앙상블 + Optuna HPO
-
-**구현**: `ml/train_model.py:132-251`
-
-- **3중 앙상블**: RF(n_estimators=300) + XGBoost(500, max_depth=5, lr=0.05) + LightGBM(500, num_leaves=31, lr=0.05), 단순 평균 (1/3씩)
-- **Optuna HPO**: XGBoost는 max_depth·min_child_weight·gamma·lr·colsample_bytree, LightGBM은 num_leaves·min_child_samples·lr를 GroupKFold(5) 기반 AUC 최적화 + MedianPruner로 튜닝
-
-| 모델 | K-Fold AUC | Test AUC |
-|------|-----------|---------|
-| RF | 0.9449 | 0.9378 |
-| XGBoost | 0.9343 | 0.9281 |
-| LightGBM | 0.9353 | 0.9292 |
-| **Ensemble** | **0.9414** | **0.9355** |
-
-- **비교**: Pawar 논문의 XGBoost 앙상블(Acc 73%)은 성능에서 크게 하회. DEF4LT-303은 단일 RF (train=1.0, 과적합).
-
-### 2.5 경기 전 팀 구성 기반 사전 예측
-
-- **예측 입력**: 경기 시작 전 양 팀의 요원 구성 (5v5) + 맵
-- **예측 출력**: 팀 A 승률 (0~1 확률)
-- **외부 데이터 불필요**: 실시간 게임 캡처, 라운드별 경제력, API 연결 없음
-
-이 포지셔닝은 다른 프로젝트들과 정확히 직교합니다:
-- jasonlow2307: 실시간 화면 캡처 → 라운드 내 승률 (경기 중 사용)
-- TechRxiv: 경제력·얼티밋 포인트 → 라운드 예측 (경기 중)
-- arXiv: 비디오 미니맵 분석 → 라운드 예측 (방송 분석용)
-- **ValoPredictML**: 팀 구성만으로 → 경기 전 확률 (경기 전 사용, 피킹 단계)
+> ValoPredicML은 단순 "Valorant 승률 예측기"가 아니라, 경기 전 요원 조합을 중심으로 선수/맵/팀 맥락을 결합하고, 경기 단위 누수 방지와 박빙 subset 평가를 갖춘 로컬 Streamlit 분석 도구다.
 
 ---
 
-## 3. ValoPredictML이 뒤처지는 영역 (정직한 약점)
+## 2. 조사 방법
 
-### 3.1 UI 미구현 — 가장 큰 약점
+### 2.1 검색 키워드
 
-kleinaitis는 PyInstaller로 패키징된 실행파일을 배포하고, jasonlow2307는 Matplotlib 실시간 대시보드를 제공합니다. ValoPredictML은 ML 파이프라인만 완성됐고 **Streamlit UI는 미구현** 상태입니다.
+영어 키워드:
 
-→ 현재 상태: CLI(`ml/validate_metrics.py`)로만 결과 확인 가능.
+`valorant prediction`, `valorant predict`, `valorant winrate`, `valorant win rate`, `valorant match prediction`, `valorant match predictor`, `valorant machine learning`, `valorant analytics`, `valorant esports prediction`, `vct match predictor`, `vlrgg`, `valorant scraper`, `topic:valorant prediction`, `topic:valorant machine-learning`
 
-### 3.2 일반 랭크 게임 적용 불가
+한국어 키워드:
 
-데이터 소스가 전부 프로/준프로 경기(VCT, Challengers League)입니다. 일반 랭크 게임(솔로큐)에 적용 시 성능 저하 예상. kleinaitis는 tracker.gg 기반으로 일반 게임도 지원합니다.
+`발로란트 예측`, `발로란트 승률`, `발로란트 승률 예측`, `발로란트 경기 예측`, `발로란트 매치 예측`, `발로란트 머신러닝`, `발로란트 분석`
 
-### 3.3 메타 변화에 취약
+### 2.2 GitHub API 제약
 
-현재 모델은 정적 학습 데이터 기반입니다. 패치로 요원 밸런스가 크게 변할 경우 재학습 없이는 성능 저하. 실시간 업데이트 메커니즘이 없습니다.
+`gh auth status`는 `github.com` 토큰 invalid 상태를 보고했다. 따라서 authenticated `gh search`는 사용하지 않았다.
+
+GitHub REST repository search는 unauthenticated 상태에서 사용했으나, 첫 negative-query 배치가 0건으로 반환됐고 단순 probe에서 rate limit에 도달했다. 이후 discovery는 GitHub repository search HTML의 첫 페이지 링크를 사용했다. 이 방식은 정밀한 total count 산출에는 약하므로, 문서에는 "검색 후보 수"와 "clone/analyze 수"를 중심으로 기록한다.
+
+### 2.3 필터 규칙
+
+포함:
+
+- Valorant, VCT, VLR.gg, Tracker.gg 관련 prediction, analytics, ML, dashboard, scraper/API repository
+- README/source/notebook/manifest 중 하나 이상으로 분석 가능한 repository
+- 기존 scout 후보 6개를 강제 spot-check: `jasonlow2307/valo-prediction`, `unnamed-catalyst/VCT-Match-Predictor`, `ianjure/valorant-match-prediction`, `neilsorkin19/ValLoadoutToWin`, `MitsuSDK/ML_Valorant`, `axsddlr/vlrggapi`
+
+제외:
+
+- empty clone
+- cheat/aimbot/wallhack 계열
+- awesome list/API catalog처럼 자체 분석/모델/수집 구현이 없는 목록성 repository
+- Valorant 관련성이 약하거나 분석 가능한 source/docs가 부족한 repository
 
 ---
 
-## 4. 성능 신뢰도 평가
+## 3. ValoPredicML 현재 기준선
 
-| 프로젝트 | 보고 성능 | 신뢰도 | 이유 |
-|----------|-----------|--------|------|
-| **ValoPredictML** | AUC=0.935, Acc=0.854 | **높음** | GroupKFold 교차검증 + hold-out test set 분리 + 재현 가능한 파이프라인 |
-| jasonlow2307 | Acc=96% | **낮음** | 검증 방법론 미공개, 자가보고, 재현 불가 |
-| DEF4LT-303 | Acc=93% | **낮음** | train=1.0 (과적합 명백), 누수 처리 없음 |
-| Pawar/NCI | Acc=73% | **중간** | 석사 논문 수준, 합성 데이터(CTGAN)로 학습셋 보강 |
-| arXiv 2510.17199 | Acc=80.6% / 90.6% | **높음** | 동료 검토 예정 논문, 시간적 데이터 분리 명시, 단 다른 예측 목표 |
-| TechRxiv | Acc=60.6% | **높음** | 통계적 유의미(p≈0.000), 단 단순 모델, 다른 예측 목표 |
+이 절은 현재 source tree와 로컬 generated report snapshot을 분리해 읽어야 한다. Generated report는 재생성 시 바뀔 수 있으므로, 구현 상태의 source-of-truth는 코드다.
+
+| 항목 | 현재 근거 |
+|---|---|
+| 활성 피처 계약 | `ml/data_pipeline.py`의 `FEATURE_COLS_P1~P4` 57개, `app/feature_builder.py`가 `FEATURE_COLS`를 사용 |
+| 데이터 규모 snapshot | `reports/preprocess_summary.json`: clean 66,711행, active feature 57개 |
+| 최종 test snapshot | `reports/eval_summary.json`: ensemble AUC 0.9336, Acc 0.8543, F1 0.8513 |
+| 박빙 snapshot | margin=2 subset 1,962건, ensemble AUC 0.7372 |
+| 누수 방지 | `ml/evaluate_model.py`가 `GroupKFold` groups를 `match_key`에서 `_swap` 제거 후 구성 |
+| 로컬 앱 | `app/streamlit_app.py`, `app/views/predict.py`, `app/views/research_validation.py` 등 Streamlit source 존재 |
+| Insight Pack | `app/views/predict.py`에 승률, 유리/위험 요인, 추천 교체 Top 3, VLR 근거 패널 존재 |
+
+현재 문서화에서 피해야 할 표현:
+
+- "VLR/VCT 23시즌이 학습 피처에 통합됐다"는 현재 구현 주장으로 쓰면 안 된다.
+- "FastAPI/Next.js/PostgreSQL/Vercel 배포 완료"는 현재 실행 기준이 아니다.
+- "추천 시스템이 완성 제품 수준으로 검증됐다"는 현재 근거보다 강하다. 지금은 source-backed Streamlit replacement experiment로 표현한다.
 
 ---
 
-## 5. 포지셔닝 결론
+## 4. 경쟁 프로젝트 지형
 
-**ValoPredictML의 포지셔닝**: "방법론적으로 엄밀한, 경기 전 팀 구성 기반 프로 씬 승률 예측기"
+50개 primary set은 크게 5개 부류로 나뉜다.
 
-| 구분 | 내용 |
-|------|------|
-| 대상 사용자 | Valorant 프로 씬/스크림 분석가, 팀 코치, 팀 구성 연구자 |
-| 핵심 가치 | 피킹 단계에서 팀 구성 승률을 검증된 방법으로 예측 |
-| 기술적 강점 | 데이터 누수 방지 + 멀티소스 dedup + 도메인 피처 + 앙상블 |
-| 현재 한계 | UI 미구현, 일반 랭크 적용 불가 |
-| 다음 단계 | Streamlit UI 구현 → 실제 사용 가능한 도구로 전환 |
+| 부류 | 대표 프로젝트 | 관찰 |
+|---|---|---|
+| 실시간/라운드 화면 예측 | `jasonlow2307/valo-prediction`, `neilsorkin19/ValLoadoutToWin` | 라운드 중 이미지/상태 기반. ValoPredicML의 경기 전 팀 구성 예측과 목표가 다름 |
+| VCT/VLR match predictor | `unnamed-catalyst/VCT-Match-Predictor`, `Jonathan-Data/VCT-Match-Predictor`, `MociW/valorant-match-outcome-prediction`, `harker-tech/Valorant-Machine-Learning` | VLR/VCT data와 ML 모델 사용. 일부는 cross-validation/temporal split을 언급 |
+| Scraper/API | `axsddlr/vlrggapi`, `aritropaul/vlr.gg-scraper`, `wyndollin/vlr.gg-scraper`, `FlynV/vlr-map-veto-scraper` | 데이터 수집 도구 성격. 예측/검증/사용자 insight는 별도 |
+| Composition/winrate analysis | `manuellrds/Valorant-WinRateComps`, `piravelha/valorant_agent_comp_winrate`, `khfong26/Valorant-Agent-Analysis` | 요원/조합 분석은 있으나 누수 방지, close-match metric, 예측 UI까지 결합되지는 않음 |
+| Dashboard/analytics | `Aesenaliev/ValorantAnalytics`, `d4nilloval-dotcom/ValorantAnalytics`, `Ominousx/valorant-comp-dashboard`, `Haxodrat/valesportsmodel` | 시각화/조회 가치가 있으나 모델 검증과 counterfactual 설명은 제한적 |
 
+중요한 변화:
+
+- VLR/VCT scraping은 더 이상 희소하지 않다. GitHub에는 VLR.gg scraper/API와 VCT match predictor가 다수 있다.
+- "accuracy reported"는 흔하지만, 검증 설계가 재현 가능하거나 누수 방지를 명시한 프로젝트는 소수다.
+- close-match를 독립 metric으로 분리한 사례는 이번 50개 조사에서 확인하지 못했다.
+- agent replacement/counterfactual recommendation을 예측 UI에 직접 묶은 사례도 확인하지 못했다. 일부 프로젝트는 loadout/agent/winrate 분석에 가깝다.
+
+---
+
+## 5. 주요 프로젝트 비교
+
+전체 50개 표는 [`competitive_matrix.md`](competitive_matrix.md)에 둔다. 여기서는 차별성 판단에 영향을 주는 대표 사례만 요약한다.
+
+| 프로젝트 | 성격 | 강점 | ValoPredicML 대비 차이 |
+|---|---|---|---|
+| [jasonlow2307/valo-prediction](https://github.com/jasonlow2307/valo-prediction) | 실시간 screenshot 기반 라운드/매치 win-rate | Random Forest, CNN/NN artifact, live visualization, README 기준 95% accuracy 주장 | 경기 중 화면 상태 예측. 경기 전 요원 조합 입력, match-key GroupKFold, close-match subset 평가와는 목표가 다름 |
+| [unnamed-catalyst/VCT-Match-Predictor](https://github.com/unnamed-catalyst/VCT-Match-Predictor) | VCT match predictor | VLR scraping, RF/XGBoost/SVM, train/test metric | Americas Stage 1 2025 중심. 추천 UI와 close-match metric은 확인 안 됨 |
+| [MitsuSDK/ML_Valorant](https://github.com/MitsuSDK/ML_Valorant) | ML/analytics | README에서 chronological split, no leakage를 명시 | 누수 방지 의식은 강점. 다만 ValoPredicML의 swap-pair GroupKFold와 Insight Pack은 별도 차별점 |
+| [Jonathan-Data/VCT-Match-Predictor](https://github.com/Jonathan-Data/VCT-Match-Predictor) | VCT dashboard + model | VLR/Kaggle, 여러 모델, temporal evaluation 코드 | 가장 가까운 경쟁군 중 하나. 단, close-match 분리 평가와 교체 추천 UI는 확인 안 됨 |
+| [MociW/valorant-match-outcome-prediction](https://github.com/MociW/valorant-match-outcome-prediction) | match outcome ML | XGBoost/LightGBM/SVM 등 모델 폭이 넓음 | 모델 후보는 강하지만, 사용자-facing insight/replacement workflow는 확인 안 됨 |
+| [harker-tech/Valorant-Machine-Learning](https://github.com/harker-tech/Valorant-Machine-Learning) | match prediction + dashboard/API 성격 | temporal split/leakage 방지와 close-game feature를 언급 | close-game feature는 있으나 ValoPredicML처럼 close-match subset 평가 metric으로 분리한 증거는 없음 |
+| [axsddlr/vlrggapi](https://github.com/axsddlr/vlrggapi) | VLR.gg 비공식 API/scraper | VLR.gg 데이터 접근성 | 경쟁 모델이 아니라 source expansion 후보. ValoPredicML의 차별성 증거에는 데이터 수집 기반으로만 기여 |
+| [neilsorkin19/ValLoadoutToWin](https://github.com/neilsorkin19/ValLoadoutToWin) | loadout/round win probability | round-level loadout modeling | agent replacement recommendation과 유사한 문제의식이 있지만, Valorant 팀 조합/맵/선수 폼 기반 pre-match 앱은 아님 |
+
+---
+
+## 6. 정량 요약
+
+Primary 50개 기준 정적 분석 결과:
+
+| 항목 | 관찰 |
+|---|---:|
+| VLR/VCT 관련 repository | 27/50 |
+| validation metric 또는 split 확인 | 31/50 |
+| validation 미문서화 | 19/50 |
+| leakage/temporal control 명시 | 정적 스캐너 3개, 수동 확인 포함 최소 4개 |
+| close-match 별도 evaluation metric | 0/50 |
+| ValoPredicML과 같은 swap-pair GroupKFold guard | 0/50 |
+| 예측 + UI + 교체 실험을 한 화면에 결합 | 0/50 확인 |
+
+해석:
+
+- ValoPredicML은 VLR/VCT 데이터 사용 자체로는 독점적이지 않다.
+- 경쟁력은 데이터 수집보다 "검증 가능한 모델 계약 + 누수 방지 + 박빙 평가 + 사용자-facing insight"의 결합에서 나온다.
+- 따라서 발표/README/논문 문구는 "유일한 Valorant 예측기"가 아니라 "조합-중심 pre-match 예측과 close-match/누수 검증을 결합한 도구"로 좁혀야 한다.
+
+---
+
+## 7. 포지셔닝 문구
+
+권장 문구:
+
+> ValoPredicML은 Valorant 프로 경기의 팀 구성 선택 단계에서 사용할 수 있는 로컬 Streamlit 승률 분석 도구다. 57개 활성 피처는 요원 역할, 선수 폼, 요원-맵 통계, 팀 폼을 결합하며, 평가 단계에서는 경기 단위 GroupKFold와 swap 증강쌍 누수 방지를 적용한다. GitHub 50개 경쟁/인접 프로젝트 조사에서 VLR/VCT scraping과 일반 match prediction은 흔했지만, 별도 close-match 평가와 agent replacement insight를 함께 제공하는 사례는 확인하지 못했다.
+
+피해야 할 문구:
+
+- "VLR.gg를 사용하므로 유일하다"
+- "경쟁 프로젝트에는 ML이 없다"
+- "추천 시스템 완성"
+- "모든 경쟁 프로젝트보다 성능이 높다"
+
+성능 비교 주의:
+
+경쟁 프로젝트는 예측 target, split, 데이터 기간, 재현성이 서로 다르다. 따라서 reported accuracy를 단순 순위화하지 않는다. ValoPredicML의 AUC/Acc는 내부 snapshot으로 제시하고, 경쟁 프로젝트 성능은 "보고 여부와 검증 설계" 중심으로 비교한다.
