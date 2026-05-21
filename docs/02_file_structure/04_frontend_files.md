@@ -1,23 +1,21 @@
 # 04. 프론트엔드 파일 상세 (`app/`)
 
-마지막 업데이트: 2026-05-04
+마지막 업데이트: 2026-05-22
 
-> **범위 외 (out of scope)**: Next.js, React, Vercel 배포는 이 프로젝트에서 사용하지 않습니다. 본 프로젝트는 **Streamlit 로컬 도구**입니다. 아래는 `app/streamlit_app.py` 기반 구조입니다.
-
----
+> **범위 외 (out of scope)**: Next.js, React, Vercel 배포는 이 프로젝트에서 사용하지 않습니다. 본 프로젝트는 **Streamlit 로컬 도구**입니다.
 
 ## 1. 폴더 전체 구조
 
 ```
-app/                                # Streamlit UI (Phase 5, 미구현)
-└── streamlit_app.py                # Streamlit 앱 진입점
+app/
+├── __init__.py
+├── main.py        # Streamlit 진입점 (미구현)
+└── predict.py     # 모델 로드 + 추론 (미구현)
 ```
-
-> `app/` 폴더는 Phase 5 진입 시 생성.
 
 ---
 
-## 2. `app/streamlit_app.py` — Streamlit 앱 진입점
+## 2. `app/main.py` — Streamlit 진입점
 
 **책임:**
 - 맵, 선수 5명, 요원 5명 (팀당) 입력 UI
@@ -31,7 +29,7 @@ app/                                # Streamlit UI (Phase 5, 미구현)
 **실행 방법:**
 
 ```bash
-streamlit run app/streamlit_app.py
+streamlit run app/main.py
 ```
 
 ---
@@ -68,9 +66,9 @@ import joblib
 @st.cache_resource
 def load_models():
     """Streamlit 세션 시작 시 1회 로드 후 캐시"""
-    rf  = joblib.load("models/rf_model.joblib")
-    xgb = joblib.load("models/xgboost_model.joblib")
-    lgb = joblib.load("models/lgbm_model.joblib")
+    rf  = joblib.load("models/advanced/rf.joblib")
+    xgb = joblib.load("models/advanced/xgb.joblib")
+    lgb = joblib.load("models/advanced/lgbm.joblib")
     return rf, xgb, lgb
 
 rf_model, xgb_model, lgb_model = load_models()
@@ -84,7 +82,7 @@ rf_model, xgb_model, lgb_model = load_models()
 사용자 입력 (맵 + 팀 A/B 요원 + 선수 스탯)
         ↓
 피처 벡터 생성 (43개)
-  - ml/agent_roles.py 참조
+  - ml/valorant.py 참조
   - 역할군 카운트/diff, has_controller, is_double_duelist
   - 선수 스탯 집계, 시너지 피처
   - 요원×맵 집계값 join (사전 집계 결과물)

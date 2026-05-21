@@ -17,14 +17,26 @@ ValoPredictML/
 ├── data/                           # 데이터 저장소
 ├── notebooks/                      # Jupyter 실험 노트북
 ├── models/                         # 학습된 모델
-├── ml/                             # ML 파이프라인 (구현 완료)
+├── ml/                             # ML 파이프라인
 │   ├── __init__.py
-│   ├── agent_roles.py              # AGENT_ROLE_MAP(27개 요원), MAP_ORDER(12개 맵), 정규화 함수
-│   ├── data_pipeline.py            # 전처리 파이프라인: 파서 → 품질 게이트 → 피처 → 분할
-│   ├── train_model.py              # RF + XGBoost + LightGBM 학습, Optuna HPO, 앙상블
-│   ├── evaluate_model.py           # GroupKFold(n=5) 교차 검증, SHAP TreeExplainer
-│   └── validate_metrics.py         # baseline 비교, generalization 검증, SHAP 일관성
-└── app/                            # Streamlit UI (Phase 5, 미구현)
+│   ├── valorant.py                 # 요원→역할 매핑, 맵 목록, 정규화 함수 (미구현)
+│   ├── baseline/                   # 단순 베이스라인 모델 (미구현)
+│   │   ├── preprocess.py
+│   │   ├── train.py
+│   │   ├── evaluate.py
+│   │   └── validate.py
+│   ├── advanced/                   # RF + XGBoost + LightGBM 앙상블 (미구현)
+│   │   ├── preprocess.py
+│   │   ├── ensemble.py
+│   │   ├── evaluate.py
+│   │   └── validate.py
+│   └── vlrgg/                      # VLR.gg 데이터 수집 (부분 구현)
+│       ├── client.py
+│       ├── collector.py
+│       └── worker.py
+└── app/                            # Streamlit UI (미구현)
+    ├── main.py                     # Streamlit 진입점
+    └── predict.py                  # 모델 로드 + 추론
 ```
 
 **범위 외 (out of scope)**: `backend/` (FastAPI), `valo_predict_system/` (Next.js) 폴더는 이 프로젝트에 존재하지 않습니다. 본 프로젝트는 Streamlit 로컬 도구입니다.
@@ -84,15 +96,22 @@ data/
 │       ├── qualidea1217__valorant-pro-matches-since-april-2021/
 │       └── ediashtarevin__vct-champions-2023-stats/
 └── processed/              # 전처리 스크립트 실행 결과물 (git 제외)
-    ├── matches_clean.csv   # 품질 게이트·dedup 통과한 맵 행 전체
-    ├── features_base.csv   # 피처 테이블 (43개 피처 + 레이블)
+    ├── matches.csv         # 품질 게이트·dedup 통과한 맵 행
+    ├── players.csv         # 선수 스탯 집계
+    ├── teams.csv           # 팀별 집계
+    ├── features_lineup.csv # 요원 조합 피처
+    ├── features_static.csv # 정적 피처 (맵·역할군 등)
+    ├── files.csv           # 소스 파일 레지스트리
+    ├── schemas.csv         # 스키마 정의
+    ├── sources.csv         # 소스별 메타데이터
+    ├── rejects.csv         # 품질 게이트 탈락 행
     ├── train.csv           # 학습용 (70%)
     ├── val.csv             # 검증용 (15%)
     └── test.csv            # 테스트용 (15%)
 ```
 
 **규칙:**
-- `raw/`는 `ml/data_pipeline.py`가 읽기 전용으로 사용
+- `raw/`는 `ml/baseline/preprocess.py`, `ml/advanced/preprocess.py`가 읽기 전용으로 사용
 - `processed/`는 학습 파이프라인의 입/출력
 - Git에서 `data/raw/`와 `data/processed/`는 `.gitignore` 처리
 
@@ -102,15 +121,18 @@ data/
 
 ```
 models/
-├── rf_model.joblib             # 학습된 Random Forest 모델
-├── xgboost_model.joblib        # 학습된 XGBoost 모델
-├── lgbm_model.joblib           # 학습된 LightGBM 모델
-├── label_encoder_map.joblib    # 맵 이름 LabelEncoder
-└── model_metadata.json         # 학습 날짜, 성능 지표, 파라미터
+├── baseline/
+│   ├── model.joblib        # 베이스라인 학습 모델
+│   └── meta.json           # 학습 메타데이터
+└── advanced/
+    ├── rf.joblib            # Random Forest
+    ├── xgb.joblib           # XGBoost
+    ├── lgbm.joblib          # LightGBM
+    └── meta.json            # 학습 날짜, AUC·Acc·F1
 ```
 
 - 모든 `.joblib` 파일은 `.gitignore` 처리 (용량)
-- `model_metadata.json`은 Git 추적 허용 (텍스트, 경량)
+- `meta.json`은 Git 추적 허용 (텍스트, 경량)
 
 ---
 

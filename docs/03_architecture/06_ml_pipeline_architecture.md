@@ -1,6 +1,6 @@
 # 06. ML 파이프라인 아키텍처
 
-마지막 업데이트: 2026-05-04
+마지막 업데이트: 2026-05-22
 
 ## 1. 전체 파이프라인 다이어그램
 
@@ -22,7 +22,7 @@
                           ↓
 ┌─────────────────────────────────────────────────────────────┐
 │                         파싱 단계                              │
-│         [ml/parsers/*.py]                                   │
+│         [ml/baseline/preprocess.py, ml/advanced/preprocess.py] │
 │                                                             │
 │  parse_ryanluong("vct_2021_2023")        → 공통 스키마 행    │
 │  parse_ryanluong("ryanluong challengers") → 공통 스키마 행   │
@@ -69,7 +69,7 @@
 │  동일 dedup_key → 소스 가중치 높은 행 보존                   │
 │  동점 → 컬럼 수 더 많은 행 보존                             │
 │                                                             │
-│  출력: data/processed/matches_clean.csv                     │
+│  출력: data/processed/matches.csv                           │
 └─────────────────────────────────────────────────────────────┘
                           │
                           ↓
@@ -79,9 +79,7 @@
 │  match_key 단위 GroupShuffleSplit                           │
 │  train 70% / val 15% / test 15%                             │
 │                                                             │
-│  출력: data/processed/train.csv                             │
-│        data/processed/val.csv                               │
-│        data/processed/test.csv                              │
+│  출력: data/processed/train.csv (val.csv, test.csv)         │
 │                                                             │
 │  (선택) 시간 기반 분할 검증 실험:                            │
 │    train: 2021-01 ~ 2023-12                                 │
@@ -120,13 +118,14 @@
 │                                                             │
 │  sample_weight = time_weight × source_weight                │
 │                                                             │
-│  출력: data/processed/features_base.csv                     │
+│  출력: data/processed/features_lineup.csv                   │
+│        data/processed/features_static.csv                   │
 └─────────────────────────────────────────────────────────────┘
                           │
                           ↓
 ┌─────────────────────────────────────────────────────────────┐
 │                       모델 학습 단계                          │
-│         [ml/train_model.py]                                 │
+│         [ml/advanced/ensemble.py]                           │
 │                                                             │
 │  GroupKFold(n=5, match_key 단위), Optuna HPO                │
 │                                                             │
@@ -142,17 +141,16 @@
 │                                                             │
 │  성능: AUC=0.935, Acc=0.854, 베이스라인 대비 +29.13%p       │
 │                                                             │
-│  출력: models/rf_model.joblib                               │
-│        models/xgboost_model.joblib                          │
-│        models/lgbm_model.joblib                             │
-│        models/label_encoder_map.joblib                      │
-│        models/model_metadata.json                           │
+│  출력: models/advanced/rf.joblib                            │
+│        models/advanced/xgb.joblib                           │
+│        models/advanced/lgbm.joblib                          │
+│        models/advanced/meta.json                            │
 └─────────────────────────────────────────────────────────────┘
                           │
                           ↓
 ┌─────────────────────────────────────────────────────────────┐
 │                         평가 단계                              │
-│         [ml/evaluate_model.py]                              │
+│         [ml/advanced/evaluate.py]                           │
 │                                                             │
 │  kfold_evaluate() — GroupKFold(n=5)                         │
 │  shap_analyze()  — SHAP TreeExplainer                       │
@@ -164,13 +162,13 @@
 │  - Confusion Matrix                                         │
 │                                                             │
 │  출력: reports/training_report.json                         │
-│        reports/rejected_matches.csv                         │
+│        data/processed/rejects.csv                           │
 └─────────────────────────────────────────────────────────────┘
                           │
                           ↓
 ┌─────────────────────────────────────────────────────────────┐
 │                   검증 단계                                    │
-│         [ml/validate_metrics.py]                            │
+│         [ml/advanced/validate.py]                           │
 │                                                             │
 │  baseline_compare()       — 랜덤/다수결 베이스라인 대비 검증  │
 │  generalization_check()   — Train-Test 갭 과적합 진단        │
@@ -180,7 +178,7 @@
                           ↓
 ┌─────────────────────────────────────────────────────────────┐
 │                   서빙 단계 (Phase 5, 미구현)                  │
-│         [app/streamlit_app.py]                              │
+│         [app/main.py + app/predict.py]                      │
 │                                                             │
 │  @st.cache_resource 로 모델 1회 로드                        │
 │  → 사용자 입력 → 피처 빌드 → 앙상블 예측 → 승률 출력        │
@@ -198,25 +196,41 @@
 dataload.py
     ↓ kagglehub → data/raw/kaggle/
 
-ml/agent_roles.py          (공통 참조: AGENT_ROLE_MAP, MAP_ORDER, 정규화 함수)
+ml/valorant.py             (공통 참조: AGENT_ROLE_MAP, MAP_ORDER, 정규화 함수)
 
-ml/data_pipeline.py
-    ↓ ml/parsers/*.py      (파싱)
-    ↓ ml/agent_roles.py    (정규화)
-    ↓ data/processed/      (출력)
+── Baseline 파이프라인 ──────────────────────────────────────
+ml/baseline/preprocess.py
+    ↓ ml/valorant.py       (정규화)
+    ↓ data/processed/      (matches, players, teams, features_*, files, schemas, sources, rejects, train, val, test)
 
-ml/train_model.py
-    ↓ data/processed/train.csv, val.csv
-    ↓ models/*.joblib      (출력)
+ml/baseline/train.py
+    ↓ data/processed/train.csv
+    ↓ models/baseline/     (model.joblib, meta.json)
 
-ml/evaluate_model.py
-    ↓ models/*.joblib
+ml/baseline/evaluate.py + ml/baseline/validate.py
+    ↓ models/baseline/model.joblib
     ↓ data/processed/test.csv
     ↓ reports/             (출력)
 
-app/streamlit_app.py
-    ↓ models/*.joblib      (서빙 시 로드)
-    ↓ ml/agent_roles.py    (피처 빌드)
+── Advanced 파이프라인 ─────────────────────────────────────
+ml/advanced/preprocess.py
+    ↓ ml/valorant.py       (정규화)
+    ↓ data/processed/      (동일 출력 구조)
+
+ml/advanced/ensemble.py
+    ↓ data/processed/train.csv
+    ↓ models/advanced/     (rf.joblib, xgb.joblib, lgbm.joblib, meta.json)
+
+ml/advanced/evaluate.py + ml/advanced/validate.py
+    ↓ models/advanced/*.joblib
+    ↓ data/processed/test.csv
+    ↓ reports/             (출력)
+
+── 서빙 ─────────────────────────────────────────────────────
+app/main.py
+    ↓ app/predict.py       (추론 로직)
+    ↓ models/advanced/*.joblib  (서빙 시 로드)
+    ↓ ml/valorant.py            (피처 빌드)
 ```
 
 ---
@@ -225,6 +239,5 @@ app/streamlit_app.py
 
 | 문서 | 내용 |
 |------|------|
-| [../docs/preprocessing.md](../preprocessing.md) | 전처리 파이프라인 정전 설계 (43개 피처 상세) |
 | [../02_file_structure/03_ml_pipeline_files.md](../02_file_structure/03_ml_pipeline_files.md) | ml/ 폴더 파일 상세 |
 | [02_request_flow.md](02_request_flow.md) | 서빙 시 피처 처리 흐름 |
