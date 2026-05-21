@@ -21,3 +21,4 @@
 | [05_aggregation.md](05_aggregation.md) | 집계 피처 (Phase 2) |
 | [06_feature_engineering.md](06_feature_engineering.md) | 역할 피처, 맵 인코딩 등 |
 | [07_split_and_validation.md](07_split_and_validation.md) | match_key 기반 train/val/test 분할 |
+| [08_raw_preprocess.md](08_raw_preprocess.md) | `data/raw/**` 전용 재전처리 산출물 설명 |

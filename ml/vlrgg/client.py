@@ -31,7 +31,7 @@ class VLRGGClient:
 
     사용 예시::
 
-        client = VLRGGClient(cache_dir="data/raw/vlrgg_cache")
+        client = VLRGGClient(cache_dir="data/raw/vlrgg/api_cache")
         stats = client.fetch_stats("na", "30")   # 선수 통계
         events = client.fetch_events("completed") # 이벤트 목록
         rankings = client.fetch_rankings("na")    # 랭킹

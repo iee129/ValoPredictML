@@ -41,13 +41,13 @@ from ml.vlrgg_rate_limit import (
 )
 
 PARSER_VERSION = "vlrgg-collector-v1"
-DEFAULT_CACHE_DIR = "data/raw/vlrgg_cache"
+DEFAULT_CACHE_DIR = "data/raw/vlrgg/api_cache"
 DEFAULT_KAGGLE_PROXY_DIR = "data/raw/kaggle/hidious__valorant-vlrgg-results-and-stats"
 DEFAULT_OUTPUT_DIR = "data/processed"
 DEFAULT_REPORTS_DIR = "reports"
 DEFAULT_STATE_FILE = ".omx/state/vlrgg_collection_state.json"
 DEFAULT_STAGE_OUTPUT_DIR = ".omx/state/vlrgg_collection_outputs"
-DEFAULT_BACKFILL_SHARD_CACHE_ROOT = "data/raw/vlrgg_cache_shards"
+DEFAULT_BACKFILL_SHARD_CACHE_ROOT = "data/raw/vlrgg/api_cache/shards"
 DEFAULT_BACKFILL_SHARD_OUTPUT_ROOT = "data/processed/vlrgg_shards"
 DEFAULT_BACKFILL_SHARD_REPORTS_ROOT = "reports/vlrgg_shards"
 DEFAULT_BACKFILL_SHARD_STATE_ROOT = ".omx/state/vlrgg_shards"
