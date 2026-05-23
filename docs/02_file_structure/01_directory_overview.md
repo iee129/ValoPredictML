@@ -121,15 +121,17 @@ data/
 
 ```
 models/
-├── baseline/
-│   ├── model.joblib        # 베이스라인 학습 모델
+├── baseline/               # 베이스라인 (로지스틱 회귀)
+│   ├── model.joblib        # 학습된 모델
 │   └── meta.json           # 학습 메타데이터
-└── advanced/
+└── advanced/               # 최종 채택된 advanced 모델만
     ├── rf.joblib            # Random Forest
     ├── xgb.joblib           # XGBoost
     ├── lgbm.joblib          # LightGBM
     └── meta.json            # 학습 날짜, AUC·Acc·F1
 ```
+
+**규칙**: `models/`에는 **최종 채택된 모델 파일만** 저장한다. 실험 중인 버전은 `notebooks/v{N}_{algorithm}/` 안에만 보관한다.
 
 - 모든 `.joblib` 파일은 `.gitignore` 처리 (용량)
 - `meta.json`은 Git 추적 허용 (텍스트, 경량)
@@ -140,9 +142,14 @@ models/
 
 ```
 reports/                        # 파이프라인 실행 결과 리포트 (git 제외)
-├── preprocess_summary.json     # 소스별 행수·제거율·최종 분포 등 실행 통계
-└── rejected_matches.csv        # 품질 게이트 탈락 행 및 탈락 사유
+├── baseline/                   # 베이스라인 모델 리포트
+│   ├── metrics.json            # CV AUC·Acc·F1 + 테스트 지표
+│   └── validation.json         # 다수결 비교·과적합 진단·피처 계수
+└── v{N}_{algorithm}/           # advanced 버전별 리포트 (예: v1_random_forest/)
+    └── metrics.json
 ```
+
+**규칙**: `reports/`의 버전 폴더명은 `notebooks/`의 실험 폴더명과 동일하게 유지한다.
 
 ---
 
@@ -150,14 +157,15 @@ reports/                        # 파이프라인 실행 결과 리포트 (git �
 
 ```
 notebooks/
-├── 01_eda.ipynb                # 탐색적 데이터 분석
-├── 02_feature_engineering.ipynb# 피처 생성 실험
-├── 03_model_comparison.ipynb   # RF vs XGBoost vs LightGBM 비교
-└── 04_kfold_validation.ipynb   # K-Fold(K=5) 교차 검증 실험
+└── v{N}_{algorithm}/           # advanced 후보 실험 폴더 (예: v1_random_forest/)
+    └── experiment.ipynb        # 실험 노트북 (폴더 먼저 생성 후 파일 생성)
 ```
 
-- 실제 운영 코드가 아닌 **실험/탐색용**
-- 발견한 인사이트는 `ml/` 폴더 스크립트로 이식
+**규칙**:
+- `notebooks/`에 파일을 직접 생성하지 않는다 → `v{N}_{algorithm}/` 폴더를 먼저 만든 뒤 그 안에 노트북을 생성한다
+- 폴더명 형식: `v{N}_{algorithm}` (N은 1부터 증가, algorithm은 영어 snake_case)
+- 베이스라인(로지스틱 회귀)은 버전 번호 없음 — `ml/baseline/`에서 직접 관리
+- 발견한 인사이트는 `ml/advanced/`로 최종 이식
 
 ---
 

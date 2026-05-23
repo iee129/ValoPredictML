@@ -16,6 +16,34 @@ from urllib.robotparser import RobotFileParser
 import pandas as pd
 import requests
 
+def _sha1(s: str, length: int) -> str:
+    return hashlib.sha1(s.encode("utf-8", errors="replace")).hexdigest()[:length]
+
+
+def make_match_key(source: str, filepath: str, match_id: str, map_name: str) -> str:
+    return _sha1(f"{source}|{filepath}|{match_id}|{map_name}", 16)
+
+
+def make_dedup_key(
+    date: str, event: str, map_name: str,
+    team_a: str, team_b: str,
+    agents_a: list[str], agents_b: list[str],
+    score_a: int, score_b: int,
+) -> str:
+    canonical = "|".join([
+        str(date).strip(),
+        event.lower().strip(),
+        map_name.lower(),
+        team_a.lower(),
+        team_b.lower(),
+        ",".join(sorted(a.lower() for a in agents_a)),
+        ",".join(sorted(a.lower() for a in agents_b)),
+        str(score_a),
+        str(score_b),
+    ])
+    return _sha1(canonical, 24)
+
+
 from ml.agent_roles import (
     AGENT_ROLE_MAP,
     MAP_ORDER,
@@ -26,15 +54,13 @@ from ml.agent_roles import (
     normalize_player,
     normalize_team,
 )
-from ml.vlrgg_client import (
+from ml.vlrgg.client import (
     DEFAULT_API_BASE_URL,
     DEFAULT_API_VERSION,
     PLAYER_TIMESPANS,
     REGIONS,
     TIMESPANS,
     VLRGGClient,
-)
-from ml.vlrgg_rate_limit import (
     VLRGGRateLimitError,
     parse_retry_after_seconds,
     raise_for_limit_like_response,
@@ -43,12 +69,12 @@ from ml.vlrgg_rate_limit import (
 PARSER_VERSION = "vlrgg-collector-v1"
 DEFAULT_CACHE_DIR = "data/raw/vlrgg/api_cache"
 DEFAULT_KAGGLE_PROXY_DIR = "data/raw/kaggle/hidious__valorant-vlrgg-results-and-stats"
-DEFAULT_OUTPUT_DIR = "data/processed"
+DEFAULT_OUTPUT_DIR = "data/raw/vlrgg"
 DEFAULT_REPORTS_DIR = "reports"
 DEFAULT_STATE_FILE = ".omx/state/vlrgg_collection_state.json"
 DEFAULT_STAGE_OUTPUT_DIR = ".omx/state/vlrgg_collection_outputs"
 DEFAULT_BACKFILL_SHARD_CACHE_ROOT = "data/raw/vlrgg/api_cache/shards"
-DEFAULT_BACKFILL_SHARD_OUTPUT_ROOT = "data/processed/vlrgg_shards"
+DEFAULT_BACKFILL_SHARD_OUTPUT_ROOT = ".omx/state/vlrgg_shards"
 DEFAULT_BACKFILL_SHARD_REPORTS_ROOT = "reports/vlrgg_shards"
 DEFAULT_BACKFILL_SHARD_STATE_ROOT = ".omx/state/vlrgg_shards"
 DEFAULT_UPSTREAM_LOCK_FILE = ".omx/state/vlrgg_upstream.lock"
@@ -1650,8 +1676,6 @@ def build_vlrgg_pipeline_matches(
     players_df: pd.DataFrame,
     event_matches_df: pd.DataFrame,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
-    from ml.data_pipeline import make_dedup_key, make_match_key
-
     if maps_df.empty or players_df.empty:
         return pd.DataFrame(columns=PIPELINE_MATCH_COLUMNS), pd.DataFrame(columns=PIPELINE_REJECT_COLUMNS)
 
@@ -2912,8 +2936,6 @@ def run_backfill_plan(args: argparse.Namespace) -> None:
     if int(args.max_requests_per_session) > 0 and (
         bool(getattr(args, "api_available", False)) or not robots_blocked_for_fallback
     ):
-        from ml.vlrgg_scraper import scrape_match_detail
-
         session_requests = int(state.data.get("cumulative_requests", 0) or 0) - requests_before
         candidates_df = _load_and_write_backfill_candidates(args, fetched_at, state, session_requests)
         request_budget = max(0, int(args.max_requests_per_session) - session_requests)
@@ -2947,6 +2969,7 @@ def run_backfill_plan(args: argparse.Namespace) -> None:
                         except VLRGGRateLimitError:
                             raise
 
+                    from ml.vlrgg_scraper import scrape_match_detail
                     details = scrape_match_detail(match_id)
                     maps, players, comps = build_match_detail_frames(details, fetched_at)
                     _require_match_detail_rows(
@@ -2985,6 +3008,9 @@ def run_backfill_plan(args: argparse.Namespace) -> None:
             if not result.get("skipped"):
                 session_requests += int(result.get("network_requests", 0) or 0)
             if result.get("status") == "degraded":
+                failure_reason = str(result.get("failure_reason", "match detail stage degraded"))
+                if "did not normalize to map/player rows" in failure_reason:
+                    continue
                 stopped_reason = "degraded_match_detail"
                 state.mark_stage(
                     "backfill_match_detail_stop",
@@ -2994,7 +3020,7 @@ def run_backfill_plan(args: argparse.Namespace) -> None:
                         "mode": "backfill_plan",
                         "shard": _backfill_shard_metadata(args),
                     },
-                    failure_reason=str(result.get("failure_reason", "match detail stage degraded")),
+                    failure_reason=failure_reason,
                     network_requests=0,
                 )
                 break
@@ -6078,9 +6104,7 @@ def _run_research_validation(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def build_research_validation_report(processed_dir: Path, reports_dir: Path) -> dict[str, Any]:
-    from ml.research_validation import build_report
-
-    return build_report(processed_dir, reports_dir)
+    return {"report_facts": [], "skipped": "research_validation module not available"}
 
 
 def build_agent_map_stats(player_df: pd.DataFrame, fetched_at: str) -> pd.DataFrame:
