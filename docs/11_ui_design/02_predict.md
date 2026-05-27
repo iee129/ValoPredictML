@@ -1,68 +1,50 @@
 # 02. 예측 화면 설계
 
 > Streamlit 기반 — FastAPI/Next.js 사용 안 함
-> 마지막 업데이트: 2026-05-04
+> 마지막 업데이트: 2026-05-27
 
----
+## 현재 구현
 
-## 1. 화면 목적
+진입점: `app/main.py`
 
-선수/요원 조합을 상세 입력받아 모델이 승률과 영향 요인을 출력하는 화면.
+런타임 로직: `app/predict.py`
 
----
+모델: `models/advanced/ensemble.joblib`
 
-## 2. 입력 영역
+데이터 계약: Kaggle-only advanced 125피처, `data/processed/adv_kaggle_only`
 
-| 입력 | UI | 검증 |
-|------|-----|------|
-| Team A/B 선수 | `st.multiselect` | 각 5명 |
-| Team A/B 요원 | `st.multiselect` 또는 슬롯별 `st.selectbox` | 각 5명 |
-| 선수 정보 | `st.data_editor` | 결측/범위 확인 |
+## 탭 구성
 
-사용자는 피처를 직접 입력하지 않음. Feature Builder가 역할군 카운트, 선수-요원 적합도, 팀 통계를 자동 생성.
+| 탭 | 역할 |
+|---|---|
+| `커스텀 5v5` | 맵, cutoff year, Team A/B 선수 5명과 요원 5명을 선택해 승률 예측 |
+| `경기 다시보기` | `adv_kaggle_only/test.csv` 실제 holdout row를 선택해 예측과 실제 label 비교 |
+| `모델 근거` | feature count, test metric, validation verdict, global feature importance 표시 |
 
-**왜 사용자가 피처를 직접 입력하지 않는가?**
-모델 입력은 43개 피처(역할군 카운트, diff, agent_map_wr, avg_acs, kd 등)인데, 이 숫자들을 사용자가 직접 계산해서 입력하는 것은 현실적으로 불가능하다. 사용자는 "어떤 선수가 어떤 요원을 들고 어느 맵에서 싸우는가"만 알면 된다. Feature Builder가 그 정보를 받아 43개 피처를 자동으로 계산한다.
+## 입력 계약
 
----
+| 입력 | 검증 |
+|---|---|
+| Map | `ml.valorant.MAP_ORDER`와 processed match data에서 생성 |
+| Cutoff year | `data/processed/matches.csv`의 year에서 생성, 마지막 다음 해 포함 |
+| Team A/B 선수 | `data/processed/players.csv`의 Kaggle source 선수명에서 생성, 10명 중복 불가 |
+| Team A/B 요원 | `ml.agent_roles.AGENT_ROLE_MAP`에서 생성, 같은 팀 내 중복 불가 |
 
-## 3. Feature Builder
+사용자는 모델 피처를 직접 입력하지 않는다. `app/predict.py`가 baseline previous-year feature builder를 재사용해 125피처 `DataFrame`을 만든다.
 
-| 단계 | 설명 |
-|------|------|
-| 역할군 카운트 | 선택된 요원 5명 → 타격대/척후대/전략가/감시자 수 집계 |
-| 역할 diff | Team A 역할 카운트 - Team B 역할 카운트 |
-| has_controller | Team A/B 전략가 유무 (0/1) |
-| map_encoded | 선택 맵 → 정수 인덱스 |
-| 선수 스탯 | Team_Avg_Rating, KD, KAST, ADR 등 (입력값 또는 기본값) |
-| agent_map_wr | train.csv 기반 요원×맵 승률 집계 (데이터 누수 방지) |
+## 출력
 
----
+| 출력 | 출처 |
+|---|---|
+| Team A/B 승률 | `ensemble.predict_proba()` |
+| Confidence | `abs(p - 0.5) * 2` |
+| Top features | RF/XGB/LGBM feature importance와 현재 row 값을 결합 |
+| Role counts | 생성된 125피처 중 역할 count |
+| Replay actual label | `adv_kaggle_only/test.csv` |
+| Model metrics/verdict | `reports/adv_kaggle_only/{metrics,validation}.json` |
 
-## 4. 예측 결과 영역
+## 실행
 
-| 출력 | UI |
-|------|-----|
-| 팀 A 승리 확률 | `st.metric` 또는 게이지 |
-| 팀 B 승리 확률 | `1 - 팀 A 확률` |
-| 주요 영향 피처 | `st.bar_chart` (수평) |
-| 선수-요원 적합도 | 슬롯별 점수 표 (`st.dataframe`) |
-| 팀 시너지/충돌 | `st.text` 요약 |
-
----
-
-## 5. 교체 실험 영역 (구현 예정)
-
-| 실험 | 예시 |
-|------|------|
-| 요원 교체 | player1: Jett → Raze |
-| 선수 교체 | player1 → candidate1 |
-| 역할 조정 | Controller 0명 → 1명 |
-
-출력: 변경 전/후 승률, delta, 기여 피처.
-
----
-
-## 6. 저장
-
-예측 실행 후 PostgreSQL 후보 저장소에 입력 조합/모델명/예측 확률/영향 피처/교체 변화량/실행 시각 저장.
+```bash
+python -m streamlit run app/main.py
+```

@@ -113,3 +113,69 @@ study.optimize(objective, n_trials=50)
 - SMOTE는 합성 데이터를 생성하지만, A/B Swap은 **실제 경기 물리 구조**를 활용한 증강이다.
 
 결론: **문제 규모와 목표에 맞는 적정 복잡도**가 적용됐다. 고급 기술의 부재는 부족함이 아니라 설계 선택이다.
+
+---
+
+## 사용자 측면 차별점 10개 (2026-05-28~ 추가)
+
+지도교수 2차 면담(2026-05-25) — "기술 차별점이 아닌 사용자가 체감하는 차별점이 부족하다" — 피드백에 따라 도입. 위 5개 기술 차별점은 사용자 차별점의 신뢰성 기반이며, 아래 10개는 사용자가 직접 화면에서 체감하는 차별점이다.
+
+원본 계획: `.omc/plans/user_facing_differentiators_plan.md` (파일·알고리즘·acceptance criteria 상세).
+시장 분석 근거: [`../competitive_analysis.md`](../competitive_analysis.md) — 4가지 빈자리.
+데이터원 매핑: [`../07_data/02_primary_datasets/04_vlrgg.md`](../07_data/02_primary_datasets/04_vlrgg.md).
+
+### 차별점 인벤토리
+
+| 그룹 | # | 차별점 | 산출 파일 | VLR.gg | 데이터원 |
+|------|---|--------|-----------|--------|----------|
+| 1. 입력 즉시 피드백 | I | 카운터 픽 경고 (18쌍) | `ml/differentiators/counter_alert.py`, `data/research/valorant_counters.json` | ✗ | `docs/10_valorant/counters.md` |
+| 1 | N | 요원-맵 적합도 카드 | `ml/differentiators/agent_map_fit.py`, `data/research/agent_map_fit.json` | ✗ | `docs/10_valorant/agents.md` |
+| 1 | K | 맵별 이상 구성 비교 | `ml/differentiators/map_ideal_comp.py`, `data/research/map_ideal_comp.json` | ✗ | `docs/10_valorant/maps.md` |
+| 1 | G | 위험 알림 (룰 기반) | `ml/differentiators/risk_alert.py` | ✗ | 룰 5개 코드 내장 |
+| 2. 예측 결과 해석 | B | 박빙 경기 검증 (Brier + Reliability + ECE) | `ml/baseline/evaluate.py` 보강, `ml/advanced/evaluate.py` | ✗ | 모델 결과 |
+| 2 | C | 자연어 설명 | `ml/differentiators/nl_explain.py` | ✗ | SHAP + 한국어 템플릿 |
+| 2 | J | Ult Cycle Balance 점수 | `ml/differentiators/ult_balance.py`, `data/research/agent_ult_cost.json` | ✗ | `docs/10_valorant/economy.md` |
+| 2 | D | 선수 Agent Pool (30/60/90d) | `ml/differentiators/player_agent_pool.py` | ✓ | `vlrggapi /player/{id}` + 자체 CSV fallback |
+| 3. 인터랙티브 시뮬레이션 | A | What-if 시뮬레이션 | `app/whatif.py` | ✗ | 모델 재예측 |
+| 3 | E | 사이드별 (ATK/DEF) 패널 | `ml/differentiators/side_panel.py` | ✓ | VLR.gg team stats |
+
+### 사용자 차별점의 검증 게이트 (단위 테스트 10개)
+
+`tests/differentiators/` 하위 10개 파일로 차별점마다 acceptance 검증:
+
+| 테스트 파일 | 검증 |
+|-------------|------|
+| `test_counter_alert.py` | 18쌍 모두 JSON 매핑 정확, 강도별 alert 분기 |
+| `test_agent_map_fit.py` | 29 요원 × 13 맵 ≥80% 채워짐, 핵심 페어 정확 |
+| `test_map_ideal_comp.py` | 12 맵 등록, 매칭률·누락 역할군 정확 |
+| `test_risk_alert.py` | 5개 룰 작동, 위배 0건 시 빈 list |
+| `test_calibration.py` | Brier 0~1, ECE 계산, 박빙 구간 정확도 ≥50% |
+| `test_nl_explain.py` | SHAP 합산 vs 예측 확률 오차 ≤0.01, 템플릿 fallback |
+| `test_ult_balance.py` | 29 요원 dict, 평균 계산 정확 |
+| `test_player_agent_pool.py` | mock vlrggapi 응답 → out-of-pool 검출 |
+| `test_whatif.py` | session_state 히스토리 stack push/pop, delta 계산 |
+| `test_side_panel.py` | 12 맵 ATK/DEF 데이터, 권장 메시지 도출 |
+
+통합 테스트: `tests/integration/test_streamlit_integration.py` — 10개 차별점 동시 렌더링 + VLR.gg 실패 시 fallback 작동.
+
+### 데이터 누수 6관문 — 사용자 차별점에도 동일 적용
+
+본 문서의 5개 기술 차별점 검증 외에, 심화 모델(Kaggle 단독) · 심화 모델(Kaggle+VLR.gg) · 베이스라인 **3개 모델 모두** 6관문을 통과해야 한다:
+
+1. 금지 피처 검출 (26개) → 검출 0건
+2. 같은 경기 누수 (GroupKFold, match_key 기준) → 중복 0건
+3. 같은 연도 통계 차단 → 사용 0건
+4. 분할 중복 (train/val/test) → 중복 0건
+5. 라벨 셔플 → AUC 0.50 부근 수렴
+6. 단일 피처 한계 → AUC <0.65
+
+→ 차별점 B (박빙 검증)는 위 게이트를 통과한 모델만 calibration 측정 대상으로 삼는다.
+
+### 시장 빈자리 4개 대응
+
+| 빈자리 (competitive_analysis.md 결론 7.1) | 본 프로젝트 응답 |
+|-------------------------------------------|-------------------|
+| 1. prematch 모델 기반 승률 예측 | Baseline(완료) + 심화 모델(5/31) + VLR.gg 통합(6/3) |
+| 2. What-if 시뮬레이션 | **A** |
+| 3. 자연어 예측 근거 | **C** + **B** (학술 신뢰성) |
+| 4. 개인화 (선수 풀·약점 기반) | **D** ★ 정면 대응 + **G·I·N·K** 도메인 강화 |

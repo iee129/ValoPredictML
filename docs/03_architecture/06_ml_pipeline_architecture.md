@@ -1,6 +1,6 @@
 # 06. ML 파이프라인 아키텍처
 
-마지막 업데이트: 2026-05-22
+마지막 업데이트: 2026-05-27
 
 ## 1. 전체 파이프라인 다이어그램
 
@@ -226,11 +226,53 @@ ml/advanced/evaluate.py + ml/advanced/validate.py
     ↓ data/processed/test.csv
     ↓ reports/             (출력)
 
+── 사용자 차별점 모듈 (Phase 5c, 2026-05-29 ~ 2026-06-06) ──
+ml/differentiators/
+    ↓ data/research/*.json       (정적 도메인 데이터)
+    ├── counter_alert.py        ← valorant_counters.json   (I)
+    ├── agent_map_fit.py        ← agent_map_fit.json       (N)
+    ├── map_ideal_comp.py       ← map_ideal_comp.json      (K)
+    ├── risk_alert.py           ← (룰 5개 코드 내장)        (G)
+    ├── ult_balance.py          ← agent_ult_cost.json      (J)
+    ├── nl_explain.py           ← shap.TreeExplainer + 한국어 템플릿  (C)
+    ├── player_agent_pool.py    ← vlrggapi / 자체 CSV fallback  (D)
+    └── side_panel.py           ← VLR.gg team stats        (E)
+
 ── 서빙 ─────────────────────────────────────────────────────
 app/main.py
-    ↓ app/predict.py       (추론 로직)
-    ↓ models/advanced/*.joblib  (서빙 시 로드)
+    ↓ app/predict.py            (추론 로직)
+    ↓ app/whatif.py             (A — What-if session_state)
+    ↓ app/components.py         (공통 UI 카드·alert·gauge)
+    ↓ models/advanced/*.joblib  (서빙 시 로드, @st.cache_resource)
     ↓ ml/valorant.py            (피처 빌드)
+    ↓ ml/differentiators/*.py   (10개 차별점 모듈)
+```
+
+### 2.1 사용자 차별점 통합 흐름
+
+```
+사용자 입력 (맵 + 선수 10명 + 요원 10명)
+        ↓
+┌──────────── 입력 즉시 피드백 (그룹 1) ────────────┐
+│ I. counter_alert  → st.error/warning/info        │
+│ N. agent_map_fit  → st.metric ✓/△/✗             │
+│ K. map_ideal_comp → st.progress + st.info       │
+│ G. risk_alert     → st.warning fixed banner     │
+└──────────────────────────────────────────────────┘
+        ↓
+app/predict.py — 모델 예측 (Baseline / Advanced / Advanced+VLR.gg)
+        ↓
+┌──────────── 예측 결과 해석 (그룹 2) ─────────────┐
+│ B. calibration   → reliability + Brier + ECE    │
+│ C. nl_explain    → SHAP → 한국어 카드           │
+│ J. ult_balance   → st.progress gauge            │
+│ D. player_pool   → plotly 도넛 + out-of-pool    │
+└──────────────────────────────────────────────────┘
+        ↓
+┌──────────── 인터랙티브 시뮬레이션 (그룹 3) ───────┐
+│ A. whatif        → 슬롯 교체 → 승률 delta       │
+│ E. side_panel    → ATK/DEF 게이지 + 권장        │
+└──────────────────────────────────────────────────┘
 ```
 
 ---
@@ -241,3 +283,5 @@ app/main.py
 |------|------|
 | [../02_file_structure/03_ml_pipeline_files.md](../02_file_structure/03_ml_pipeline_files.md) | ml/ 폴더 파일 상세 |
 | [02_request_flow.md](02_request_flow.md) | 서빙 시 피처 처리 흐름 |
+| [../06_model_test/project_differentiation.md](../06_model_test/project_differentiation.md) | 5개 기술 차별점 + 10개 사용자 차별점 검증 게이트 |
+| [../11_ui_design/02_predict.md](../11_ui_design/02_predict.md) | 예측 화면 + 10개 차별점 위젯 배치 |

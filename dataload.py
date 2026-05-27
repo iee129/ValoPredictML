@@ -24,6 +24,8 @@ DATASETS: list[tuple[str, str]] = [  # 내려받을 데이터 목록이에요. �
     ("ryanluong1/valorant-champion-tour-2021-2023-data",      "vct_2021_2023"),  # 2021~2023년 VCT(발로란트 세계 대회) 경기 기록 — 가장 중요한 데이터예요
     ("ryanluong1/valorant-challengers-league-data",           "ryanluong1__valorant-challengers-league-data"),  # 챌린저스 리그(도전자 대회) 경기 기록이에요
     ("qualidea1217/valorant-pro-matches-since-april-2021",    "qualidea1217__valorant-pro-matches-since-april-2021"),  # 2021년 4월 이후의 프로 경기 기록이에요
+    ("ediashtarevin/vct-champions-2023-stats",                "ediashtarevin__vct-champions-2023-stats"),  # 2023 챔피언스 선수 스탯이에요
+    ("piyush86kumar/valorant-champions-2024",                 "piyush86kumar__valorant-champions-2024"),  # 2024 챔피언스 경기 기록이에요
 ]
 
 

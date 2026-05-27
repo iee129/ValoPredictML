@@ -7,6 +7,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import re
 from pathlib import Path
 
 import numpy as np
@@ -20,12 +21,34 @@ from ml.valorant import (
 )
 
 META_COLS = [
-    "match_key", "dedup_key", "date", "date_raw", "date_quality",
+    "match_key", "dedup_key",
     "event", "map", "team_a", "team_b", "source", "provenance", "split",
-    "strict_before_cutoff",
 ]
 
-_DROP_COLS = ["score_a", "score_b", "source_priority", "agents_a", "agents_b"]
+_YEAR_RE = re.compile(r"(20\d{2})")
+
+_DROP_COLS = ["score_a", "score_b", "source_priority", "agents_a", "agents_b",
+              "date", "date_raw", "date_quality", "strict_before_cutoff"]
+
+
+def extract_year(df: pd.DataFrame) -> pd.Series:
+    """Use explicit year when available, then fall back to event/provenance text."""
+    def _find(s) -> float:
+        if not s or not isinstance(s, str):
+            return float("nan")
+        m = _YEAR_RE.search(s)
+        return float(m.group(1)) if m else float("nan")
+
+    years = pd.Series(np.nan, index=df.index, dtype="float64")
+    if "year" in df.columns:
+        years = pd.to_numeric(df["year"], errors="coerce")
+        years = years.where(years.between(2000, 2099))
+    if "event" in df.columns:
+        years = years.combine_first(df["event"].apply(_find))
+    if "provenance" in df.columns:
+        prov_years = df["provenance"].apply(_find)
+        years = years.combine_first(prov_years)
+    return years.fillna(0).astype(int)
 
 
 def _parse_agents(s: str | None) -> list[str]:
@@ -136,7 +159,7 @@ def build_team_prior_wr(df: pd.DataFrame) -> pd.DataFrame:
     b_wr = np.full(n, np.nan)
 
     # argsort returns positions sorted by date; df must have 0-based int index
-    date_order = df["date"].argsort().values
+    date_order = df["year"].argsort().values
 
     wins: dict[str, int] = {}
     games: dict[str, int] = {}
@@ -166,7 +189,7 @@ def build_map_team_wr(df: pd.DataFrame) -> pd.DataFrame:
     n = len(df)
     a_arr = np.full(n, np.nan)
     b_arr = np.full(n, np.nan)
-    date_order = df["date"].argsort().values
+    date_order = df["year"].argsort().values
 
     wins: dict[tuple, int] = {}
     games: dict[tuple, int] = {}
@@ -196,7 +219,7 @@ def build_map_team_wr(df: pd.DataFrame) -> pd.DataFrame:
 def build_recent_form(df: pd.DataFrame, windows: tuple[int, ...] = (5, 10)) -> pd.DataFrame:
     """Win rate in last N games per team — one set of 3 cols per window."""
     n = len(df)
-    date_order = df["date"].argsort().values
+    date_order = df["year"].argsort().values
 
     from collections import deque
     cols: dict[str, np.ndarray] = {}
@@ -236,7 +259,7 @@ def build_h2h_wr(df: pd.DataFrame) -> pd.DataFrame:
     n = len(df)
     h2h = np.full(n, np.nan)
     h2h_count = np.zeros(n, dtype=np.int32)
-    date_order = df["date"].argsort().values
+    date_order = df["year"].argsort().values
 
     pair_wins: dict[tuple, int] = {}
     pair_games: dict[tuple, int] = {}
@@ -305,8 +328,9 @@ def main(input_dir: str = "data/processed", output_dir: str = "data/processed") 
     inp, out = Path(input_dir), Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
 
-    print("Loading matches.csv...")
-    matches = pd.read_csv(inp / "matches.csv", low_memory=False)
+    csv_name = "vct_matches.csv" if (inp / "vct_matches.csv").exists() else "matches.csv"
+    print(f"Loading {csv_name}...")
+    matches = pd.read_csv(inp / csv_name, low_memory=False)
     print(f"  {len(matches)} rows, {len(matches.columns)} cols")
 
     print("Deduplicating...")
@@ -318,12 +342,17 @@ def main(input_dir: str = "data/processed", output_dir: str = "data/processed") 
     matches = matches.reset_index(drop=True)
     print(f"  {len(matches)} rows after label filter")
 
+    print("Extracting year from event/provenance...")
+    matches["year"] = extract_year(matches)
+    year_known = (matches["year"] > 0).sum()
+    print(f"  year known: {year_known}/{len(matches)} rows "
+          f"({year_known / len(matches) * 100:.1f}%)")
+
     print("Building features...")
     feat = build_features(matches)
 
     print("Splitting train/val/test...")
     feat = split_data(feat)
-    feat["strict_before_cutoff"] = 0
 
     # Handle win-rate NaN: add unknown flag, fill with 0.5
     wr_cols = [c for c in feat.columns if "_wr" in c and not c.endswith("_unknown")]

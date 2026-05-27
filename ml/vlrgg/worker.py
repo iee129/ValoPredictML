@@ -51,9 +51,15 @@ def init_db(db_path: Path) -> None:
             claimed_by TEXT,
             claimed_at REAL,
             done_at TEXT,
-            error TEXT
+            error TEXT,
+            retries INTEGER NOT NULL DEFAULT 0
         );
     """)
+    try:
+        conn.execute("ALTER TABLE jobs ADD COLUMN retries INTEGER NOT NULL DEFAULT 0")
+        conn.commit()
+    except Exception:
+        pass
     conn.close()
 
 
@@ -134,6 +140,42 @@ def mark_status(db_path: Path, match_id: str, status: str, error: str = "") -> N
         "UPDATE jobs SET status=?, done_at=?, error=? WHERE match_id=?",
         (status, utc_now(), error[:500], match_id),
     )
+    conn.commit()
+    conn.close()
+
+
+def mark_retry_or_no_data(db_path: Path, match_id: str, error: str, max_retries: int = 5) -> None:
+    conn = _connect(db_path)
+    row = conn.execute("SELECT retries FROM jobs WHERE match_id=?", (match_id,)).fetchone()
+    retries = (row["retries"] if row else 0) + 1
+    if retries >= max_retries:
+        conn.execute(
+            "UPDATE jobs SET status='no_data', done_at=?, error=?, retries=? WHERE match_id=?",
+            (utc_now(), error[:500], retries, match_id),
+        )
+    else:
+        conn.execute(
+            "UPDATE jobs SET status='pending', claimed_by=NULL, claimed_at=NULL, retries=?, error=? WHERE match_id=?",
+            (retries, error[:500], match_id),
+        )
+    conn.commit()
+    conn.close()
+
+
+def mark_retry_or_failed(db_path: Path, match_id: str, error: str, max_retries: int = 5) -> None:
+    conn = _connect(db_path)
+    row = conn.execute("SELECT retries FROM jobs WHERE match_id=?", (match_id,)).fetchone()
+    retries = (row["retries"] if row else 0) + 1
+    if retries >= max_retries:
+        conn.execute(
+            "UPDATE jobs SET status='failed', done_at=?, error=?, retries=? WHERE match_id=?",
+            (utc_now(), error[:500], retries, match_id),
+        )
+    else:
+        conn.execute(
+            "UPDATE jobs SET status='pending', claimed_by=NULL, claimed_at=NULL, retries=?, error=? WHERE match_id=?",
+            (retries, error[:500], match_id),
+        )
     conn.commit()
     conn.close()
 
@@ -257,16 +299,19 @@ def worker_loop(
 
         except requests.exceptions.HTTPError as exc:
             code = exc.response.status_code if exc.response is not None else 0
-            if code in (404, 502, 503):
+            if code == 404:
                 mark_status(db, mid, "no_data", f"HTTP {code}")
                 backoff = max(float(interval), backoff * 0.9)
+            elif code in (502, 503):
+                mark_retry_or_no_data(db, mid, f"HTTP {code}")
+                backoff = min(backoff * 1.5, 30.0)
             else:
                 mark_status(db, mid, "failed", f"HTTP {code}: {exc}"[:200])
                 backoff = min(backoff * 1.5, 30.0)
 
         except requests.exceptions.Timeout:
-            mark_status(db, mid, "no_data", "timeout")
-            backoff = max(float(interval), backoff * 0.9)
+            mark_retry_or_failed(db, mid, "timeout")
+            backoff = min(backoff * 1.5, 30.0)
 
         except Exception as exc:
             mark_status(db, mid, "failed", f"{type(exc).__name__}: {exc}"[:200])

@@ -30,8 +30,15 @@ Valorant 5v5 팀 구성 기반 승률 예측 ML 프로젝트 문서 모음.
 | [ui_design.md](ui_design.md) | UI 설계 요약 |
 | [TODO.md](TODO.md) | 작업 목록 |
 
-## 현재 상태 (2026-05-05)
+## 현재 상태 (2026-05-27)
 
-- **ML 파이프라인**: 완료 — Ensemble AUC=0.9355, Acc=0.8540, F1=0.8508
-- **Streamlit UI**: 미구현 (다음 단계)
-- **범위 외**: FastAPI, Next.js, PostgreSQL, 클라우드 배포
+- **Baseline ML 파이프라인**: 완료 — Kaggle-only previous-year 184피처, train+val 학습, Test AUC=0.6707, 데이터 누수 6관문 PASS
+- **차별점 강화 스프린트 (2026-05-28 ~ 2026-06-08)**: 진행 — 사용자 측면 차별점 10개 (I·N·K·G·B·C·J·D·A·E) Streamlit 단일 도구 통합
+  - 원본 계획: `.omc/plans/user_facing_differentiators_plan.md`
+  - 시장 빈자리 분석: [competitive_analysis.md](competitive_analysis.md)
+  - VLR.gg 데이터원 매핑: [07_data/02_primary_datasets/04_vlrgg.md](07_data/02_primary_datasets/04_vlrgg.md)
+  - 일정 상세: [01_overview/04_roadmap_and_team.md](01_overview/04_roadmap_and_team.md) 섹션 1.1
+- **심화 모델**: 5/31 (Kaggle 단독) + 6/3 (Kaggle+VLR.gg 통합) 학습 예정
+- **Streamlit UI**: 5/29~6/7 차별점 모듈과 함께 점진적 통합 (`app/main.py` 단일 진입점)
+- **기말 발표**: 2026-06-09
+- **범위 외**: FastAPI, Next.js, 클라우드 배포 (PostgreSQL/SQLite는 현재 범위에서 미사용)

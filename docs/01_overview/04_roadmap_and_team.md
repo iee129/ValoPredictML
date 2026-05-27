@@ -1,17 +1,19 @@
 # 04. 로드맵, 팀 구성, 용어 사전
 
-마지막 업데이트: 2026-05-05
+마지막 업데이트: 2026-05-27
 
 ## 1. 단계별 로드맵
 
 ```
 Phase 0 ✅  환경 설정 (venv, Kaggle 인증)
-Phase 1 ✅  데이터 수집 (Kaggle 7개 데이터셋, 2.3GB)
-Phase 2 ✅  데이터 전처리 (ml/agent_roles.py, ml/data_pipeline.py)
-Phase 3 ✅  피처 엔지니어링 (역할군·선수스탯·시너지·요원조합 피처 43개)
-Phase 4 ✅  모델 학습 및 평가 (RF, XGBoost, LightGBM — Ensemble AUC=0.935, Acc=0.854, F1=0.851)
-Phase 5 →   Streamlit UI 구현
-Phase 6     검증 및 발표 정리
+Phase 1 ✅  데이터 수집 (Kaggle 3개 활성 데이터셋)
+Phase 2 ✅  데이터 전처리 (ml/baseline/preprocess.py)
+Phase 3 ✅  피처 엔지니어링 (역할·선수·시너지 184피처, previous-year 기반)
+Phase 4 ✅  Baseline 모델 학습·평가 (LR + DT Soft Voting, Test AUC=0.6707)
+Phase 5a →  심화 모델 학습 (RF + XGBoost + LightGBM + Optuna)         — 5/29~5/31
+Phase 5b →  VLR.gg 통합 + 심화 모델 재학습                              — 6/2~6/3
+Phase 5c →  10개 사용자 차별점 모듈 + Streamlit 통합 (app/main.py)      — 5/29~6/7
+Phase 6  →  통합 테스트 + 시연 영상 + 기말 발표                          — 6/7~6/9
 ```
 
 ### 단계별 완료 기준
@@ -19,12 +21,34 @@ Phase 6     검증 및 발표 정리
 | Phase | 완료 기준 |
 |-------|-----------|
 | Phase 0 | `.venv` 활성화, `python dataload.py` 정상 실행 |
-| Phase 1 | `data/raw/kaggle/`에 7개 데이터셋, 2.3GB 다운로드 완료 |
-| Phase 2 | ✅ `data/processed/matches_clean.csv` 생성, 품질 게이트 통과, `reports/preprocess_summary.json` 생성 |
-| Phase 3 | ✅ 43개 피처 생성, `data/processed/features_base.csv` 확인, `train.csv / val.csv / test.csv` 생성 |
-| Phase 4 | ✅ RF/XGBoost/LightGBM Ensemble AUC=0.935, Acc=0.854, F1=0.851, GroupKFold(K=5) 교차 검증 완료, `ml/validate_metrics.py` 통과 |
-| Phase 5 | 입력→예측→설명 흐름 Streamlit에서 동작 (미구현) |
-| Phase 6 | 발표 자료에 데이터/피처/모델/평가/한계 포함 |
+| Phase 1 | `data/raw/kaggle/`에 활성 데이터셋 3종 다운로드 완료 |
+| Phase 2 | ✅ `data/processed/matches.csv` 생성, 품질 게이트 통과 |
+| Phase 3 | ✅ 184피처 생성, `train.csv / val.csv / test.csv` 70/15/15 분할 |
+| Phase 4 | ✅ Baseline Test AUC=0.6707 (LR + DT Soft Voting), 6관문 데이터 누수 게이트 통과 |
+| Phase 5a | RF/XGB/LGBM 세 모델 + Optuna HPO 완료, `models/advanced/{rf,xgb,lgbm}.joblib`, 6관문 통과 |
+| Phase 5b | VLR.gg 통합 데이터로 심화 모델 재학습, `models/advanced_vlrgg/`, 6관문 통과 |
+| Phase 5c | 10개 차별점 모듈 (`ml/differentiators/*.py`) + Streamlit 통합 화면 (`app/main.py`) 정상 동작, 단위 테스트 10개 통과 |
+| Phase 6  | 통합 테스트 통과, 시연 영상 3개 (정상/박빙/out-of-pool), 발표 자료 완성 |
+
+### 1.1 일별 일정 (2026-05-28 ~ 2026-06-09)
+
+전체 구현 계획 원본: `.omc/plans/user_facing_differentiators_plan.md` — 채택된 차별점 10개의 파일·알고리즘·acceptance 명세 포함.
+
+| 날짜 | 작업 |
+|------|------|
+| 5/28 (목) | 중간 발표 |
+| 5/29 (금) | 차별점 I (카운터 픽 경고) + G (위험 알림) 모듈 구현 |
+| 5/30 (토) | 차별점 N (요원-맵 적합도) + K (맵별 이상 구성) + J (Ult Cycle Balance) |
+| 5/31 (일) | Phase 5a — 심화 모델 학습 (RF + XGBoost + LightGBM + Optuna) |
+| 6/01 (월) | 차별점 B (박빙 검증, Brier+ECE) + C (자연어 설명 골격) |
+| 6/02 (화) | VLR.gg 스크래핑 완료 확인 + 통합 데이터 정합성 검증 |
+| 6/03 (수) | 차별점 D (선수 Agent Pool) + Phase 5b VLR.gg 통합 모델 재학습 |
+| 6/04 (목) | 차별점 E (사이드별 ATK/DEF 패널) |
+| 6/05 (금) | 차별점 A (What-if 시뮬레이션) |
+| 6/06 (토) | 차별점 C (자연어 설명) SHAP 통합 + 한국어 도메인 비유 완성 |
+| 6/07 (일) | Phase 5c 통합 — `app/main.py` 단일 진입점 + 통합 테스트 + 시연 영상 1차 |
+| 6/08 (월) | 최종 리허설 + 발표 자료 보강 + 백업 시연 영상 |
+| 6/09 (화) | 기말 발표 |
 
 ---
 

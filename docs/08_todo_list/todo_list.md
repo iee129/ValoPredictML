@@ -1,7 +1,8 @@
 # 08. 전체 작업 Todo List
 
-> 마지막 업데이트: 2026-05-10
+> 마지막 업데이트: 2026-05-27
 > 현재 브랜치: `iee`
+> 원본 계획: `.omc/plans/user_facing_differentiators_plan.md`
 
 ---
 
@@ -43,11 +44,56 @@
 
 ---
 
-## 진행 중
+## 진행 중 (2026-05-28 ~ 2026-06-08 — 사용자 차별점 강화 2주 스프린트)
 
-- [ ] P1-P4 57개 활성 피처 기준으로 `data_pipeline -> train_model -> evaluate_model -> validate_metrics` 산출물 재생성
-- [ ] v7 데이터 확장 (`visualize25` SQLite loader, provenance, leakage guard)
-- [ ] 가설 검증 확장 (`ml/hypothesis_test.py` 100+ hypothesis cross-validation)
+### 1주차 (5/29~6/1) — VLR.gg 비의존 차별점 7개 + 심화 모델
+
+- [ ] **5/29 (금)** I (카운터 픽 경고) + G (위험 알림)
+  - [ ] `docs/10_valorant/counters.md` 18쌍 → `data/research/valorant_counters.json`
+  - [ ] `ml/differentiators/counter_alert.py` + `tests/differentiators/test_counter_alert.py`
+  - [ ] `ml/differentiators/risk_alert.py` (룰 5개: no_controller / too_many_sentinels / no_duelist / no_initiator / same_role_overload)
+- [ ] **5/30 (토)** N (요원-맵 적합도) + K (맵별 이상 구성) + J (Ult Cycle Balance)
+  - [ ] `docs/10_valorant/agents.md` → `data/research/agent_map_fit.json` (29×13)
+  - [ ] `docs/10_valorant/maps.md` → `data/research/map_ideal_comp.json` (12 맵)
+  - [ ] `docs/10_valorant/economy.md` → `data/research/agent_ult_cost.json` (29 요원)
+  - [ ] `ml/differentiators/{agent_map_fit,map_ideal_comp,ult_balance}.py` + 단위 테스트 3건
+- [ ] **5/31 (일)** Phase 5a — 심화 모델 학습
+  - [ ] `ml/advanced/preprocess.py` + `ml/advanced/train.py` (RF + XGBoost + LightGBM + Optuna)
+  - [ ] `models/advanced/{rf,xgb,lgbm}.joblib` 생성, `reports/advanced/metrics.json`
+  - [ ] `ml/advanced/validate.py` — 6관문 데이터 누수 게이트 통과
+- [ ] **6/01 (월)** B (박빙 검증) + C (자연어 설명 골격)
+  - [ ] `ml/baseline/evaluate.py` 보강 — Brier + Reliability + ECE + 박빙 구간 다단계
+  - [ ] `reports/baseline/calibration.png`, `reports/advanced/calibration.png`
+  - [ ] `ml/differentiators/nl_explain.py` 한국어 템플릿 골격
+
+### 2주차 (6/2~6/8) — VLR.gg 통합 + 차별점 D·E·A·C 완성 + Streamlit 통합
+
+- [ ] **6/02 (화)** VLR.gg 스크래핑 완료 확인 + 통합 데이터 정합성 검증
+  - [ ] `data/processed/vlrgg/` 통합 CSV, dedup_key 매칭 리포트
+- [ ] **6/03 (수)** D (선수 Agent Pool) + Phase 5b VLR.gg 통합 모델 재학습
+  - [ ] `ml/differentiators/player_agent_pool.py` (vlrggapi + CSV fallback)
+  - [ ] `models/advanced_vlrgg/{rf,xgb,lgbm}.joblib`, 6관문 통과
+- [ ] **6/04 (목)** E (사이드별 ATK/DEF 패널)
+  - [ ] `ml/differentiators/side_panel.py` (VLR team stats ATK RWin% / DEF RWin%)
+- [ ] **6/05 (금)** A (What-if 시뮬레이션)
+  - [ ] `app/whatif.py` — session_state 히스토리 stack, `@st.cache_resource`로 모델 로드
+- [ ] **6/06 (토)** C (자연어 설명) SHAP 통합
+  - [ ] SHAP TreeExplainer → 상위 5개 피처 → 한국어 카드 (발로란트 도메인 비유 포함)
+- [ ] **6/07 (일)** Phase 5c 통합
+  - [ ] `app/main.py` — 10개 차별점 단일 화면 통합 (`st.tabs` 3그룹)
+  - [ ] `app/predict.py`, `app/components.py`
+  - [ ] `tests/integration/test_streamlit_integration.py`
+  - [ ] 시연 영상 3개 1차 (정상 / 박빙 / out-of-pool)
+- [ ] **6/08 (월)** 최종 리허설
+  - [ ] `notice/final/final_presentation.md`, `final_script.md`
+  - [ ] 백업 시연 영상
+
+### 검증 게이트 (전 기간)
+
+- [ ] 데이터 누수 6관문 — 베이스라인 / 심화 (Kaggle) / 심화 (Kaggle+VLR.gg) 3개 모델 모두 PASS
+- [ ] 차별점 단위 테스트 10개 모두 통과 (`pytest tests/differentiators/`)
+- [ ] 통합 테스트 통과 (`pytest tests/integration/`)
+- [ ] 박빙 구간 정확도 ≥50% (찍기 초과, B 차별점 학술 기준)
 
 ---
 

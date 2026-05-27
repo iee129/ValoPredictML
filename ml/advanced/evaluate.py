@@ -1,28 +1,31 @@
-"""
-Evaluate advanced models on train/val/test splits.
+"""Evaluate the Kaggle-only advanced models on train/val/test splits.
 
 Usage:
-    python -m ml.advanced.evaluate [--input data/processed] [--models models/advanced] [--reports reports/advanced]
+    python -m ml.advanced.evaluate \
+        --input data/processed/adv_kaggle_only \
+        --models models/advanced \
+        --reports reports/adv_kaggle_only
 """
 from __future__ import annotations
 
 import argparse
 import json
 from pathlib import Path
+from typing import Any
 
 import joblib
 import numpy as np
 import pandas as pd
-from sklearn.metrics import (
-    accuracy_score, confusion_matrix, f1_score, roc_auc_score,
-)
+from sklearn.metrics import accuracy_score, confusion_matrix, f1_score, roc_auc_score
 
-from ml.baseline.preprocess import build_xy
+from ml.baseline.preprocess import FEATURE_COLS_ADVANCED, build_xy
 
-BASELINE_TEST_AUC = 0.6678
+DEFAULT_INPUT_DIR = "data/processed/adv_kaggle_only"
+DEFAULT_MODELS_DIR = "models/advanced"
+DEFAULT_REPORTS_DIR = "reports/adv_kaggle_only"
 
 
-def _metrics(y_true, probs) -> dict:
+def _metrics(y_true: pd.Series, probs: np.ndarray) -> dict[str, Any]:
     preds = (probs >= 0.5).astype(int)
     return {
         "auc": float(roc_auc_score(y_true, probs)),
@@ -32,80 +35,173 @@ def _metrics(y_true, probs) -> dict:
     }
 
 
+def _load_baseline_metrics() -> dict[str, float] | None:
+    path = Path("reports/baseline/metrics.json")
+    if not path.exists():
+        return None
+    with open(path) as f:
+        payload = json.load(f)
+    return {
+        "baseline_test_auc": float(payload.get("test_auc", 0.0)),
+        "baseline_test_acc": float(payload.get("test_acc", 0.0)),
+        "baseline_test_f1": float(payload.get("test_f1", 0.0)),
+    }
+
+
+def _feature_importances(model: Any, n_features: int) -> np.ndarray:
+    if hasattr(model, "feature_importances_"):
+        values = np.asarray(model.feature_importances_, dtype=float)
+        return values if len(values) == n_features else np.zeros(n_features, dtype=float)
+
+    if hasattr(model, "estimators_"):
+        weights = getattr(model, "weights", None) or [1.0] * len(model.estimators_)
+        combined = np.zeros(n_features, dtype=float)
+        total_weight = 0.0
+        for estimator, weight in zip(model.estimators_, weights):
+            values = _feature_importances(estimator, n_features)
+            if values.any():
+                combined += float(weight) * values
+                total_weight += float(weight)
+        return combined / total_weight if total_weight else combined
+
+    return np.zeros(n_features, dtype=float)
+
+
+def _top_features(model: Any, feature_names: list[str], limit: int = 20) -> list[dict[str, Any]]:
+    importances = _feature_importances(model, len(feature_names))
+    order = np.argsort(importances)[::-1][:limit]
+    return [
+        {"feature": feature_names[i], "importance": float(importances[i])}
+        for i in order
+        if importances[i] > 0
+    ]
+
+
+def _update_meta(models_dir: Path, patch: dict[str, Any]) -> None:
+    meta_path = models_dir / "meta.json"
+    if not meta_path.exists():
+        return
+    with open(meta_path) as f:
+        meta = json.load(f)
+    meta.update(patch)
+    with open(meta_path, "w") as f:
+        json.dump(meta, f, indent=2)
+
+
 def evaluate(
-    input_dir: str = "data/processed",
-    models_dir: str = "models/advanced",
-    reports_dir: str = "reports/advanced",
-) -> dict:
-    inp, mdl, rpt = Path(input_dir), Path(models_dir), Path(reports_dir)
+    input_dir: str = DEFAULT_INPUT_DIR,
+    models_dir: str = DEFAULT_MODELS_DIR,
+    reports_dir: str = DEFAULT_REPORTS_DIR,
+) -> dict[str, Any]:
+    inp = Path(input_dir)
+    mdl = Path(models_dir)
+    rpt = Path(reports_dir)
     rpt.mkdir(parents=True, exist_ok=True)
 
-    train_df = pd.read_csv(inp / "train.csv", low_memory=False)
-    val_df = pd.read_csv(inp / "val.csv", low_memory=False)
-    test_df = pd.read_csv(inp / "test.csv", low_memory=False)
-    X_train, y_train, _ = build_xy(train_df)
-    X_val, y_val, _ = build_xy(val_df)
-    X_test, y_test, _ = build_xy(test_df)
-    print(f"Data: train={X_train.shape} val={X_val.shape} test={X_test.shape}")
+    frames = {
+        split: pd.read_csv(inp / f"{split}.csv", low_memory=False)
+        for split in ("train", "val", "test")
+    }
+    xy = {
+        split: build_xy(frame, feature_contract="advanced")
+        for split, frame in frames.items()
+    }
+    feature_names = list(xy["train"][0].columns)
+    if feature_names != FEATURE_COLS_ADVANCED:
+        raise RuntimeError("Advanced feature order does not match FEATURE_COLS_ADVANCED")
 
     model_names = ["rf", "xgb", "lgbm", "ensemble"]
     models = {name: joblib.load(mdl / f"{name}.joblib") for name in model_names}
+    for name, model in models.items():
+        n_features = getattr(model, "n_features_in_", None)
+        if n_features != len(feature_names):
+            raise RuntimeError(
+                f"{name}.joblib expects {n_features} features; "
+                f"advanced contract has {len(feature_names)}"
+            )
 
-    all_metrics: dict = {}
+    all_metrics: dict[str, Any] = {}
+    print(f"Data: train={xy['train'][0].shape} val={xy['val'][0].shape} test={xy['test'][0].shape}")
 
     for name, model in models.items():
-        train_probs = model.predict_proba(X_train)[:, 1]
-        val_probs = model.predict_proba(X_val)[:, 1]
-        test_probs = model.predict_proba(X_test)[:, 1]
-
-        m = {
-            "train": _metrics(y_train, train_probs),
-            "val": _metrics(y_val, val_probs),
-            "test": _metrics(y_test, test_probs),
-        }
-        all_metrics[name] = m
+        model_metrics: dict[str, Any] = {}
+        for split in ("train", "val", "test"):
+            X, y, _ = xy[split]
+            probs = model.predict_proba(X)[:, 1]
+            model_metrics[split] = _metrics(y, probs)
+        all_metrics[name] = model_metrics
         print(
-            f"{name:10s}  "
-            f"train_auc={m['train']['auc']:.4f}  "
-            f"val_auc={m['val']['auc']:.4f}  "
-            f"test_auc={m['test']['auc']:.4f}"
+            f"{name:10s} "
+            f"train_auc={model_metrics['train']['auc']:.4f} "
+            f"val_auc={model_metrics['val']['auc']:.4f} "
+            f"test_auc={model_metrics['test']['auc']:.4f}"
         )
 
-    ens_test_auc = all_metrics["ensemble"]["test"]["auc"]
-    delta = ens_test_auc - BASELINE_TEST_AUC
-    print(f"\nEnsemble test AUC={ens_test_auc:.4f}  baseline={BASELINE_TEST_AUC:.4f}  delta={delta:+.4f}")
-    all_metrics["baseline_comparison"] = {
-        "baseline_test_auc": BASELINE_TEST_AUC,
-        "ensemble_test_auc": ens_test_auc,
-        "delta": float(delta),
-    }
+    ensemble_test = all_metrics["ensemble"]["test"]
+    baseline = _load_baseline_metrics()
+    baseline_comparison = None
+    if baseline:
+        baseline_comparison = {
+            **baseline,
+            "advanced_test_auc": ensemble_test["auc"],
+            "advanced_test_acc": ensemble_test["acc"],
+            "advanced_test_f1": ensemble_test["f1"],
+            "delta_test_auc": float(ensemble_test["auc"] - baseline["baseline_test_auc"]),
+        }
+        print(
+            "\nEnsemble test AUC="
+            f"{ensemble_test['auc']:.4f} baseline={baseline['baseline_test_auc']:.4f} "
+            f"delta={baseline_comparison['delta_test_auc']:+.4f}"
+        )
 
-    # Feature importance top-20
-    print("\n=== Top-20 feature importance ===")
-    feature_names = list(X_train.columns)
-    for name in ["rf", "xgb", "lgbm"]:
-        importances = models[name].feature_importances_
-        top_idx = np.argsort(importances)[::-1][:20]
-        print(f"\n{name}:")
-        for i in top_idx:
-            print(f"  {feature_names[i]}: {importances[i]:.4f}")
-        all_metrics[f"{name}_top20"] = [
-            {"feature": feature_names[i], "importance": float(importances[i])}
-            for i in top_idx
-        ]
+    metrics: dict[str, Any] = {
+        "feature_contract": "advanced",
+        "feature_count": len(feature_names),
+        "feature_names": feature_names,
+        "train_rows": int(len(frames["train"])),
+        "val_rows": int(len(frames["val"])),
+        "modeling_rows": int(len(frames["train"]) + len(frames["val"])),
+        "test_rows": int(len(frames["test"])),
+        "models": all_metrics,
+        "rf": all_metrics["rf"],
+        "xgb": all_metrics["xgb"],
+        "lgbm": all_metrics["lgbm"],
+        "ensemble": all_metrics["ensemble"],
+        "test_auc": ensemble_test["auc"],
+        "test_acc": ensemble_test["acc"],
+        "test_f1": ensemble_test["f1"],
+        "confusion_matrix": ensemble_test["confusion_matrix"],
+        "baseline_comparison": baseline_comparison,
+        "top_features": {
+            name: _top_features(model, feature_names)
+            for name, model in models.items()
+        },
+    }
 
     metrics_path = rpt / "metrics.json"
     with open(metrics_path, "w") as f:
-        json.dump(all_metrics, f, indent=2)
-    print(f"\nSaved → {metrics_path}")
+        json.dump(metrics, f, indent=2)
+    print(f"\nSaved metrics: {metrics_path}")
 
-    return all_metrics
+    _update_meta(
+        mdl,
+        {
+            "metrics": {
+                "reports_dir": str(rpt),
+                "test_auc": ensemble_test["auc"],
+                "test_acc": ensemble_test["acc"],
+                "test_f1": ensemble_test["f1"],
+                "baseline_comparison": baseline_comparison,
+            }
+        },
+    )
+    return metrics
 
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("--input", default="data/processed")
-    ap.add_argument("--models", default="models/advanced")
-    ap.add_argument("--reports", default="reports/advanced")
+    ap.add_argument("--input", default=DEFAULT_INPUT_DIR)
+    ap.add_argument("--models", default=DEFAULT_MODELS_DIR)
+    ap.add_argument("--reports", default=DEFAULT_REPORTS_DIR)
     args = ap.parse_args()
     evaluate(args.input, args.models, args.reports)

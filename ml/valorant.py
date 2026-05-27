@@ -10,6 +10,7 @@ __all__ = [
     "_agent_col_key", "_AGENT_KEY_TO_ROLE",
     "agent_feature_columns", "role_feature_columns", "map_feature_columns",
     "normalize_agent", "normalize_map",
+    "compute_rounds",
 ]
 
 ROLES: list[str] = ["duelist", "initiator", "controller", "sentinel"]
@@ -98,3 +99,11 @@ def role_feature_columns() -> list[str]:
 def map_feature_columns() -> list[str]:
     """Returns map_<name> binary columns — 13 cols."""
     return [f"map_{m.lower()}" for m in MAP_ORDER]
+
+
+def compute_rounds(score_a, score_b):
+    """매치 총 라운드 수 = score_a + score_b. NaN/None 전파.
+
+    스칼라와 pandas Series 모두 지원. 결측 시 분모로 쓰는 곳에서 APR/FKPR/FDPR 결측 처리 필요.
+    """
+    return score_a + score_b
