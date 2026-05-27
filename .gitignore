@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+.pytest_cache/
+
+# 학습 산출물 (용량 크고 재생성 가능)
+*.joblib
+vct_winrate/artifacts/
+
+# Claude Code / OMC 내부 상태
+.omc/
+.claude/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# 에디터
+.vscode/
+.idea/
+*.swp

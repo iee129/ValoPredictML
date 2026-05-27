@@ -1,0 +1,17 @@
+{
+  "map": "Haven",
+  "team_a": [
+    {"player": "Jinggg",    "agent": "Jett"},
+    {"player": "f0rsakeN",  "agent": "Phoenix"},
+    {"player": "d4v41",     "agent": "Skye"},
+    {"player": "mindfreak", "agent": "Brimstone"},
+    {"player": "something", "agent": "Killjoy"}
+  ],
+  "team_b": [
+    {"player": "BuZz",  "agent": "Jett"},
+    {"player": "Zest",  "agent": "Yoru"},
+    {"player": "Rb",    "agent": "Sova"},
+    {"player": "MaKo",  "agent": "Omen"},
+    {"player": "stax",  "agent": "Killjoy"}
+  ]
+}
