@@ -89,23 +89,83 @@ import { getAgentIconUrl } from '@/lib/agentImage';
 // → https://media.valorant-api.com/agents/{uuid}/displayicon.png
 ```
 
-### 시각적 상태 표현
+### 비주얼 상태 스펙
 
-| 상태 | 표현 |
-|---|---|
-| 기본 | 어두운 패널 배경, 회색 테두리 |
-| selected | 빨간 테두리(`--color-valo-red`) + 체크 오버레이 |
-| disabled (5명 초과) | `opacity-40`, `cursor-not-allowed` |
-| hover | `scale-105`, 테두리 색상 강조 |
+| 상태 | 속성 | 토큰 / 값 |
+|---|---|---|
+| 기본 | background | `var(--color-valo-panel)` |
+| 기본 | border | `1px solid var(--color-valo-border)` |
+| hover | border-color | `var(--color-valo-red-hover)` |
+| hover | transform | `scale(1.04)` |
+| hover | box-shadow | `0 0 8px var(--color-valo-red-dim)` |
+| selected | border | `2px solid var(--color-valo-red)` |
+| selected | background | `var(--color-valo-red-dim)` |
+| selected | 체크 오버레이 | `color: var(--color-valo-red)` |
+| disabled | opacity | `0.35` |
+| disabled | cursor | `not-allowed` |
+| disabled | pointer-events | `none` |
+
+```css
+/* AgentCard.module.css */
+@reference "tailwindcss";
+
+/* 기본 */
+.card {
+  @apply relative cursor-pointer transition-all duration-150;
+  background: var(--color-valo-panel);
+  border: 1px solid var(--color-valo-border);
+  /* 우상단 8px 잘림 — 발로란트 각진 형태 (둥근 모서리 대신 clip-path) */
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%);
+}
+
+/* hover — disabled 상태에서는 발동하지 않음 */
+.card:hover:not(.cardDisabled) {
+  border-color: var(--color-valo-red-hover);
+  transform: scale(1.04);
+  box-shadow: 0 0 8px var(--color-valo-red-dim);
+}
+
+/* selected */
+.cardSelected {
+  border: 2px solid var(--color-valo-red);
+  background: var(--color-valo-red-dim);
+}
+.cardSelected::after {
+  @apply absolute top-1 text-xs font-bold;
+  right: 10px;  /* clip-path 우상단 잘림 회피 */
+  content: '✓';
+  color: var(--color-valo-red);
+}
+
+/* disabled (5명 초과 시) */
+.cardDisabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+```
 
 ### 역할군 색상 표시
 
 카드 하단에 역할군 색상 도트:
+
 ```jsx
 <span
   className={styles.roleDot}
   style={{ backgroundColor: ROLE_COLORS[agent.role] }}
 />
+```
+
+`ROLE_COLORS`는 hex를 직접 쓰지 않고 토큰 변수를 참조한다:
+
+```js
+// 역할군 → CSS 변수 매핑 (hex 하드코딩 금지)
+const ROLE_COLORS = {
+  'Duelist':    'var(--color-role-duelist)',    // #ff4655 레드
+  'Initiator':  'var(--color-role-initiator)',  // #29c5e0 시안
+  'Controller': 'var(--color-role-controller)', // #5ccf6f 그린
+  'Sentinel':   'var(--color-role-sentinel)',   // #ffb02e 오렌지
+};
 ```
 
 ---

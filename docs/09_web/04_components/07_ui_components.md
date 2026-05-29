@@ -100,7 +100,7 @@ export default function ErrorMessage({ message }) {
 
 .error {
   @apply flex items-center gap-2 px-4 py-3 rounded;
-  background: rgba(255, 70, 85, 0.1);
+  background: var(--color-valo-red-dim);
   border: 1px solid rgba(255, 70, 85, 0.3);
   color: var(--color-valo-red);
 }
@@ -154,9 +154,12 @@ export default function StatCard({ label, value, unit, icon }) {
 @reference "tailwindcss";
 
 .card {
-  @apply flex items-center gap-4 p-5 rounded-lg;
+  @apply flex items-center gap-4 p-5 rounded-lg transition-colors duration-150;
   background: var(--color-valo-panel);
   border: 1px solid var(--color-valo-border);
+}
+.card:hover {
+  border-color: var(--color-valo-red);
 }
 
 .icon {

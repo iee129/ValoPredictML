@@ -7,7 +7,7 @@
 ## 1. 전략 개요
 
 데이터 소스는 Kaggle 7개 데이터셋으로 확정. 외부 API·스크래핑은 방침상 미사용.
-수집은 `dataload.py`로 이미 완료(2.3GB). 전처리 파이프라인(`ml/data_pipeline.py`) 및 ML 모델 학습 완료.
+수집은 `dataload.py`로 이미 완료(2.3GB). 전처리 파이프라인(`ml/raw_preprocess.py` → `ml/baseline/preprocess.py`) 및 ML 모델 학습 완료.
 
 ---
 
@@ -27,7 +27,7 @@
 
 ## 3. 전처리 파이프라인 진행 순서
 
-### Phase 1 — 파싱 (ml/data_pipeline.py)
+### Phase 1 — 파싱 (ml/raw_preprocess.py → ml/baseline/preprocess.py)
 
 ```
 parse_ryanluong("data/raw/kaggle/vct_2021_2023")
@@ -39,34 +39,34 @@ parse_edia     ("data/raw/kaggle/ediashtarevin__*")
 → 공통 스키마 행 리스트로 병합
 ```
 
-### Phase 2 — 품질 게이트 + dedup
+### Phase 2 — 품질 검사 + dedup
 
 - 팀당 요원 5명, AGENT_ROLE_MAP 존재, 유효 맵, 유효 레이블 확인
 - `dedup_key` (24자 SHA-1) 기준 중복 제거 — 가중치 높은 소스 우선
 
 ### Phase 3 — 피처 엔지니어링
 
-- 43개 피처 생성 (역할군 카운트·파생·선수 스탯·시너지·요원 조합·맵)
+- baseline 계약: 178개 / advanced 계약: 125개 피처 생성 (--feature-contract 인자로 분기)
 - 사전 집계(atk_side_advantage, agent_map_stats, agent_experience)는 train.csv 기준
 
 ### Phase 4 — 분할
 
-- match_key 단위 GroupShuffleSplit → train 70% / val 15% / test 15%
-- A/B swap 증강 (train 한정, `--no-augment-train` 비활성화 가능)
+- match_key 단위 GroupShuffleSplit → train 80% / test 20% (별도 검증셋 없이 train 내부 GroupKFold로 튜닝)
+- 데이터가 섞이지 않게: match_key 단위 분할 + GroupKFold + 금지 피처 26개 + 이전 연도만 prior + smoothing
 
 ---
 
 ## 4. 실행 명령
 
 ```bash
-# 전체 실행
-python -m ml.data_pipeline --input data/raw/kaggle --output data/processed --reports reports
+# raw 정제 (진입점)
+python -m ml.raw_preprocess
 
-# dry-run
-python -m ml.data_pipeline --input data/raw/kaggle --output /tmp/valo_out --reports /tmp/valo_reports
+# baseline 전처리
+python -m ml.baseline.preprocess
 
-# A/B swap 증강 비활성화
-python -m ml.data_pipeline --input data/raw/kaggle --output data/processed --reports reports --no-augment-train
+# advanced 전처리 (feature-contract 분기)
+python -m ml.baseline.preprocess --feature-contract advanced
 ```
 
 ---

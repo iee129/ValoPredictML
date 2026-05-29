@@ -28,7 +28,7 @@
 선수 행 합계 (7개 소스): ~1,318K 행
 경기 단위로 환산 (÷10): ~130K 맵 행
 중복 제거 후 예상:       80~100K 맵 행
-train/val/test 분할:    70/15/15
+train/test 분할:        80/20
 ```
 
 소스 가중치 정책: 동일 경기가 두 소스에 존재할 때 가중치가 높은 소스의 행을 보존.
@@ -55,25 +55,40 @@ train/val/test 분할:    70/15/15
 | 항목 | 상태 |
 |------|------|
 | 데이터 다운로드 (`dataload.py`) | ✅ 완료 |
-| 요원·맵 참조 테이블 (`ml/agent_roles.py`) | ✅ 완료 |
-| 전처리 파이프라인 (`ml/data_pipeline.py`) | ✅ 완료 |
-| 모델 학습 (`ml/train_model.py`) | ✅ 완료 |
-| Streamlit UI (`app/streamlit_app.py`) | 미구현 |
+| 요원·맵 참조 테이블 (`ml/valorant.py`) | ✅ 완료 |
+| raw 정제 진입점 (`ml/raw_preprocess.py`) | ✅ 완료 |
+| 전처리 파이프라인 (`ml/baseline/preprocess.py`) | ✅ 완료 |
+| 모델 학습 (`ml/baseline/train.py` / `ml/advanced/ensemble.py`) | ✅ 완료 |
+| Streamlit UI (`app/main.py`) | ✅ 완료 |
 
 ---
 
 ## 5. ML 파이프라인 완료 결과
 
+### Baseline (ml/baseline/)
 | 항목 | 수치 |
 |------|------|
-| train.csv 행 수 (A/B swap 증강 후) | 93,078행 |
-| test.csv 행 수 | 9,973행 |
-| Ensemble AUC | 0.935 |
-| Baseline 대비 개선 | +29.13%p |
+| 피처 수 | 178 |
+| 모델 | LR + DT Soft Voting |
+| Test AUC | 0.6587 |
+| CV AUC | 0.6599 ± 0.0016 |
+| Accuracy | 0.6290 |
+| F1 | 0.7231 |
+| verdict | PASS_TRUSTED_PREMATCH_BASELINE |
 
-- A/B swap 증강: 팀 A/B 순서를 뒤집어 train 데이터 2배 확보
+### Advanced (ml/advanced/)
+| 항목 | 수치 |
+|------|------|
+| 피처 수 | 125 |
+| 모델 | RF + XGBoost + LightGBM |
+| Ensemble Test AUC | 0.7570 (RF 0.7013 / XGB 0.7641 / LGBM 0.7332) |
+| Accuracy | 0.6958 |
+| F1 | 0.7649 |
+| train / test | 53,427 / 13,357 |
+| verdict | PASS_TRUSTED_KAGGLE_ONLY_ADVANCED |
+
 - Ensemble: Random Forest + XGBoost + LightGBM 단순 평균 (1/3씩)
-- val/test AUC 차이(gap): 0.004 (과적합 없음)
+- 데이터가 섞이지 않게: match_key 단위 분할 + GroupKFold + 금지 피처 26개 + 이전 연도만 prior + smoothing
 
 ---
 

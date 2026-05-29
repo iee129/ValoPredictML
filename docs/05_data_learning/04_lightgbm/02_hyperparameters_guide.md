@@ -164,9 +164,9 @@ params = {
 기본값: 1.0
 권장 범위: 0.5 ~ 1.0
 
-ValoPredictML (d=15):
-feature_fraction=0.8 → 12개 피처 사용
-feature_fraction=0.6 → 9개 피처 사용
+ValoPredictML (d=125, advanced 계약):
+feature_fraction=0.8 → 100개 피처 사용
+feature_fraction=0.6 → 75개 피처 사용
 ```
 
 ---

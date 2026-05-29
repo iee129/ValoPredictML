@@ -228,7 +228,7 @@ def parse_all_mapping_files(riot_s3_dir: str = "data/raw/riot_s3") -> pd.DataFra
 
 ```python
 def add_diff_features(df: pd.DataFrame) -> pd.DataFrame:
-    """역할군 diff 피처 추가 (기존 15개 피처와 호환)"""
+    """역할군 diff 피처 추가 (기존 역할군 피처 15개 기준 설계 — 실제 파이프라인: 178/125피처 — 참고용)"""
     for role in ["duelist", "initiator", "controller", "sentinel"]:
         df[f"{role}_diff"] = df[f"a_{role}"] - df[f"b_{role}"]
     return df
@@ -283,4 +283,4 @@ winner, label,
 game_version, source
 ```
 
-총 **23개 컬럼** (기존 15개 피처와 완전 호환 + 메타 컬럼)
+총 **23개 컬럼** (역할군 기반 피처 15개 서브셋과 호환 — 범위 외 참고용)

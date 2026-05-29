@@ -158,7 +158,7 @@ def goss_sampling(gradients, a=0.2, b=0.1, random_state=42):
           → 히스토그램에서 0~10은 A, 10~15는 B
 
 ValoPredictML 적용:
-    - 피처 43개, 대부분 수치형 카운트 → 희소성 낮음
+    - 피처 125개 (advanced), 대부분 수치형 카운트 → 희소성 낮음
     - EFB 효과 제한적 (EFB는 희소 데이터에서 최대 효과)
     - 그러나 LightGBM이 자동으로 최적 판단
 ```
@@ -219,7 +219,7 @@ Gain(j) = (1/2) * [G_Lj²/(H_Lj+λ) + G_Rj²/(H_Rj+λ) - G_j²/(H_j+λ)] - γ
 ```
 Leaf-wise의 과적합 위험:
 - 비균형 트리가 깊어질수록 특정 패턴 과적합
-- 소규모 데이터에서 특히 위험 (ValoPredictML N~5000)
+- 소규모 데이터에서 특히 위험 (advanced train N~46K, min_child_samples로 대응)
 
 대응 파라미터:
 num_leaves: 트리당 최대 리프 수 제한 (Level-wise의 max_depth 대응)
@@ -275,10 +275,10 @@ hist_right = hist_parent - hist_left
 | EFB 적용 후 | - | - | O(aN * b') (b'<b) |
 | 메모리 | O(N * d) | O(N * d) | O(N * d') (d'<d) |
 
-ValoPredictML (N=5000, d=15, b=255, a=0.2):
+ValoPredictML advanced (N~46K train, d=125, b=255, a=0.2):
 ```
-XGBoost: 5000 * 255 * 15 ≈ 19M 연산/트리
-LightGBM: 0.2 * 5000 * 255 * d' ≈ 3.8M * d' 연산/트리 (d'≤15)
+XGBoost: 46000 * 255 * 125 ≈ 1.47B 연산/트리
+LightGBM: 0.2 * 46000 * 255 * d' ≈ 294M * d' 연산/트리 (d'≤125)
 속도비: ~5배 향상
 ```
 
@@ -290,10 +290,10 @@ LightGBM: 0.2 * 5000 * 255 * d' ≈ 3.8M * d' 연산/트리 (d'≤15)
 # ValoPredictML 데이터 특성 분석
 feature_analysis = {
     "n_samples": "~80K 맵 행",   # 중복 제거 후 약 80~100K 맵 행
-    "n_features": 43,            # 역할군·스탯·시너지·요원조합·맵 피처
+    "n_features": 125,           # advanced 125피처 (역할군·스탯·시너지·요원조합·맵 피처)
     "feature_types": "numeric",  # 모두 정수형/수치형
     "sparsity": "low",           # 역할군 카운트는 항상 0~5 사이값
-    "class_balance": "near 50/50",  # A/B swap 증강으로 균형 확보
+    "class_balance": "near 50/50",  # match_key 단위 분할로 train/test 분리 후 자연 균형 확보
 }
 
 # LightGBM 최적 설정 (ValoPredictML)

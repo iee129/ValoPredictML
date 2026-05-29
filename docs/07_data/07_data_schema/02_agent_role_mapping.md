@@ -1,4 +1,4 @@
-# 02. 요원 역할군 매핑 (27종)
+# 02. 요원 역할군 매핑 (29종)
 
 마지막 업데이트: 2026-05-04
 
@@ -35,8 +35,10 @@
 | Chamber | Sentinel | 감시자 | EP 3 Act 3 |
 | Deadlock | Sentinel | 감시자 | EP 7 Act 1 |
 | Vyse | Sentinel | 감시자 | EP 9 Act 2 |
+| Veto | Sentinel | 감시자 | EP 10 Act 3 |
+| Miks | Controller | 전략가 | EP 10 Act 3 |
 
-역할군 분류: Duelist 8종 / Initiator 7종 / Controller 6종 / Sentinel 6종
+역할군 분류: Duelist 8종 / Initiator 7종 / Controller 7종 / Sentinel 7종
 
 ---
 
@@ -52,12 +54,14 @@ AGENT_ROLE_MAP: dict[str, str] = {
     "Sova": "Initiator", "Breach": "Initiator", "Skye": "Initiator",
     "KAY/O": "Initiator", "Fade": "Initiator", "Gekko": "Initiator",
     "Tejo": "Initiator",
-    # Controller (6종)
+    # Controller (7종)
     "Viper": "Controller", "Omen": "Controller", "Brimstone": "Controller",
     "Astra": "Controller", "Harbor": "Controller", "Clove": "Controller",
-    # Sentinel (6종)
+    "Miks": "Controller",
+    # Sentinel (7종)
     "Killjoy": "Sentinel", "Cypher": "Sentinel", "Sage": "Sentinel",
     "Chamber": "Sentinel", "Deadlock": "Sentinel", "Vyse": "Sentinel",
+    "Veto": "Sentinel",
 }
 ```
 
@@ -72,7 +76,7 @@ AGENT_ALIASES: dict[str, str] = {
 }
 
 def normalize_agent(raw: str) -> str | None:
-    """요원 이름 표준화. 없으면 None → 품질 게이트 탈락."""
+    """요원 이름 표준화. 없으면 None → 품질 검사 탈락."""
     s = raw.strip()
     if s in AGENT_ROLE_MAP:
         return s
@@ -89,7 +93,7 @@ def normalize_agent(raw: str) -> str | None:
 1. `AGENT_ROLE_MAP`에 그대로 있으면 반환
 2. 소문자 → `AGENT_ALIASES` 조회 (`"kayo"` → `"KAY/O"`)
 3. `.title()` 시도 후 재확인
-4. 없으면 `None` → 품질 게이트 탈락
+4. 없으면 `None` → 품질 검사 탈락
 
 ---
 

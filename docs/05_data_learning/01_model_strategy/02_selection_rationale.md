@@ -33,22 +33,21 @@ Kaggle, Papers with Code 등의 정형 데이터 분류 벤치마크 결과:
 | 텍스트/이미지 | 딥러닝 | 90%+ |
 | 소규모 수치형 | XGBoost / LightGBM | 85%+ |
 
-ValoPredictML은 **수치형 정형 데이터 (약 80~100K 맵 행, 43 피처)** → RF/XGBoost/LightGBM 최적 도메인
+ValoPredictML은 **수치형 정형 데이터 (약 80~100K 맵 행, advanced 125피처)** → RF/XGBoost/LightGBM 최적 도메인
 
 ### 1.3 실제 측정 성능
 
-K-Fold (K=5) 교차 검증 및 test 세트 최종 결과:
+Optuna TPESampler 50 trials + test 세트 최종 결과 (adv_kaggle_only, 125피처):
 
-| 모델 | K-Fold Acc | K-Fold AUC | Test Acc | Test AUC |
-|------|-----------|-----------|---------|---------|
-| Random Forest | 0.8652±0.0017 | 0.9449±0.0012 | 0.8595 | 0.9378 |
-| XGBoost | 0.8488±0.0028 | 0.9343±0.0019 | 0.8443 | 0.9281 |
-| LightGBM | 0.8494±0.0027 | 0.9353±0.0019 | 0.8480 | 0.9292 |
-| **앙상블** | **0.8580±0.0034** | **0.9414±0.0017** | **0.8540** | **0.9355** |
+| 모델 | Optuna CV best AUC | Test AUC | Test Acc | Test F1 |
+|------|-------------------|---------|---------|--------|
+| Random Forest | 0.6901 | 0.7013 | — | — |
+| XGBoost | 0.7465 | 0.7641 | — | — |
+| LightGBM | 0.7139 | 0.7332 | — | — |
+| **앙상블 (Soft Voting)** | — | **0.7570** | **0.6958** | **0.7649** |
 
-- RF OOB Score: **0.8713** (별도 validation 없이 일반화 성능 추정)
-- 다수 클래스 baseline 56.9% 대비 앙상블 **+29.13%p** 개선
-- K-Fold vs Test 갭: **0.004** — 과적합 없음 확인
+- 데이터: 80/20 (train 53,427 / test 13,357)
+- verdict: `PASS_TRUSTED_KAGGLE_ONLY_ADVANCED`
 
 ### 1.4 앙상블 다양성 확보
 
@@ -69,7 +68,7 @@ RF, XGBoost, LightGBM은 서로 다른 방식으로 데이터를 분석하므로
 
 ### 2.1 학습 시간 비교 (ValoPredictML 스케일 추정)
 
-피처 43개, 샘플 수 ~80K 맵 행, 트리 500개 기준:
+피처 125개 (advanced), 샘플 수 ~80K 맵 행, 트리 500개 기준:
 
 | 모델 | 예상 학습 시간 | 비고 |
 |------|--------------|------|
@@ -81,11 +80,11 @@ RF, XGBoost, LightGBM은 서로 다른 방식으로 데이터를 분석하므로
 
 ### 2.2 Optuna 하이퍼파라미터 탐색 시 영향
 
-Optuna 100 trials × 5-fold CV = 500번 학습:
+Optuna 50 trials × GroupKFold(5) = 250번 학습:
 
 ```
-XGBoost: ~20초 × 500 = ~167분
-LightGBM: ~5초 × 500 = ~42분
+XGBoost: ~20초 × 250 = ~83분
+LightGBM: ~5초 × 250 = ~21분
 CatBoost: 훨씬 느림 (채택 안 함)
 ```
 
@@ -93,16 +92,15 @@ LightGBM의 빠른 학습 속도 → 더 넓은 탐색 공간 커버 가능
 
 ### 2.3 Streamlit 추론 속도
 
-Streamlit 로컬 앱에서 단일 경기 예측 (43개 피처):
+Streamlit 로컬 앱에서 단일 경기 예측 (125개 피처, advanced 계약):
 
 ```python
-# RF + XGBoost + LightGBM 세 모델 순차 추론 후 평균
-rf_prob   = rf_model.predict_proba(X_single)[:, 1]
-xgb_prob  = xgb_model.predict_proba(X_single)[:, 1]
-lgbm_prob = lgbm_model.predict_proba(X_single)[:, 1]
-final_prob = (rf_prob + xgb_prob + lgbm_prob) / 3  # 단순 평균
+# 단일 ensemble.joblib (VotingClassifier soft) 1회 호출 — 개별 모델 로드 아님
+from app.predict import load_model
+model = load_model()  # models/advanced/ensemble.joblib 단일 로드
+final_prob = model.predict_proba(X_single)[:, 1]  # soft voting 내부에서 RF+XGB+LGBM 평균
 
-# 세 모델 합산 추론: < 10ms → Streamlit 로컬 환경에서 충분
+# 단일 모델 추론: < 10ms → Streamlit 로컬 환경에서 충분
 ```
 
 ---
@@ -244,5 +242,5 @@ if p_value < 0.05:
 | 모델 | 미선택 이유 |
 |------|------------|
 | Logistic Regression | 비선형 패턴 포착 불가 — baseline 비교용으로만 유지, 메인 모델 후보 아님 |
-| CatBoost | 43개 피처가 수치형 위주라 핵심 장점 미활용, 학습 느림 |
+| CatBoost | 125개 피처(advanced 계약)가 수치형 위주라 핵심 장점 미활용, 학습 느림 |
 | MLP / PyTorch / TensorFlow | 딥러닝 금지 (개발 원칙 1) — tabular 데이터는 트리 기반이 우위 |

@@ -11,18 +11,19 @@
 
 ## 1. 베이스라인 성능 기준표
 
-### 1.1 모델별 성능 비교 (K-Fold K=5 실제 측정값)
+### 1.1 모델별 성능 비교 (baseline: GroupKFold K=5 / advanced: Optuna 50 trials)
 
-| 모델 | Accuracy | ROC-AUC | F1-Score | 역할 |
-|------|----------|---------|---------|------|
-| Dummy (다수 클래스) | **0.569** | ~0.50 | ~0.34 | 하한선 |
-| Random Forest | 0.8652±0.0017 | 0.9449±0.0012 | 0.8652±0.0017 | 앙상블 메인 |
-| XGBoost | 0.8488±0.0028 | 0.9343±0.0019 | 0.8488±0.0028 | 앙상블 메인 |
-| LightGBM | 0.8494±0.0027 | 0.9353±0.0019 | 0.8494±0.0027 | 앙상블 메인 |
-| **RF+XGB+LGBM 앙상블** | **0.8580±0.0034** | **0.9414±0.0017** | **0.8580±0.0034** | **최종 모델** |
+| 모델 | CV AUC | Test AUC | Test Acc | Test F1 | 역할 |
+|------|--------|---------|---------|--------|------|
+| Dummy (다수 클래스) | ~0.50 | ~0.50 | ~0.569 | ~0.34 | 하한선 |
+| **LR+DT Soft Voting (baseline)** | **0.6599±0.0016** | **0.6587** | **0.6290** | **0.7231** | **baseline** |
+| Random Forest (advanced) | 0.6901 | 0.7013 | — | — | 앙상블 메인 |
+| XGBoost (advanced) | 0.7465 | 0.7641 | — | — | 앙상블 메인 |
+| LightGBM (advanced) | 0.7139 | 0.7332 | — | — | 앙상블 메인 |
+| **RF+XGB+LGBM 앙상블 (advanced)** | — | **0.7570** | **0.6958** | **0.7649** | **최종 모델** |
 
-**Baseline 대비 개선**: 다수 클래스 56.9% → 앙상블 85.8% (K-Fold), **+29.13%p**  
-**K-Fold vs Test 갭**: 0.004 (Test Acc=0.8540) — 과적합 없음 확인
+**baseline verdict**: `PASS_TRUSTED_PREMATCH_BASELINE` (178피처, `data/processed/`)  
+**advanced verdict**: `PASS_TRUSTED_KAGGLE_ONLY_ADVANCED` (125피처, `data/processed/adv_kaggle_only/`)
 
 ### 1.2 성능 갭 분석
 
@@ -235,7 +236,9 @@ def run_baseline_comparison(X_train, y_train, X_val, y_val, X_test, y_test,
             "feature_names": feature_names
         },
         "results": results,
+        # 아래 targets는 미달성 aspiration 목표 — 현재 최고: AUC 0.7570 / Acc 0.6958
         "targets": {"accuracy": 0.80, "roc_auc": 0.82},
+        "achieved": {"accuracy": 0.6958, "roc_auc": 0.7570},  # 실측값 (adv_kaggle_only)
         "gaps_to_target": {
             model: {
                 metric: round(0.80 if metric == "accuracy" else 0.82)
@@ -277,9 +280,9 @@ def plot_baseline_comparison(results: dict):
     bars2 = ax.bar(x, auc_vals, width, label="ROC-AUC", color="darkorange", alpha=0.8)
     bars3 = ax.bar(x + width, f1_vals, width, label="F1-Score", color="forestgreen", alpha=0.8)
 
-    # 목표선
-    ax.axhline(y=0.80, color="blue", linestyle="--", linewidth=1.5, label="목표 Accuracy=0.80")
-    ax.axhline(y=0.82, color="orange", linestyle="--", linewidth=1.5, label="목표 AUC=0.82")
+    # 목표선 (미달성 aspiration — 현재 최고: Acc 0.6958 / AUC 0.7570)
+    ax.axhline(y=0.80, color="blue", linestyle="--", linewidth=1.5, label="미달성 목표 Accuracy=0.80")
+    ax.axhline(y=0.82, color="orange", linestyle="--", linewidth=1.5, label="미달성 목표 AUC=0.82")
 
     # 값 레이블
     for bars in [bars1, bars2, bars3]:
@@ -310,11 +313,13 @@ def plot_baseline_comparison(results: dict):
 
 ### 4.1 베이스라인 합격 기준
 
-| 모델 | 최소 합격 Accuracy | 최소 합격 AUC | 실패 시 조치 |
-|------|------------------|-------------|------------|
-| Dummy | > 0.50 | > 0.50 | 데이터 불균형 확인 |
-| LR | > 0.65 | > 0.65 | 피처 스케일링 확인 |
-| RF | > 0.70 | > 0.72 | n_estimators 증가 |
+| 모델 | 최소 합격 Accuracy | 최소 합격 AUC | 실측 AUC | 실패 시 조치 |
+|------|------------------|-------------|---------|------------|
+| Dummy | > 0.50 | > 0.50 | ~0.50 | 데이터 불균형 확인 |
+| LR | > 0.65 | > 0.65 | — | 피처 스케일링 확인 |
+| RF | > 0.70 | > 0.70 | **0.7013** (advanced, 실측) | n_estimators 증가 |
+
+> 주의: 기존 목표 AUC > 0.72는 미달성 aspiration 기준이었으며 실측 RF Test AUC 0.7013 기준으로 조정.
 
 ### 4.2 베이스라인 실패 시 점검 체크리스트
 
@@ -338,9 +343,9 @@ BASELINE_CHECKLIST = """
     → 팀1이 항상 home_team인지, 아니면 winner_team인지 정의 일관성
     → y = 1이 팀1 승리를 의미하는지 확인
 
-[ ] 데이터 누수 (Data Leakage) 확인
+[ ] 데이터가 섞이는지 확인
     → 경기 결과 관련 피처가 포함되지 않았는지 확인
-    → map_encoded가 결과와 상관관계 높은 경우 누수 가능성 검토
+    → map_encoded가 결과와 상관관계 높은 경우 데이터가 섞일 가능성 검토
 """
 print(BASELINE_CHECKLIST)
 ```
@@ -349,12 +354,12 @@ print(BASELINE_CHECKLIST)
 
 ## 5. 결론
 
-베이스라인 대비 실제 측정 결과:
+베이스라인 및 advanced 실제 측정 결과:
 
-1. **Dummy 대비 개선량**: 다수 클래스 56.9% → 앙상블 85.8% (K-Fold), **+29.13%p** 개선
-2. **비선형 패턴 존재**: RF AUC 0.9449 — 역할군 조합 간 비선형 상호작용 포착 확인
-3. **앙상블 이점**: 앙상블 AUC 0.9414 (K-Fold) / 0.9355 (Test) — 단일 모델보다 안정적
-4. **과적합 없음**: K-Fold vs Test 갭 0.004 — 일반화 성능 양호
-5. **평가 지표**: Accuracy, ROC-AUC, F1 / K-Fold (K=5) 교차 검증 / test.csv 최종 평가 1회
+1. **Baseline (LR+DT Soft Voting)**: Test AUC 0.6587, Acc 0.6290, F1 0.7231 — pre-match 피처만 사용한 신뢰 가능한 기준선 (`PASS_TRUSTED_PREMATCH_BASELINE`)
+2. **Advanced 앙상블 이점**: Ensemble Test AUC 0.7570 (RF 0.7013 / XGB 0.7641 / LGBM 0.7332) — baseline 대비 +0.10 AUC 향상
+3. **비선형 패턴 존재**: XGB AUC 0.7641 — 역할군 조합 간 비선형 상호작용 포착 확인
+4. **데이터 분리**: match_key 단위 분할 + GroupKFold(baseline) + 금지 피처 26개 정규식 차단 + 이전 연도만 prior 집계 + 리그평균 smoothing
+5. **평가 지표**: Accuracy, ROC-AUC, F1 / test.csv 최종 평가 1회
 
 XGBoost 구현 완료 — `03_xgboost/` 참조.

@@ -153,7 +153,7 @@ props: winProbability (0~1), teamLabel
 ```
 
 - Recharts `RadialBarChart` 사용
-- 60%+ 녹색, 40~60% 노란색, 40%- 회색
+- 60%+ `--color-confidence-high`, 40~60% `--color-confidence-medium`, 40%- `--color-confidence-low`
 
 ### `result/ConfidenceBadge.js`
 

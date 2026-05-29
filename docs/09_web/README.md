@@ -2,7 +2,8 @@
 
 # 09. 웹 대시보드 — 문서 인덱스
 
-ValoPredictML 웹 프론트엔드(Next.js 16 + Tailwind CSS v4)에 관한 모든 설계 및 구현 문서.
+ValoPredictML 웹 프론트엔드(Next.js 16 + Tailwind CSS v4)의 설계 및 구현 문서.  
+현재 UI는 **Streamlit 로컬 도구**로 구현되어 있으며, 이 문서는 Streamlit 베이스를 기반으로 **향후 웹 확장을 선행 설계**한 참고 자료다. 실제 Next.js 구현은 현재 범위 외다.
 
 > **화면 레이아웃 설계** → [`docs/11_ui_design/`](../11_ui_design/)  
 > **백엔드 API 설계** → [`docs/03_architecture/`](../03_architecture/)
@@ -41,10 +42,12 @@ docs/09_web/
 │   ├── 02_data_flow.md                데이터 흐름 다이어그램
 │   └── 03_lib_modules.md              src/lib/ 모듈 상세 (api.js, agentImage.js)
 ├── 06_styling/
+│   ├── 00_design_principles.md        블랙&레드 디자인 원칙·언어 (신규)
 │   ├── 01_tailwind_v4_setup.md        Tailwind CSS v4 설정
-│   ├── 02_valo_theme.md               발로란트 테마 CSS 변수 전체
+│   ├── 02_valo_theme.md               발로란트 테마 CSS 변수 전체 (토큰 SSOT)
 │   ├── 03_css_modules_strategy.md     CSS 모듈 전략 (@reference 규칙)
-│   └── 04_responsive_design.md        반응형 브레이크포인트 전략
+│   ├── 04_responsive_design.md        반응형 브레이크포인트 전략
+│   └── 05_visual_moodboard.md         비주얼 무드보드·타이포 (신규)
 ├── 07_visualization/
 │   ├── 01_recharts_usage.md           Recharts 컴포넌트 사용 가이드
 │   └── 02_custom_css_charts.md        커스텀 CSS 바 차트 구현
@@ -69,8 +72,10 @@ docs/09_web/
 | "예측 페이지 로직이 궁금하다" | [03_pages/03_page_predict.md](03_pages/03_page_predict.md) |
 | "이 컴포넌트가 뭘 하나?" | [04_components/01_component_tree.md](04_components/01_component_tree.md) |
 | "상태는 어떻게 관리하나?" | [05_state_and_data/01_state_strategy.md](05_state_and_data/01_state_strategy.md) |
+| "디자인 원칙·발로란트 언어가 궁금하다" | [06_styling/00_design_principles.md](06_styling/00_design_principles.md) |
 | "Tailwind v4 설정 방법?" | [06_styling/01_tailwind_v4_setup.md](06_styling/01_tailwind_v4_setup.md) |
 | "CSS 변수가 뭐가 있나?" | [06_styling/02_valo_theme.md](06_styling/02_valo_theme.md) |
+| "무드보드·타이포 레퍼런스" | [06_styling/05_visual_moodboard.md](06_styling/05_visual_moodboard.md) |
 | "Recharts 어떻게 쓰나?" | [07_visualization/01_recharts_usage.md](07_visualization/01_recharts_usage.md) |
 | "FastAPI와 어떻게 통신하나?" | [08_api_integration/01_api_client.md](08_api_integration/01_api_client.md) |
 | "Vercel 배포 방법?" | [09_deployment/01_vercel_config.md](09_deployment/01_vercel_config.md) |

@@ -73,7 +73,7 @@ source decision은 raw 파일 단위 inventory에서 먼저 기록된다.
 |----------|------|
 | `accepted` | match-map score, 두 팀, 맵, 10 player-agent slots, winner/label을 복원할 수 있는 원천 |
 | `report_only` | event listing, team/player profile, aggregate stats처럼 단독 학습 row를 만들 수 없는 원천 |
-| `excluded` | image/log/doc, economy-only, round/kill log, leakage audit 전 post-match-only source |
+| `excluded` | image/log/doc, economy-only, round/kill log, 데이터가 섞이는지 검토하기 전 post-match-only source |
 
 실행 결과 accepted row의 source 분포는 다음과 같다.
 
@@ -214,7 +214,7 @@ acs, kills, deaths, kd, kast, adr, assists, hs, fk, fd, clutch,
 source, provenance
 ```
 
-player stat은 보존하지만 예측 피처에 직접 넣지 않는다. 같은 경기의 ACS/KD/KAST/ADR/score/round/economy/clutch는 leakage 위험 때문에 `features_lineup.csv`, `features_static.csv`에서 제외한다.
+player stat은 보존하지만 예측 피처에 직접 넣지 않는다. 같은 경기의 ACS/KD/KAST/ADR/score/round/economy/clutch는 경기 결과가 피처에 그대로 섞이는 것을 막기 위해 `features_lineup.csv`, `features_static.csv`에서 제외한다.
 
 ### 5.3 `teams.csv`
 
@@ -363,7 +363,7 @@ full run 중 로컬 환경에서 Matplotlib cache와 joblib physical core 감지
 
 - raw source inventory와 schema audit
 - match/player/team 정규화 결과 검토
-- leakage-safe lineup/static 피처 비교
+- 데이터가 안 새는 lineup/static 피처 비교
 - 향후 champion 교체 후보를 만들기 전 데이터 기반 검토
 
 아직 다음을 의미하지 않는다.

@@ -12,10 +12,12 @@
 
 REST API 대신 Python 함수를 직접 호출합니다.
 
-### 1.1 예측 함수
+### 1.1 예측 함수 (설계안)
+
+> **실제 구현 함수명**: `predict_custom_lineup()` / `predict_replay_match()` (`app/predict.py` 참조). 아래 시그니처는 내부 설계안이며 실제 파일의 함수명과 다를 수 있다.
 
 ```python
-def predict_win_rate(
+def predict_custom_lineup(
     map_name: str,
     players_a: list[dict],   # [{player, agent, acs, kd, kast, adr, fk, fd}] × 5
     players_b: list[dict],
@@ -33,7 +35,9 @@ def predict_win_rate(
     """
 ```
 
-### 1.2 교체 시뮬레이션 함수
+### 1.2 교체 시뮬레이션 함수 (설계안)
+
+> **실제 구현**: `app/main.py` 내 교체 시뮬레이션 로직 참조. 아래 시그니처는 설계안이다.
 
 ```python
 def simulate_swap(
@@ -52,7 +56,9 @@ def simulate_swap(
     """
 ```
 
-### 1.3 최적 요원 조합 탐색 함수
+### 1.3 최적 요원 조합 탐색 함수 (설계안)
+
+> **실제 구현**: `app/predict.py` 참조. 아래 시그니처는 설계안이다.
 
 ```python
 def find_best_agents(
@@ -61,7 +67,7 @@ def find_best_agents(
     top_n: int = 5,
 ) -> list[dict]:
     """
-    27종에서 5종 선택 = 80,730가지 순차 스코어링
+    29종에서 5종 선택 = C(29,5) = 118,755가지 순차 스코어링
     반환: [{"agents": [...], "win_probability": 0.71}, ...] × top_n
     """
 ```
@@ -94,11 +100,13 @@ def find_best_agents(
 ### 3.2 앙상블 계산
 
 ```
-RF 예측     → 팀 A 승률 p_rf
-XGBoost 예측 → 팀 A 승률 p_xgb
-LightGBM 예측 → 팀 A 승률 p_lgb
+단일 ensemble.joblib (VotingClassifier soft voting, weights=[1,1,1]) 로드
+    → ensemble_model.predict_proba(X) 1회 호출
+    → 내부적으로 RF + XGBoost + LightGBM 가중평균 처리
+    → 최종 팀 A 승률 반환
 
-최종 승률 = (p_rf + p_xgb + p_lgb) / 3
+# 개별 rf/xgb/lgbm 모델을 따로 로드하거나 직접 평균하지 않음
+# 서빙 경로: app/predict.py → models/advanced/ensemble.joblib
 ```
 
 ---

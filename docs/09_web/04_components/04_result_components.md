@@ -45,14 +45,39 @@ const data = [{ name: teamLabel, value: percentage, fill: gaugeColor }];
 </RadialBarChart>
 ```
 
-### 색상 결정 로직
+### 게이지 색상 — CSS 클래스 패턴
+
+JS 삼항으로 hex를 직접 반환하는 대신, 의미별 CSS 클래스로 토큰을 적용한다.
 
 ```js
-const gaugeColor =
-  percentage >= 60 ? '#ff4655' :   // 우세 → 발로란트 레드
-  percentage >= 40 ? '#f59e0b' :   // 박빙 → 주황
-  '#6b7280';                        // 열세 → 회색
+// 게이지 상태 클래스 반환 (hex 직접 반환 금지)
+const getGaugeClass = (pct) =>
+  pct >= 60 ? styles.gaugeDominant :  // 우세
+  pct >= 40 ? styles.gaugeClose :     // 박빙
+  styles.gaugeUnder;                   // 열세
 ```
+
+```css
+/* WinRateGauge.module.css */
+.gaugeDominant { --gauge-color: var(--color-valo-red);          }  /* 우세  */
+.gaugeClose    { --gauge-color: var(--color-confidence-medium); }  /* 박빙  */
+.gaugeUnder    { --gauge-color: var(--color-confidence-low);    }  /* 열세  */
+```
+
+Recharts `RadialBar`의 `fill`은 CSS 변수를 통해 주입한다:
+
+```jsx
+// wrapper div에 getGaugeClass(percentage) 적용 후:
+const data = [{ name: teamLabel, value: percentage, fill: 'var(--gauge-color)' }];
+```
+
+| 상태 | 토큰 | 값 | 접근성 |
+|---|---|---|---|
+| 우세 (≥60%) | `--color-valo-red` | `#ff4655` | 6.1:1 AA |
+| 박빙 (40–59%) | `--color-confidence-medium` | `#ffb02e` | 11.3:1 AAA |
+| 열세 (<40%) | `--color-confidence-low` | `#9aa3b2` | 7.9:1 AAA |
+
+> 구 하드코딩 hex는 `--color-confidence-medium`(#ffb02e), `--color-confidence-low`(#9aa3b2)로 전환. 블랙 배경 대비 4.1:1 미달 값을 7.9:1 AAA로 개선.
 
 ### 중앙 퍼센트 표시
 
@@ -96,9 +121,9 @@ const getLevel = (c) =>
 ### CSS 변수 사용
 
 ```css
-.high   { color: var(--color-confidence-high);   }   /* #4caf50 */
-.medium { color: var(--color-confidence-medium); }   /* #ff9800 */
-.low    { color: var(--color-confidence-low);    }   /* #9e9e9e */
+.high   { color: var(--color-confidence-high);   }   /* #5ccf6f — 10.3:1 AAA */
+.medium { color: var(--color-confidence-medium); }   /* #ffb02e — 11.3:1 AAA */
+.low    { color: var(--color-confidence-low);    }   /* #9aa3b2 —  7.9:1 AAA */
 ```
 
 ---
@@ -148,8 +173,8 @@ import { RadarChart, PolarGrid, PolarAngleAxis, Radar, Legend } from 'recharts';
 <RadarChart cx={200} cy={200} outerRadius={130} width={400} height={400} data={radarData}>
   <PolarGrid stroke="var(--color-valo-border)" />
   <PolarAngleAxis dataKey="role" tick={{ fill: 'var(--color-valo-muted)' }} />
-  <Radar name="팀 A" dataKey="A" stroke="#ff4655" fill="#ff4655" fillOpacity={0.2} />
-  <Radar name="팀 B" dataKey="B" stroke="#00bcd4" fill="#00bcd4" fillOpacity={0.2} />
+  <Radar name="팀 A" dataKey="A" stroke="var(--color-valo-red)"  fill="var(--color-valo-red)"  fillOpacity={0.2} />
+  <Radar name="팀 B" dataKey="B" stroke="var(--color-valo-cyan)" fill="var(--color-valo-cyan)" fillOpacity={0.2} />
   <Legend />
 </RadarChart>
 ```
@@ -204,7 +229,7 @@ ML 모델이 예측에 사용한 피처 중요도를 가로 바 차트로 표시
 
 ```css
 .barFill {
-  background: linear-gradient(90deg, var(--color-valo-red), #ff8c9a);
+  background: linear-gradient(90deg, var(--color-valo-red), var(--color-valo-red-end));
   @apply h-full rounded-full transition-all duration-500;
 }
 ```

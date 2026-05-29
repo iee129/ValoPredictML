@@ -14,7 +14,7 @@ ValoPredictML은 **ML 파이프라인 → Streamlit 로컬 UI** 의 단순 2계�
 │                                                             │
 │   ┌──────────────────────────────────────────────────┐     │
 │   │         Streamlit (로컬 실행)                     │     │
-│   │   app/streamlit_app.py                           │     │
+│   │   app/main.py                                    │     │
 │   │   - 선수/요원 조합 입력                           │     │
 │   │   - 예측 결과 + 영향도 시각화 (Plotly)            │     │
 │   │   - 교체 시뮬레이션                               │     │
@@ -26,7 +26,7 @@ ValoPredictML은 **ML 파이프라인 → Streamlit 로컬 UI** 의 단순 2계�
 │                    모델 레이어                                │
 │                                                             │
 │   ┌──────────────────────────────────────────────────┐     │
-│   │   Feature Builder (ml/agent_roles.py 참조)       │     │
+│   │   Feature Builder (ml/valorant.py 참조)           │     │
 │   │   RF / XGBoost / LightGBM (앙상블)               │     │
 │   │   SHAP / feature importance                      │     │
 │   │   models/*.joblib (로컬 파일)                    │     │
@@ -56,13 +56,13 @@ ValoPredictML은 **ML 파이프라인 → Streamlit 로컬 UI** 의 단순 2계�
 - 교체 시뮬레이션, 최적 조합 탐색
 
 ### 모델 레이어
-- 피처 벡터 생성 (43개)
+- 피처 벡터 생성 (baseline 178개 / advanced 125개)
 - RF + XGBoost + LightGBM Soft Voting 앙상블 (확률 평균)
 - 예측 결과 PostgreSQL 저장 (후보)
 - 예측 기록 조회 (후보)
 
 ### 데이터 레이어
-- **Kaggle 원천 데이터**: `data/raw/kaggle/` (2.3GB, 7개 데이터셋)
+- **Kaggle 원천 데이터**: `data/raw/kaggle/` (2.3GB, 5개 데이터셋)
 - **ML Pipeline**: 오프라인 전처리 + 학습, joblib 저장
 - **PostgreSQL**: 예측 기록 저장 후보 (미구현)
 
@@ -91,18 +91,19 @@ ValoPredictML은 **ML 파이프라인 → Streamlit 로컬 UI** 의 단순 2계�
 ## 4. 데이터 흐름
 
 ```
-[Kaggle 데이터셋 7개] (data/raw/kaggle/, 2.3GB)
-        ↓ ml/data_pipeline.py
-  파싱 → 정규화 → 품질 게이트 → dedup → 분할 → A/B swap 증강
-        ↓
-  data/processed/train.csv, val.csv, test.csv
-        ↓ ml/train_model.py
-  RF + XGBoost + LightGBM 학습 (GroupKFold n=5, Optuna HPO)
-        ↓ ml/evaluate_model.py / ml/validate_metrics.py
-  AUC=0.935, Acc=0.854, 베이스라인 대비 +29.13%p
-        ↓
-  models/*.joblib
-        ↓ app/streamlit_app.py (Phase 5, 미구현)
+[Kaggle 데이터셋 5개] (data/raw/kaggle/, 2.3GB)
+        ↓ ml/raw_preprocess.py
+  파싱 → 정규화 → 품질 검사 → dedup → 분할
+        ↓ ml/baseline/preprocess.py (baseline) / ml/baseline/preprocess.py --feature-contract advanced (advanced 활성 경로)
+  data/processed/train.csv, test.csv
+  data/processed/adv_kaggle_only/train.csv, test.csv
+        ↓ ml/baseline/train.py (GridSearchCV) / ml/advanced/optimize.py (Optuna) + ml/advanced/ensemble.py
+  RF + XGBoost + LightGBM 학습 (GroupKFold n=5)
+        ↓ ml/baseline/evaluate.py + ml/advanced/evaluate.py + ml/advanced/shap_analysis.py
+  Baseline Test AUC=0.6587, Advanced Ensemble Test AUC=0.7570
+        ↓ ml/baseline/validate.py / ml/advanced/validate.py
+  models/baseline/model.joblib, models/advanced/ensemble.joblib (서빙용)
+        ↓ app/main.py + app/predict.py
   사용자 입력 → 피처 빌드 → 앙상블 예측 → 승률 출력
         ↓ (후보)
   PostgreSQL predictions 테이블
@@ -115,11 +116,13 @@ ValoPredictML은 **ML 파이프라인 → Streamlit 로컬 UI** 의 단순 2계�
 | 컴포넌트 | 상태 |
 |----------|------|
 | 데이터 수집 (`dataload.py`) | 완료 |
-| 전처리 파이프라인 (`ml/data_pipeline.py`) | 완료 |
-| 모델 학습 (`ml/train_model.py`) | 완료 (AUC=0.935, Acc=0.854) |
-| 모델 평가 (`ml/evaluate_model.py`) | 완료 |
-| 메트릭 검증 (`ml/validate_metrics.py`) | 완료 |
-| Streamlit UI (`app/streamlit_app.py`) | 미구현 (Phase 5) |
+| raw 정제 (`ml/raw_preprocess.py`) | 완료 |
+| 전처리 파이프라인 (`ml/baseline/preprocess.py`) | 완료 |
+| 모델 학습 (`ml/baseline/train.py` / `ml/advanced/optimize.py` + `ml/advanced/ensemble.py`) | 완료 (Baseline AUC=0.6587 / Advanced Ensemble AUC=0.7570) |
+| 모델 평가 (`ml/baseline/evaluate.py` / `ml/advanced/evaluate.py`) | 완료 |
+| SHAP 분석 (`ml/advanced/shap_analysis.py`) | 완료 |
+| 메트릭 검증 (`ml/baseline/validate.py` / `ml/advanced/validate.py`) | 완료 |
+| Streamlit UI (`app/main.py` + `app/predict.py`) | 완료 |
 | PostgreSQL 예측 기록 | 미구현 (후보) |
 
 ---

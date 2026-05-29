@@ -1,17 +1,17 @@
-# agents.md — 발로란트 27개 요원 도메인 카드
+# agents.md — 발로란트 29개 요원 도메인 카드
 
 작성: 2026-05-09
 출처 정책: 모든 메타 수치는 `sources.md`에 등록된 Riot 공식 / Liquipedia / VLR.gg 링크에 근거.
 픽률은 **2024-2025 VCT 프로 매치 추정 범위**이며, US-002/US-004 데이터 통계로 cross-validation 예정.
 
-요원 분류는 `ml/agent_roles.py`의 `AGENT_ROLE_MAP` 기준 (코드 기준 27개) + **2026-05-09 웹 검증으로 확인된 신규 2명** (Liquipedia/Riot 공식 검증) = 총 **29개**:
+요원 분류는 `ml/agent_roles.py`의 `AGENT_ROLE_MAP` 기준 **29개**:
 
 - **Duelist (타격대) 8종** — Jett, Phoenix, Raze, Reyna, Yoru, Neon, ISO, Waylay
 - **Initiator (척후대) 7종** — Sova, Skye, Breach, KAY/O, Fade, Gekko, Tejo
 - **Controller (전략가) 7종** — Brimstone, Viper, Omen, Astra, Harbor, Clove, **Miks** (2026-03 출시, 신규)
 - **Sentinel (감시자) 7종** — Cypher, Killjoy, Sage, Chamber, Deadlock, Vyse, **Veto** (2025-10 출시, 신규)
 
-⚠️ **코드 동기화 필요**: `ml/agent_roles.py`의 `AGENT_ROLE_MAP`에 Miks/Veto 미등록 상태. `normalize_agent("Miks")` / `normalize_agent("Veto")` 호출 시 None 반환. US-002에서 코드 동기화 + 데이터셋(visualize25 SQLite, vct_2025) 신규 요원 row 처리 필요.
+Miks(Controller)·Veto(Sentinel) 모두 `ml/agent_roles.py`의 `AGENT_ROLE_MAP`에 등록 완료. baseline 모델링은 Miks 제외 28명(→84열), advanced는 Miks 포함 29명(→58열).
 
 ## VLR 검증 블록 (report-backed, 2026-05-10)
 
@@ -217,7 +217,7 @@ Top VLR player-stat row coverage: Astra 364, Viper 84, Neon 84, Omen 73, Sova 64
 
 ---
 
-## Controller (전략가) 6종
+## Controller (전략가) 7종
 
 ### Brimstone
 - 능력: Q=Incendiary(화염 그레네이드), E=Sky Smoke(3개 즉발 스모크, 시그니처), C=Stim Beacon(공격 속도·연사 부스트), X=Orbital Strike(광역 폭격 ult, **8 orb**) — Liquipedia 검증 (2026-05-09)
@@ -404,4 +404,4 @@ US-005 cross-validation에서 검증할 가설들. **CONFIRMED / CONTRADICTED / 
 - 픽률 수치는 **추정 범위**. US-002에서 VLR.gg + Kaggle vct_2024/2025 데이터로 정확한 수치 산출 후 업데이트.
 - 출처는 모두 `sources.md`에 등록된 Riot 공식 / Liquipedia / VLR.gg 만 사용 (커뮤니티 글 제외).
 - 가설 ID 명명 규칙: `H-{AGENT}-{CONTEXT}` (예: `H-JETT-FIRSTBLOOD`).
-- US-005에서 27개 가설을 모두 `validate_domain_hypothesis()` 입력으로 사용.
+- US-005에서 29개 가설을 모두 `validate_domain_hypothesis()` 입력으로 사용.

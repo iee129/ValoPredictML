@@ -1,4 +1,4 @@
-# 03. 맵 데이터베이스 (12개)
+# 03. 맵 데이터베이스 (13개)
 
 마지막 업데이트: 2026-05-04
 
@@ -20,6 +20,7 @@
 | Sunset | 9 | 좁은 골목, 균형 |
 | Abyss | 10 | 절벽 추락 지형 |
 | Drift | 11 | 2025년 신규 |
+| Corrode | 12 | 2025년 신규 (France 테마) |
 
 ---
 
@@ -29,6 +30,7 @@
 MAP_ORDER: list[str] = [
     "Ascent", "Bind", "Haven", "Split", "Icebox", "Breeze",
     "Fracture", "Pearl", "Lotus", "Sunset", "Abyss", "Drift",
+    "Corrode",
 ]
 MAP_TO_INDEX: dict[str, int] = {m: i for i, m in enumerate(MAP_ORDER)}
 ```
@@ -39,7 +41,7 @@ MAP_TO_INDEX: dict[str, int] = {m: i for i, m in enumerate(MAP_ORDER)}
 
 ```python
 def normalize_map(raw: str) -> str | None:
-    """맵 이름 → 표준 이름 변환. 없으면 None → 품질 게이트 탈락."""
+    """맵 이름 → 표준 이름 변환. 없으면 None → 품질 검사 탈락."""
     if not raw:
         return None
     s = raw.strip()
@@ -73,6 +75,7 @@ def normalize_map(raw: str) -> str | None:
 | Sunset | Duelist, Initiator | 공격적 맵 구조 |
 | Abyss | Duelist, Controller | 개방형, 공격 유리 |
 | Drift | 미확인 | 2025 신규, 데이터 부족 |
+| Corrode | 미확인 | 2025 신규 (France 테마), 데이터 부족 |
 
 > 수치는 데이터 수집 후 `atk_side_advantage` 집계로 업데이트 예정.
 

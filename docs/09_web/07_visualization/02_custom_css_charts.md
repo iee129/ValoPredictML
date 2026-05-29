@@ -94,7 +94,7 @@ const maxCount = topAgents[0]?.count ?? 1;
 .controller { background: var(--color-role-controller); }
 .sentinel   { background: var(--color-role-sentinel); }
 
-/* 바 트랙 (회색 배경) */
+/* 바 트랙 (border 토큰 #1f2633 배경) */
 .barTrack {
   @apply flex-1 h-5 rounded-full overflow-hidden;
   background: var(--color-valo-border);
@@ -103,7 +103,7 @@ const maxCount = topAgents[0]?.count ?? 1;
 /* 실제 채워지는 바 */
 .barFill {
   @apply h-full rounded-full;
-  background: linear-gradient(90deg, var(--color-valo-red), #ff8c9a);
+  background: linear-gradient(90deg, var(--color-valo-red), var(--color-valo-red-end));
   transition: width 0.6s ease-out;  /* 마운트 시 애니메이션 */
 }
 
@@ -169,6 +169,58 @@ const maxCount = topAgents[0]?.count ?? 1;
     <span className={styles.totalGames}>{m.total_games}게임</span>
   </div>
 ))}
+```
+
+### CSS
+
+```css
+@reference "tailwindcss";
+
+.mapRow {
+  @apply flex flex-col gap-1 mb-3;
+}
+
+.mapName {
+  @apply text-sm font-semibold;
+  color: var(--color-valo-text);
+}
+
+.barGroup {
+  @apply flex flex-col gap-1;
+}
+
+.barLine {
+  @apply flex items-center gap-2;
+}
+
+.barLabel {
+  @apply text-xs w-8;
+  color: var(--color-valo-muted);
+}
+
+.barValue {
+  @apply text-xs w-10 text-right;
+  color: var(--color-valo-muted);
+}
+
+.totalGames {
+  @apply text-xs;
+  color: var(--color-valo-muted);
+}
+
+/* 공격 바 — 레드 그라디언트 (팀 A 계열) */
+.barAttack {
+  @apply h-full rounded-full;
+  background: linear-gradient(90deg, var(--color-valo-red), var(--color-valo-red-end));
+  transition: width 0.6s ease-out;
+}
+
+/* 수비 바 — 시안 (팀 B 구분색) */
+.barDefense {
+  @apply h-full rounded-full;
+  background: var(--color-valo-cyan);
+  transition: width 0.6s ease-out;
+}
 ```
 
 ---

@@ -178,7 +178,7 @@ df["patch_epoch"] = df["game_version"].apply(categorize_patch)
 | 피처 | 엔드포인트 | 기대 효과 |
 |------|-----------|--------|
 | 패치 버전 그룹 | `/version` | +1~2%p 정확도 향상 |
-| 요원 역할군 (27종 전체) | `/agents` | 기존 15개 피처 보완 |
+| 요원 역할군 (29종 전체) | `/agents` | 기존 역할군 피처 보완 |
 | 맵 좌표 (공격/수비 구조) | `/maps` (minimap) | 고급 피처 후보 |
 
 ---
@@ -207,12 +207,12 @@ def load_or_fetch_agents(cache_path: str = "data/meta/agents.json") -> list[dict
 ## 7. 전체 요원 목록 (2025년 기준)
 
 ```python
-# 현재 플레이 가능한 27종 요원 (fetch_agents()로 최신 정보 확인)
+# 현재 플레이 가능한 29종 요원 (fetch_agents()로 최신 정보 확인)
 CURRENT_AGENTS = {
     "Duelist": ["Jett", "Reyna", "Raze", "Neon", "Yoru", "Phoenix", "ISO", "Waylay"],
     "Initiator": ["Sova", "Breach", "Fade", "KAY/O", "Gekko", "Skye", "Tejo"],
-    "Controller": ["Viper", "Omen", "Brimstone", "Astra", "Harbor", "Clove"],
-    "Sentinel": ["Killjoy", "Cypher", "Sage", "Chamber", "Deadlock", "Vyse"],
+    "Controller": ["Viper", "Omen", "Brimstone", "Astra", "Harbor", "Clove", "Miks"],
+    "Sentinel": ["Killjoy", "Cypher", "Sage", "Chamber", "Deadlock", "Vyse", "Veto"],
 }
-# 총 27종: Duelist 8, Initiator 7, Controller 6, Sentinel 6
+# 총 29종: Duelist 8, Initiator 7, Controller 7, Sentinel 7
 ```

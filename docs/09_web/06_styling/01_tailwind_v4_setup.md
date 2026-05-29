@@ -28,8 +28,8 @@ v3에서 v4로 업그레이드되면서 설정 방식이 완전히 바뀌었다.
 @theme {
   /* 여기서 CSS 변수를 정의하면 Tailwind 유틸리티 클래스 자동 생성 */
   --color-valo-red: #ff4655;
-  --color-valo-bg:  #0f1923;
-  /* ... */
+  --color-valo-bg:  #07080c;
+  /* ... 전체 토큰은 06_styling/02_valo_theme.md 참조 */
 }
 
 /* 3. 전역 기본 스타일 */
@@ -38,8 +38,18 @@ v3에서 v4로 업그레이드되면서 설정 방식이 완전히 바뀌었다.
   color: var(--color-valo-text);
 }
 
+/* 한글·본문: Pretendard Variable (무료 라이선스) */
 body {
-  font-family: 'Noto Sans KR', sans-serif;
+  font-family: 'Pretendard Variable', 'Pretendard', -apple-system,
+    BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+/* 영문 헤드라인: Bebas Neue — 콘덴스드 대문자, 발로란트 무드 */
+.heading-display {
+  font-family: 'Bebas Neue', 'Pretendard Variable', sans-serif;
+  font-weight: 400;          /* Bebas Neue는 단일 웨이트 */
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
 }
 ```
 

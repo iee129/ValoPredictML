@@ -34,13 +34,13 @@
 
 | 경로 | 내용 |
 |------|------|
-| `data/processed/matches_clean.csv` | 품질 게이트·dedup 통과한 맵 행 전체 |
-| `data/processed/features_base.csv` | 피처 테이블 (43개 + 레이블) |
-| `data/processed/train.csv` | 학습셋 (A/B swap 증강 포함) |
-| `data/processed/val.csv` | 검증셋 |
+| `data/processed/matches_clean.csv` | 품질 검사·dedup 통과한 맵 행 전체 |
+| `data/processed/features_base.csv` | 피처 테이블 (baseline 178개 / advanced 125개 + 레이블) |
+| `data/processed/train.csv` | 학습셋 (baseline) |
+| `data/processed/adv_kaggle_only/train.csv` | 학습셋 (advanced) |
 | `data/processed/test.csv` | 테스트셋 (최종 평가 전용) |
 | `reports/preprocess_summary.json` | 파이프라인 실행 요약 |
-| `reports/rejected_matches.csv` | 품질 게이트 탈락 행 및 사유 |
+| `reports/rejected_matches.csv` | 품질 검사 탈락 행 및 사유 |
 
 ---
 
@@ -67,8 +67,8 @@ def make_match_key(date, event, team_a, team_b):
 
 ## 4. 참고 문서
 
-- [02_agent_role_mapping.md](./02_agent_role_mapping.md) — AGENT_ROLE_MAP 27종
-- [03_map_database.md](./03_map_database.md) — MAP_ORDER 12개
+- [02_agent_role_mapping.md](./02_agent_role_mapping.md) — AGENT_ROLE_MAP 29종
+- [03_map_database.md](./03_map_database.md) — MAP_ORDER 13개
 - [04_column_definitions.md](./04_column_definitions.md) — 소스별 컬럼 매핑
 
 ### 1.1 필수 컬럼 (학습 피처)
@@ -87,7 +87,7 @@ def make_match_key(date, event, team_a, team_b):
 | `initiator_diff` | int8 | -5~5 | a_initiator - b_initiator |
 | `controller_diff` | int8 | -5~5 | a_controller - b_controller |
 | `sentinel_diff` | int8 | -5~5 | a_sentinel - b_sentinel |
-| `map_encoded` | int8 | 0~11 | 맵 LabelEncoded 정수 |
+| `map_encoded` | int8 | 0~12 | 맵 LabelEncoded 정수 |
 | `has_controller_a` | int8 | 0 or 1 | 팀 A Controller ≥1 여부 |
 | `has_controller_b` | int8 | 0 or 1 | 팀 B Controller ≥1 여부 |
 | `label` | int8 | 0 or 1 | 1=팀 A 승리, 0=팀 A 패배 |
@@ -142,6 +142,7 @@ from sklearn.preprocessing import LabelEncoder
 VALID_MAPS = [
     "Ascent", "Bind", "Breeze", "Drift", "Fracture", "Haven",
     "Icebox", "Lotus", "Pearl", "Split", "Sunset", "Abyss",
+    "Corrode",
 ]
 
 AGENT_ROLE_MAP = {

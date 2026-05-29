@@ -367,7 +367,7 @@ VLR.gg는 Kaggle보다 **2단계 더 깊은 그라뉼리티**를 갖춘다 — �
 - 입력 단계에서 사용자가 두 팀명도 함께 입력(선택)
 - "두 팀 과거 5경기: T1 3승 2패, 최근 매치는 2026-04-15 T1 2-0 승" 같은 보조 패널
 
-**주의**: 본 프로젝트는 모델 피처로 팀명 누적 이력 사용을 차단(`docs/01_overview/01_project_summary.md` 섹션 3.4)했으므로 **모델 피처가 아닌 UI 보조 정보**로만 활용. 피처화하면 누설 위험 부활.
+**주의**: 본 프로젝트는 모델 피처로 팀명 누적 이력 사용을 차단(`docs/01_overview/01_project_summary.md` 섹션 3.4)했으므로 **모델 피처가 아닌 UI 보조 정보**로만 활용. 피처화하면 미래 정보가 섞일 수 있음.
 
 ### 5.4 선수 Agent Pool 시각화 ★
 
@@ -468,7 +468,7 @@ VLR.gg는 Kaggle보다 **2단계 더 깊은 그라뉼리티**를 갖춘다 — �
 - VLR.gg 고유 데이터를 다음 두 트랙으로 분리 적용:
   - **모델 피처 트랙**: 선수 30/60/90일 agent pool 신규 피처 추가 → 베이스라인·심화 모델 재학습 후 AUC 변화 비교
   - **UI 보강 트랙**: 사이드별 승률·메타 변화 라인·composition 빈도 → Streamlit 시뮬레이터의 보조 패널로 합성
-- 두 트랙 모두 누설 게이트(`docs/06_model_test/project_differentiation.md`의 6관문)를 동일하게 통과해야 함
+- 두 트랙 모두 데이터가 섞이지 않는지 동일하게 확인해야 함 (`docs/06_model_test/project_differentiation.md` 기준)
 
 ### 7.3 발표·보고서 반영
 
@@ -511,7 +511,7 @@ VLR.gg는 Kaggle보다 **2단계 더 깊은 그라뉼리티**를 갖춘다 — �
 - `docs/07_data/02_primary_datasets/01_vct_2021_2023.md` · `02_vct_2024.md` · `03_valorant_ranked.md` — Kaggle dataset 분석
 - `docs/07_data/05_scraping_sources/01_vlrgg_scraping.md` — 스크래핑 가이드(HOW)
 - `docs/07_data/07_data_schema/01_unified_schema.md` — Kaggle ↔ VLR.gg 통합 스키마
-- `docs/06_model_test/project_differentiation.md` — 본 프로젝트 6관문 누설 게이트 (VLR.gg 추가 데이터에도 동일 적용 필수)
-- `docs/01_overview/01_project_summary.md` 섹션 3 — 팀명 누설 차단 정책 (5.3 H2H 패널의 피처화 금지 근거)
+- `docs/06_model_test/project_differentiation.md` — 본 프로젝트 데이터 혼입 방지 기준 (VLR.gg 추가 데이터에도 동일 적용 필수)
+- `docs/01_overview/01_project_summary.md` 섹션 3 — 팀명 피처화 금지 정책 (5.3 H2H 패널의 피처화 금지 근거)
 - `notice/weekly_plan_2026-05-26.md` — VLR.gg 통합 트랙 계획
 - `notice/second_interview.md` — 지도교수 사용자 측면 차별점 강화 피드백

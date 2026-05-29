@@ -96,7 +96,7 @@ Thumbs.db
 
 | 대상 | 규칙 | 예시 |
 |------|------|------|
-| 모듈 파일 | `snake_case.py` | `data_pipeline.py`, `agent_roles.py` |
+| 모듈 파일 | `snake_case.py` | `preprocess.py`, `agent_roles.py` |
 | 클래스 | `PascalCase` | `PredictionService` |
 | 함수 | `snake_case()` | `normalize_agent()`, `count_roles()` |
 | 상수 | `SCREAMING_SNAKE_CASE` | `AGENT_ROLE_MAP`, `MAP_ORDER` |

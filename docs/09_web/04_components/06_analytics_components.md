@@ -122,6 +122,43 @@ const barWidth = (agent.count / maxCount) * 100 + '%';
 
 ---
 
+### 바 CSS 스펙
+
+```css
+/* analytics/page.module.css */
+
+/* 맵 공격/수비 바 */
+.barAttack {
+  background: var(--color-valo-red);
+  @apply h-full rounded-full transition-all duration-500;
+}
+.barDefense {
+  background: var(--color-valo-cyan);
+  @apply h-full rounded-full transition-all duration-500;
+}
+
+/* 인기 요원 사용 빈도 바 */
+.barFill {
+  background: linear-gradient(90deg, var(--color-valo-red), var(--color-valo-red-end));
+  @apply h-full rounded-full transition-all duration-500;
+}
+
+.barTrack {
+  @apply flex-1 rounded-full overflow-hidden;
+  background: var(--color-valo-panel-alt);
+  height: 6px;
+}
+```
+
+| 바 종류 | 토큰 |
+|---|---|
+| 공격 승률 | `var(--color-valo-red)` |
+| 수비 승률 | `var(--color-valo-cyan)` |
+| 요원 사용 빈도 | `var(--color-valo-red)` → `var(--color-valo-red-end)` 그라디언트 |
+| 트랙 (배경) | `var(--color-valo-panel-alt)` |
+
+---
+
 ## CSS 전략: Recharts 사용 안 하는 이유
 
 Analytics 페이지 바 차트에 Recharts를 쓰지 않는 이유:
@@ -142,8 +179,8 @@ Analytics 페이지 바 차트에 Recharts를 쓰지 않는 이유:
 ## 역할군 배지 색상
 
 ```css
-.duelist   { background: var(--color-role-duelist);   }   /* #ff4655 */
-.initiator { background: var(--color-role-initiator); }   /* #00bcd4 */
-.controller{ background: var(--color-role-controller);}   /* #4caf50 */
-.sentinel  { background: var(--color-role-sentinel);  }   /* #ff9800 */
+.duelist    { background: var(--color-role-duelist);    }   /* #ff4655 */
+.initiator  { background: var(--color-role-initiator);  }   /* #29c5e0 */
+.controller { background: var(--color-role-controller); }   /* #5ccf6f */
+.sentinel   { background: var(--color-role-sentinel);   }   /* #ffb02e */
 ```

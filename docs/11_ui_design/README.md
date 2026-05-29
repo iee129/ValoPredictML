@@ -14,4 +14,4 @@ Streamlit 로컬 도구의 화면별 설계 문서. (현재 미구현 — 다음
 
 ## 구현 대상
 
-진입점: `app/streamlit_app.py` (미구현)
+진입점: `app/main.py` (구현 완료)

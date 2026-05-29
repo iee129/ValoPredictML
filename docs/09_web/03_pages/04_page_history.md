@@ -156,11 +156,11 @@ GET /history?limit=10&offset=20&map=Ascent
 
 ## 승률 색상 코딩
 
-| 승률 범위 | 색상 | CSS 변수 |
+| 승률 범위 | 색상 | 토큰 |
 |---|---|---|
-| 60% 이상 | 녹색 | `--color-confidence-high` (#4caf50) |
-| 40% ~ 60% | 주황색 | `--color-confidence-medium` (#ff9800) |
-| 40% 미만 | 회색 | `--color-confidence-low` (#9e9e9e) |
+| 60% 이상 | 녹색 | `var(--color-confidence-high)` |
+| 40% ~ 60% | 주황색 | `var(--color-confidence-medium)` |
+| 40% 미만 | 회색 | `var(--color-confidence-low)` |
 
 ---
 
@@ -171,6 +171,111 @@ GET /history?limit=10&offset=20&map=Ascent
 /* HistoryTable.module.css */
 .tableWrapper {
   @apply overflow-x-auto;
+}
+```
+
+---
+
+## 비주얼 스펙
+
+### 배경 레이아웃
+
+| 영역 | 토큰 | 비고 |
+|------|------|------|
+| 페이지 전체 | `var(--color-valo-bg)` | 순수 블랙 |
+| 테이블 패널 | `var(--color-valo-panel)` | 1px `var(--color-valo-border)` 테두리 |
+| 테이블 행 (hover) | `var(--color-valo-panel-alt)` | 행 강조 — 배경보다 한 단계 밝음 |
+| 필터 드롭다운 | `var(--color-valo-panel)` | focus 시 `var(--color-valo-red)` 테두리 |
+
+---
+
+### 페이지 헤더 타이포그래피
+
+```css
+/* page.module.css */
+.pageTitle {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(2rem, 5vw, 3.5rem);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-valo-text);
+  border-left: 3px solid var(--color-valo-red);
+  padding-left: 0.75rem;
+}
+```
+
+---
+
+### clip-path 적용 지점
+
+| 컴포넌트 | clip-path 사용 이유 |
+|----------|---------------------|
+| 페이지 헤더 영역 | 상단 섹션 시각적 분리 — 택티컬 UI 정체성 |
+| 페이지네이션 현재 페이지 버튼 | 활성 상태 강조 |
+
+```css
+/* 페이지네이션 현재 페이지 버튼 */
+.pageButtonActive {
+  clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 0 100%);
+  background: var(--color-valo-red);
+  color: var(--color-valo-text);
+  font-family: 'Bebas Neue', sans-serif;
+  letter-spacing: 0.06em;
+}
+.pageButtonActive:hover {
+  background: var(--color-valo-red-hover);
+}
+```
+
+---
+
+### 레드 강조 포인트
+
+| 요소 | 강조 방식 | 토큰 |
+|------|-----------|------|
+| 페이지 헤더 | 좌측 3px 강조 바 | `--color-valo-red` |
+| 현재 페이지 번호 버튼 | 배경 + clip-path | `--color-valo-red` · `--color-valo-red-hover` |
+| 맵 필터 (focus) | 테두리 | `--color-valo-red` |
+| 신뢰도 HIGH 뱃지 | 텍스트색 | `--color-confidence-high` |
+| 신뢰도 MED 뱃지 | 텍스트색 | `--color-confidence-medium` |
+| 신뢰도 LOW 뱃지 | 텍스트색 | `--color-confidence-low` |
+
+---
+
+### 테이블 행 상태 색상
+
+| 상태 | 배경 | 텍스트 |
+|------|------|--------|
+| 기본 | `var(--color-valo-panel)` | `var(--color-valo-text)` |
+| hover | `var(--color-valo-panel-alt)` | `var(--color-valo-text)` |
+| 보조 텍스트 (날짜·요원 목록) | — | `var(--color-valo-muted)` |
+
+```css
+/* HistoryTable.module.css */
+.tableRow {
+  border-bottom: 1px solid var(--color-valo-border);
+  transition: background 0.15s ease;
+}
+.tableRow:hover {
+  background: var(--color-valo-panel-alt);
+}
+.cellMuted {
+  font-family: Pretendard, sans-serif;
+  font-size: 0.8rem;
+  color: var(--color-valo-muted);
+}
+
+/* 맵 필터 드롭다운 */
+.filterSelect {
+  background: var(--color-valo-panel);
+  border: 1px solid var(--color-valo-border);
+  color: var(--color-valo-text);
+  font-family: Pretendard, sans-serif;
+  transition: border-color 0.15s ease;
+}
+.filterSelect:focus {
+  border-color: var(--color-valo-red);
+  outline: none;
 }
 ```
 

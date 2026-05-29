@@ -4,22 +4,21 @@
 
 ## 1. 수집 방침
 
-외부 API 미사용 — Kaggle CSV 7개만 사용한다. HenrikDev API 등 외부 스크래핑은 범위 외.
+외부 API 미사용 — Kaggle CSV 5개만 사용한다. HenrikDev API 등 외부 스크래핑은 범위 외.
 
 ---
 
-## 2. 사용 데이터셋 (7개)
+## 2. 사용 데이터셋 (5개)
 
 | 폴더 | Kaggle ID | 용량 | 기간 | 파서 | 소스 가중치 |
 |------|-----------|------|------|------|------------|
 | `vct_2021_2023` | `ryanluong1/valorant-champion-tour-2021-2023-data` | 1.2GB | 2021~2026 | ryanluong | 1.0 |
 | `ryanluong1__valorant-challengers-league-data` | `ryanluong1/valorant-challengers-league-data` | 1.0GB | 2023~2024 | ryanluong | **1.8** |
 | `qualidea1217__valorant-pro-matches-since-april-2021` | `qualidea1217/valorant-pro-matches-since-april-2021` | ~35MB | 2021~현재 | qualidea | 1.0 |
-| ~~`piyush86kumar__valorant-champions-tour-2024-all-events`~~ | ~~`piyush86kumar/valorant-champions-tour-2024-all-events`~~ | ~~\~15MB~~ | ~~2024~~ | ~~piyush~~ | ~~**1.5**~~ | (제거됨) |
-| ~~`piyush86kumar__valorant-vct-2025-all-events`~~ | ~~`piyush86kumar/valorant-vct-2025-all-events`~~ | ~~—~~ | ~~2025~~ | ~~piyush~~ | ~~**1.5**~~ | (제거됨) |
+| `piyush86kumar__valorant-champions-2024` | `piyush86kumar/valorant-champions-2024` | ~15MB | 2024 | piyush | **1.5** |
 | `ediashtarevin__vct-champions-2023-stats` | `ediashtarevin/vct-champions-2023-stats` | ~6K행 | 2023 | ediashtarevin | 0.9 |
 
-**소스 가중치 정책**: 동일 경기가 두 소스에 존재할 때 어느 행을 남길지 결정. ryanluong challengers(1.8)가 공수 분리 스탯 포함으로 신뢰도 최고. ~~piyush 소스 제거됨.~~ 동점 시 컬럼 수가 많은 소스 우선.
+**소스 가중치 정책**: 동일 경기가 두 소스에 존재할 때 어느 행을 남길지 결정. ryanluong challengers(1.8)가 공수 분리 스탯 포함으로 신뢰도 최고. 동점 시 컬럼 수가 많은 소스 우선.
 
 ---
 
@@ -37,10 +36,8 @@ DATASETS = [
      "data/raw/kaggle/ryanluong1__valorant-challengers-league-data"),
     ("qualidea1217/valorant-pro-matches-since-april-2021",
      "data/raw/kaggle/qualidea1217__valorant-pro-matches-since-april-2021"),
-    # 제거됨: ("piyush86kumar/valorant-champions-tour-2024-all-events",
-    #          "data/raw/kaggle/piyush86kumar__valorant-champions-tour-2024-all-events"),
-    # 제거됨: ("piyush86kumar/valorant-vct-2025-all-events",
-    #          "data/raw/kaggle/piyush86kumar__valorant-vct-2025-all-events"),
+    ("piyush86kumar/valorant-champions-2024",
+     "data/raw/kaggle/piyush86kumar__valorant-champions-2024"),
     ("ediashtarevin/vct-champions-2023-stats",
      "data/raw/kaggle/ediashtarevin__vct-champions-2023-stats"),
 ]
@@ -89,7 +86,7 @@ API 키와 raw CSV는 절대 커밋 금지 — `data/raw/`는 `.gitignore`에 �
 | vct_2021_2023 | `players_stats/*.csv` + `maps_scores.csv` | 필요 (Match Name + Map) |
 | ryanluong challengers | `overview.csv` + `maps_scores.csv` | 필요 (Match Name + Map) |
 | qualidea1217 | `data-since-april-2021.csv` | 불필요 |
-| ~~piyush 2024/2025~~ | ~~`detailed_matches_player_stats.csv`~~ | ~~불필요~~ | (제거됨) |
+| piyush86kumar/valorant-champions-2024 | `detailed_matches_player_stats.csv` | 불필요 |
 | ediashtarevin | `player_stats.csv` | 불필요 |
 
 ryanluong 계열은 선수 스탯(`overview.csv`)과 팀 점수(`maps_scores.csv`)가 파일 2개로 분리되어 있어 `Match Name + Map` 키로 조인이 필수.
@@ -109,4 +106,4 @@ ryanluong 계열은 선수 스탯(`overview.csv`)과 팀 점수(`maps_scores.csv
 | 문서 | 내용 |
 |------|------|
 | [03_data_loading.md](03_data_loading.md) | 소스별 파서 및 컬럼 매핑 |
-| [../datasets.md](../datasets.md) | 7개 데이터셋 컬럼 상세 |
+| [../datasets.md](../datasets.md) | 5개 데이터셋 컬럼 상세 |

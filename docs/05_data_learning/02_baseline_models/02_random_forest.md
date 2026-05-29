@@ -15,7 +15,7 @@ Random Forest = Bagging + Feature Randomization + 다수결 투표
 
 핵심 파라미터:
 - n_estimators (T): 트리 수
-- max_features (m): 분기 시 고려할 피처 수 (보통 sqrt(d) = sqrt(43) ≈ 6)
+- max_features (m): 분기 시 고려할 피처 수 (보통 sqrt(d) = sqrt(125) ≈ 11 (advanced 계약))
 - max_depth: 각 트리 최대 깊이 (None = 완전 성장)
 - min_samples_split: 분기 최소 샘플 수
 - min_samples_leaf: 리프 최소 샘플 수
@@ -57,7 +57,7 @@ def train_random_forest(
     Random Forest 베이스라인 학습.
 
     Args:
-        X_train: 학습 피처 (N_train, 43)
+        X_train: 학습 피처 (N_train, 125)  # advanced 계약
         y_train: 학습 레이블
         X_val: 검증 피처
         y_val: 검증 레이블
@@ -348,7 +348,7 @@ def plot_learning_curve(rf, X, y):
     plt.fill_between(train_sizes,
                      val_mean - val_std,
                      val_mean + val_std, alpha=0.1, color="orange")
-    plt.axhline(y=0.82, color="red", linestyle="--", label="목표 AUC=0.82")
+    plt.axhline(y=0.82, color="red", linestyle="--", label="미달성 목표 AUC=0.82 (참고용)")
     plt.xlabel("학습 데이터 수")
     plt.ylabel("ROC-AUC")
     plt.title("Random Forest 학습 곡선")
@@ -358,30 +358,35 @@ def plot_learning_curve(rf, X, y):
     plt.savefig("reports/figures/rf_learning_curve.png", dpi=150)
     plt.show()
 
-    # 데이터 수집 권고
+    # 데이터 수집 권고 (0.82는 미달성 aspiration 목표 — 현재 최고 0.7570)
     if val_mean[-1] < 0.82:
         gap = val_mean[-2:]
         slope = (gap[1] - gap[0]) / (train_sizes[-1] - train_sizes[-2])
         needed_data = train_sizes[-1] + (0.82 - val_mean[-1]) / slope
-        print(f"\n추가 데이터 수집 권고: 현재 성능 미달")
+        print(f"\n추가 데이터 수집 권고: 미달성 목표(0.82) 기준")
         print(f"  현재 AUC: {val_mean[-1]:.4f}")
         print(f"  추정 필요 샘플 수: ~{int(needed_data)}")
 ```
 
 ---
 
-## 6. 예상 성능 및 결론
+## 6. 실측 성능
 
-K-Fold (K=5) 교차 검증 기준 예상 성능 (약 80~100K 맵 행, 43 피처):
+adv_kaggle_only 실측 결과 (80/20 분할, train 53,427 / test 13,357, 125피처):
 
 | 지표 | Logistic Regression | **Random Forest** | RF+XGB+LGBM 앙상블 |
 |------|--------------------|--------------------|-------------------|
-| Accuracy | ~0.55~0.58 | **~0.60~0.63** | ~0.63~0.66 |
-| ROC-AUC | ~0.57~0.61 | **~0.62~0.66** | ~0.66~0.69 |
-| F1-Score | ~0.54~0.57 | **~0.59~0.62** | ~0.62~0.65 |
+| Test ROC-AUC | — | **0.7013** | **0.7570** |
+| Test Accuracy | — | — | **0.6958** |
+| Test F1-Score | — | — | **0.7649** |
 | 학습 시간 | < 1초 | **~10초** | ~35초 (3모델 합산) |
 | OOB 검증 | 없음 | **있음 (무료)** | 없음 |
 
-**결론**: Random Forest는 LR보다 높은 성능, 비선형 패턴 포착 능력 있음.
+**결론**: Random Forest(Test AUC 0.7013)는 LR보다 높은 성능, 비선형 패턴 포착 능력 있음.
 앙상블(RF + XGBoost + LightGBM) 구성원으로 피처 중요도 검증 1단계(`feature_importances_`)에도 활용.
-평가 지표: Accuracy, ROC-AUC, F1. 실제 수치는 전처리 완료 후 측정.
+평가 지표: Accuracy, ROC-AUC, F1 (reports/adv_kaggle_only/metrics.json).
+
+## 향후 목표(미달성)
+
+- 목표 AUC: 0.82 이상 (2026-05 기준 최고 앙상블 AUC 0.7570으로 미달성)
+- 목표 Accuracy: 0.80 이상 (현재 최고 0.6958으로 미달성)

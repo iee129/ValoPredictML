@@ -48,7 +48,7 @@
                           │
                           ↓
 ┌─────────────────────────────────────────────────────────────┐
-│                   품질 게이트 단계                             │
+│                   품질 검사 단계                               │
 │                                                             │
 │  팀당 요원 수 = 5       (미충족 → rejected_matches.csv)      │
 │  요원 유효성            (AGENT_ROLE_MAP에 없으면 탈락)        │
@@ -77,9 +77,10 @@
 │                   데이터 분할 단계                             │
 │                                                             │
 │  match_key 단위 GroupShuffleSplit                           │
-│  train 70% / val 15% / test 15%                             │
+│  train 80% / test 20%                                       │
+│  (별도 검증셋 없이 train 내부 GroupKFold로 튜닝)             │
 │                                                             │
-│  출력: data/processed/train.csv (val.csv, test.csv)         │
+│  출력: data/processed/train.csv (test.csv)                  │
 │                                                             │
 │  (선택) 시간 기반 분할 검증 실험:                            │
 │    train: 2021-01 ~ 2023-12                                 │
@@ -88,7 +89,7 @@
                           │
                           ↓
 ┌─────────────────────────────────────────────────────────────┐
-│               피처 사전 집계 단계 (누수 방지)                  │
+│               피처 사전 집계 단계 (데이터 분리 유지)            │
 │         train.csv 기준으로만 집계                            │
 │                                                             │
 │  atk_side_advantage[map]        ← ryanluong challengers    │
@@ -104,7 +105,13 @@
 ┌─────────────────────────────────────────────────────────────┐
 │               피처 엔지니어링 단계                             │
 │                                                             │
-│  43개 피처 생성:                                             │
+│  피처 계약별 생성 수:                                         │
+│    baseline  (178피처): 역할군 카운트·파생 + 선수 스탯 +      │
+│                         요원 one-hot(28종 × 2팀 = 56열) + 맵  │
+│    advanced  (128피처): 역할군 카운트·파생 + 선수 스탯 +      │
+│                         요원 카운트(29종 포함) + 시너지 + 맵  │
+│                                                             │
+│  공통 카테고리 (advanced 기준):                               │
 │  역할군 카운트 (12): a_duelist ~ diff_sentinel               │
 │  역할군 파생   (4):  has_controller_a/b, is_double_duelist_a/b│
 │  선수 스탯    (12): a_avg_acs ~ b_avg_hs                    │
@@ -112,9 +119,8 @@
 │  요원 조합    (6):  a_avg_agent_map_wr ~ b_avg_agent_exp    │
 │  맵           (3):  map_encoded, atk_side_advantage, is_attacker_a│
 │                                                             │
-│  A/B Swap 증강 (train 한정):                                │
-│    원본: team_a=T1, label=1                                 │
-│    swap: team_a=FNC, label=0  (--no-augment-train 으로 비활성)│
+│  데이터 분리: match_key 단위 분할 + GroupKFold + 금지 피처 26개│
+│             + 이전 연도만 prior + smoothing                  │
 │                                                             │
 │  sample_weight = time_weight × source_weight                │
 │                                                             │
@@ -127,7 +133,7 @@
 │                       모델 학습 단계                          │
 │         [ml/advanced/ensemble.py]                           │
 │                                                             │
-│  GroupKFold(n=5, match_key 단위), Optuna HPO                │
+│  GroupKFold(n=5, match_key 단위), Optuna HPO [ml/advanced/optimize.py] │
 │                                                             │
 │  ┌───────────────┐ ┌───────────────┐ ┌───────────────┐    │
 │  │ Random Forest │ │   XGBoost     │ │   LightGBM    │    │
@@ -137,11 +143,14 @@
 │          └────────────────┬──────────────────┘             │
 │                           ↓                                 │
 │        ensemble_predict_proba() — 확률 단순 평균             │
-│      final = (p_rf + p_xgb + p_lgb) / 3                    │
+│      final = ensemble.predict_proba (단일 ensemble.joblib, soft voting 내부 가중평균 — 실제)                    │
 │                                                             │
-│  성능: AUC=0.935, Acc=0.854, 베이스라인 대비 +29.13%p       │
+│  성능: Ensemble Test AUC=0.7570 (RF 0.7013/XGB 0.7641/LGBM 0.7332) │
+│        Acc=0.6958, F1=0.7649                                │
+│        train 53,427 / test 13,357                           │
 │                                                             │
-│  출력: models/advanced/rf.joblib                            │
+│  출력: models/advanced/ensemble.joblib  (서빙용, 단일 VotingClassifier)│
+│        models/advanced/rf.joblib                            │
 │        models/advanced/xgb.joblib                           │
 │        models/advanced/lgbm.joblib                          │
 │        models/advanced/meta.json                            │
@@ -156,12 +165,14 @@
 │  shap_analyze()  — SHAP TreeExplainer                       │
 │                                                             │
 │  평가 지표:                                                  │
-│  - Accuracy: 0.854                                          │
-│  - ROC-AUC:  0.935                                          │
-│  - F1-Score                                                 │
+│  - Accuracy: 0.6958                                         │
+│  - ROC-AUC:  0.7570 (Ensemble)                              │
+│  - F1-Score: 0.7649                                         │
 │  - Confusion Matrix                                         │
+│  shap_analyze() — SHAP TreeExplainer [ml/advanced/shap_analysis.py] │
 │                                                             │
-│  출력: reports/training_report.json                         │
+│  출력: reports/adv_kaggle_only/metrics.json                 │
+│        reports/adv_kaggle_only/validation.json              │
 │        data/processed/rejects.csv                           │
 └─────────────────────────────────────────────────────────────┘
                           │
@@ -177,7 +188,7 @@
                           │
                           ↓
 ┌─────────────────────────────────────────────────────────────┐
-│                   서빙 단계 (Phase 5, 미구현)                  │
+│                   서빙 단계 (구현 완료)                        │
 │         [app/main.py + app/predict.py]                      │
 │                                                             │
 │  @st.cache_resource 로 모델 1회 로드                        │
@@ -226,53 +237,54 @@ ml/advanced/evaluate.py + ml/advanced/validate.py
     ↓ data/processed/test.csv
     ↓ reports/             (출력)
 
-── 사용자 차별점 모듈 (Phase 5c, 2026-05-29 ~ 2026-06-06) ──
-ml/differentiators/
-    ↓ data/research/*.json       (정적 도메인 데이터)
-    ├── counter_alert.py        ← valorant_counters.json   (I)
-    ├── agent_map_fit.py        ← agent_map_fit.json       (N)
-    ├── map_ideal_comp.py       ← map_ideal_comp.json      (K)
-    ├── risk_alert.py           ← (룰 5개 코드 내장)        (G)
-    ├── ult_balance.py          ← agent_ult_cost.json      (J)
-    ├── nl_explain.py           ← shap.TreeExplainer + 한국어 템플릿  (C)
-    ├── player_agent_pool.py    ← vlrggapi / 자체 CSV fallback  (D)
-    └── side_panel.py           ← VLR.gg team stats        (E)
+── 사용자 차별점 모듈 (미구현 — Phase 5c 계획) ──────────────
+ml/differentiators/  ← 현재 미존재 (Phase 5c 구현 예정)
+    ├── counter_alert.py        (계획)
+    ├── agent_map_fit.py        (계획)
+    ├── map_ideal_comp.py       (계획)
+    ├── risk_alert.py           (계획)
+    ├── ult_balance.py          (계획)
+    ├── nl_explain.py           (계획)
+    ├── player_agent_pool.py    (계획)
+    └── side_panel.py           (계획)
 
 ── 서빙 ─────────────────────────────────────────────────────
 app/main.py
     ↓ app/predict.py            (추론 로직)
-    ↓ app/whatif.py             (A — What-if session_state)
-    ↓ app/components.py         (공통 UI 카드·alert·gauge)
-    ↓ models/advanced/*.joblib  (서빙 시 로드, @st.cache_resource)
+    ↓ app/whatif.py             (미구현 — Phase 5c 계획)
+    ↓ app/components.py         (미구현 — Phase 5c 계획)
+    ↓ models/advanced/ensemble.joblib  (서빙 시 로드, @st.cache_resource)
     ↓ ml/valorant.py            (피처 빌드)
-    ↓ ml/differentiators/*.py   (10개 차별점 모듈)
+    ↓ ml/differentiators/*.py   (미구현 — Phase 5c 계획)
 ```
 
-### 2.1 사용자 차별점 통합 흐름
+### 2.1 사용자 차별점 통합 흐름 (Phase 5c 계획 — 현재 미구현)
+
+> 아래 흐름은 Phase 5c 계획안이다. `ml/differentiators/`, `app/whatif.py`, `app/components.py`는 현재 존재하지 않는다.
 
 ```
 사용자 입력 (맵 + 선수 10명 + 요원 10명)
         ↓
-┌──────────── 입력 즉시 피드백 (그룹 1) ────────────┐
-│ I. counter_alert  → st.error/warning/info        │
-│ N. agent_map_fit  → st.metric ✓/△/✗             │
-│ K. map_ideal_comp → st.progress + st.info       │
-│ G. risk_alert     → st.warning fixed banner     │
-└──────────────────────────────────────────────────┘
+┌──────────── 입력 즉시 피드백 (그룹 1, 미구현) ────────────┐
+│ I. counter_alert  → st.error/warning/info               │
+│ N. agent_map_fit  → st.metric ✓/△/✗                    │
+│ K. map_ideal_comp → st.progress + st.info              │
+│ G. risk_alert     → st.warning fixed banner            │
+└─────────────────────────────────────────────────────────┘
         ↓
-app/predict.py — 모델 예측 (Baseline / Advanced / Advanced+VLR.gg)
+app/predict.py — 모델 예측 (ensemble.joblib, 단일 VotingClassifier)
         ↓
-┌──────────── 예측 결과 해석 (그룹 2) ─────────────┐
-│ B. calibration   → reliability + Brier + ECE    │
-│ C. nl_explain    → SHAP → 한국어 카드           │
-│ J. ult_balance   → st.progress gauge            │
-│ D. player_pool   → plotly 도넛 + out-of-pool    │
-└──────────────────────────────────────────────────┘
+┌──────────── 예측 결과 해석 (그룹 2, 미구현) ─────────────┐
+│ B. calibration   → reliability + Brier + ECE           │
+│ C. nl_explain    → SHAP → 한국어 카드                  │
+│ J. ult_balance   → st.progress gauge                   │
+│ D. player_pool   → plotly 도넛 + out-of-pool           │
+└─────────────────────────────────────────────────────────┘
         ↓
-┌──────────── 인터랙티브 시뮬레이션 (그룹 3) ───────┐
-│ A. whatif        → 슬롯 교체 → 승률 delta       │
-│ E. side_panel    → ATK/DEF 게이지 + 권장        │
-└──────────────────────────────────────────────────┘
+┌──────────── 인터랙티브 시뮬레이션 (그룹 3, 미구현) ───────┐
+│ A. whatif        → 슬롯 교체 → 승률 delta              │
+│ E. side_panel    → ATK/DEF 게이지 + 권장               │
+└─────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -283,5 +295,5 @@ app/predict.py — 모델 예측 (Baseline / Advanced / Advanced+VLR.gg)
 |------|------|
 | [../02_file_structure/03_ml_pipeline_files.md](../02_file_structure/03_ml_pipeline_files.md) | ml/ 폴더 파일 상세 |
 | [02_request_flow.md](02_request_flow.md) | 서빙 시 피처 처리 흐름 |
-| [../06_model_test/project_differentiation.md](../06_model_test/project_differentiation.md) | 5개 기술 차별점 + 10개 사용자 차별점 검증 게이트 |
+| [../06_model_test/project_differentiation.md](../06_model_test/project_differentiation.md) | 5개 기술 차별점 + 10개 사용자 차별점 검증 |
 | [../11_ui_design/02_predict.md](../11_ui_design/02_predict.md) | 예측 화면 + 10개 차별점 위젯 배치 |

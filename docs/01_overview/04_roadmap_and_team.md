@@ -8,8 +8,8 @@
 Phase 0 ✅  환경 설정 (venv, Kaggle 인증)
 Phase 1 ✅  데이터 수집 (Kaggle 3개 활성 데이터셋)
 Phase 2 ✅  데이터 전처리 (ml/baseline/preprocess.py)
-Phase 3 ✅  피처 엔지니어링 (역할·선수·시너지 184피처, previous-year 기반)
-Phase 4 ✅  Baseline 모델 학습·평가 (LR + DT Soft Voting, Test AUC=0.6707)
+Phase 3 ✅  피처 엔지니어링 (역할·선수·시너지 178피처, previous-year 기반)
+Phase 4 ✅  Baseline 모델 학습·평가 (LR + DT Soft Voting, Test AUC=0.6587)
 Phase 5a →  심화 모델 학습 (RF + XGBoost + LightGBM + Optuna)         — 5/29~5/31
 Phase 5b →  VLR.gg 통합 + 심화 모델 재학습                              — 6/2~6/3
 Phase 5c →  10개 사용자 차별점 모듈 + Streamlit 통합 (app/main.py)      — 5/29~6/7
@@ -22,11 +22,11 @@ Phase 6  →  통합 테스트 + 시연 영상 + 기말 발표                  
 |-------|-----------|
 | Phase 0 | `.venv` 활성화, `python dataload.py` 정상 실행 |
 | Phase 1 | `data/raw/kaggle/`에 활성 데이터셋 3종 다운로드 완료 |
-| Phase 2 | ✅ `data/processed/matches.csv` 생성, 품질 게이트 통과 |
-| Phase 3 | ✅ 184피처 생성, `train.csv / val.csv / test.csv` 70/15/15 분할 |
-| Phase 4 | ✅ Baseline Test AUC=0.6707 (LR + DT Soft Voting), 6관문 데이터 누수 게이트 통과 |
-| Phase 5a | RF/XGB/LGBM 세 모델 + Optuna HPO 완료, `models/advanced/{rf,xgb,lgbm}.joblib`, 6관문 통과 |
-| Phase 5b | VLR.gg 통합 데이터로 심화 모델 재학습, `models/advanced_vlrgg/`, 6관문 통과 |
+| Phase 2 | ✅ `data/processed/matches.csv` 생성, 품질 검사 통과 |
+| Phase 3 | ✅ 178피처 생성, `train.csv / test.csv` 80/20 분할 |
+| Phase 4 | ✅ Baseline Test AUC=0.6587 (LR + DT Soft Voting) |
+| Phase 5a | RF/XGB/LGBM 세 모델 + Optuna HPO 완료, `models/advanced/{rf,xgb,lgbm}.joblib` |
+| Phase 5b | VLR.gg 통합 데이터로 심화 모델 재학습, `models/advanced_vlrgg/` |
 | Phase 5c | 10개 차별점 모듈 (`ml/differentiators/*.py`) + Streamlit 통합 화면 (`app/main.py`) 정상 동작, 단위 테스트 10개 통과 |
 | Phase 6  | 통합 테스트 통과, 시연 영상 3개 (정상/박빙/out-of-pool), 발표 자료 완성 |
 
@@ -68,7 +68,7 @@ Phase 6  →  통합 테스트 + 시연 영상 + 기말 발표                  
 
 | 용어 | 설명 |
 |------|------|
-| **요원 (Agent)** | 플레이어가 선택하는 캐릭터. 현재 27종 |
+| **요원 (Agent)** | 플레이어가 선택하는 캐릭터. 현재 29종 (2026-03 기준, Miks·Veto·Tejo·Waylay 포함) |
 | **픽창** | 경기 시작 전 요원 선택 단계. 이 프로젝트의 예측 시점 |
 | **라인업** | 선수 5명 + 각 선수의 요원 픽 전체. 핵심 입력 단위 |
 | **역할군 (Role)** | 요원의 플레이 스타일 분류: 타격대/척후대/전략가/감시자 |
@@ -81,21 +81,21 @@ Phase 6  →  통합 테스트 + 시연 영상 + 기말 발표                  
 | **KAST** | Kill/Assist/Survive/Trade. 라운드 기여 지표 (%) |
 | **ADR** | Average Damage per Round. 라운드당 평균 피해량 |
 | **FK / FD** | First Kill / First Death. 첫 교전 주도권 지표 |
-| **맵 (Map)** | 경기 진행 무대. Ascent, Bind, Haven, Icebox 등 12개 |
+| **맵 (Map)** | 경기 진행 무대. Ascent, Bind, Haven, Icebox 등 13개 (Corrode·Drift 포함) |
 
 ### 3.2 머신러닝 용어
 
 | 용어 | 설명 |
 |------|------|
 | **K-Fold** | K겹 교차검증. 데이터를 K개로 나눠 순차적으로 검증 (본 프로젝트: K=5) |
-| **GroupShuffleSplit** | match_key 단위로 경기 누수 없이 분할하는 scikit-learn 분할기 |
+| **GroupShuffleSplit** | match_key 단위로 같은 경기가 train/test에 겹치지 않게 분할하는 scikit-learn 분할기 |
 | **앙상블** | RF + XGBoost + LightGBM 세 모델 예측 확률을 평균 내어 최종 승률 산출 |
 | **Early Stopping** | 검증 성능이 일정 라운드 이상 개선되지 않으면 학습 조기 종료 |
 | **dedup_key** | 24자 SHA-1 hex — 날짜/이벤트/맵/팀/요원셋/점수로 만든 경기 중복 제거 키 |
 | **match_key** | 16자 SHA-1 hex — 소스+파일+경기 단위 grouping 키. train/val/test 분할 단위 |
 | **소스 가중치** | 중복 경기 선택 시 신뢰도 높은 소스 우선. ryanluong challengers=1.8, vct/qualidea=1.0 (~~piyush=1.5 제거됨~~) |
 | **시간 가중치** | 구식 메타 데이터 영향 줄이기. 2021~2022=0.6, 2023=0.8, 2024+=1.2 |
-| **A/B Swap 증강** | 팀 A/B를 뒤집은 행을 train에 추가 — 위치 편향 방지 |
+| **데이터 분리** | match_key 단위 분할 + GroupKFold(baseline) + 금지 피처 26개 정규식 차단 + 이전 연도만 prior 집계 + 리그평균 smoothing으로 데이터가 섞이지 않게 함 |
 | **XGBoost** | eXtreme Gradient Boosting. 구조화 데이터 분류에 강한 Gradient Boosting 모델 |
 | **LightGBM** | Light Gradient Boosting Machine. XGBoost 대비 빠른 학습, 메모리 효율적 |
 | **Random Forest** | 여러 결정 트리의 독립 학습 후 다수결 예측 — 안정적인 baseline |
@@ -107,7 +107,7 @@ Phase 6  →  통합 테스트 + 시연 영상 + 기말 발표                  
 
 | 용어 | 설명 |
 |------|------|
-| **품질 게이트** | 팀당 요원 5명, 유효 요원/맵, 유효 레이블 등 조건 미충족 시 행 제외 |
+| **품질 검사** | 팀당 요원 5명, 유효 요원/맵, 유효 레이블 등 조건 미충족 시 행 제외 |
 | **ryanluong 파서** | vct_2021_2023 + challengers 소스 파서. overview.csv + maps_scores.csv 조인 필요 |
 | **qualidea 파서** | data-since-april-2021.csv 단일 파일 파서. 조인 불필요 |
 | ~~**piyush 파서**~~ | ~~2024/2025 VCT 이벤트 폴더 파서. 조인 불필요~~ (제거됨 — ryanluong vct_2024/vct_2025와 중복) |

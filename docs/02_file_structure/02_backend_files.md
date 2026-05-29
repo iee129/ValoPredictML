@@ -11,7 +11,7 @@
 ## 1. 데이터베이스 연결 구조 (후보, 미구현)
 
 ```
-app/streamlit_app.py
+app/main.py
     ↓ SQLAlchemy 직접 호출
 database.py          # DB 세션 관리
     ↓

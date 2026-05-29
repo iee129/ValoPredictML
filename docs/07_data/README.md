@@ -2,7 +2,7 @@
 
 ValoPredictML의 데이터 소스, 스키마, 피처 엔지니어링 전반을 다루는 문서 모음.
 
-데이터 소스: Kaggle 4개 데이터셋 (총 2.3GB, `data/raw/kaggle/`). 외부 API·스크래핑은 본 프로젝트 방침상 미사용.
+데이터 소스: Kaggle 활성 4개 소스 (총 7개 중 3개 제거됨, 총 2.3GB, `data/raw/kaggle/`). 외부 API·스크래핑은 본 프로젝트 방침상 미사용.
 
 마지막 업데이트: 2026-05-06
 
@@ -17,7 +17,7 @@ ValoPredictML의 데이터 소스, 스키마, 피처 엔지니어링 전반을 �
 | 핵심 | `qualidea1217/valorant-pro-matches-since-april-2021` | 35MB | qualidea | 1.0 |
 | 보조 | `ediashtarevin/vct-champions-2023-stats` | — | ediashtarevin | 0.9 |
 | ~~보조~~ | ~~`kierru/vctpacific-2023`~~ | — | ~~kierru~~ | ~~0.9~~ (제거됨) |
-| ~~piyush~~ | ~~`piyush86kumar/valorant-*`~~ | — | ~~piyush~~ | ~~1.5~~ (제거됨 — ryanluong vct_2024/vct_2025와 동일 대회 중복) |
+| 보조 | `piyush86kumar/valorant-champions-2024` | — | piyush | 1.0 (dataload.py 포함, 중복 시 dedup 처리) |
 
 다운로드: `python dataload.py` (`~/.kaggle/kaggle.json` 필요)
 
@@ -29,7 +29,7 @@ ValoPredictML의 데이터 소스, 스키마, 피처 엔지니어링 전반을 �
 docs/07_data/
 ├── README.md
 ├── 01_overview/
-│   ├── 01_current_status.md       — 7개 데이터셋 현황 및 볼륨
+│   ├── 01_current_status.md       — 5개 데이터셋 현황 및 볼륨
 │   ├── 02_data_gap_analysis.md    — 갭 분석 (범위 외 소스 제거)
 │   └── 03_collection_strategy.md — Kaggle 전용 수집 전략
 ├── 02_primary_datasets/
@@ -44,21 +44,21 @@ docs/07_data/
 │   └── 02_adoption_criteria.md    — 채택 기준
 ├── 07_data_schema/
 │   ├── 01_unified_schema.md       — 파서 공통 출력 스키마
-│   ├── 02_agent_role_mapping.md   — 27종 AGENT_ROLE_MAP
-│   ├── 03_map_database.md         — 12개 맵 MAP_ORDER
+│   ├── 02_agent_role_mapping.md   — 29종 AGENT_ROLE_MAP
+│   ├── 03_map_database.md         — 13개 맵 MAP_ORDER
 │   └── 04_column_definitions.md   — 소스별 컬럼 정의
 ├── 08_feature_engineering/
 │   ├── 01_current_features.md     — 43개 피처 전체 목록
 │   ├── 02_additional_features.md  — 피처 확장 설계
 │   └── 03_feature_selection.md    — 중요도 분석 계획
 ├── 09_data_quality/
-│   ├── 01_quality_metrics.md      — 품질 게이트 기준
+│   ├── 01_quality_metrics.md      — 품질 지표 및 품질 검사
 │   ├── 02_validation_rules.md     — 검증 규칙
 │   └── 03_known_issues.md         — 알려진 리스크 R1~R8
 └── 10_data_volume/
     ├── 01_current_volume.md       — 2.3GB / 80~100K 맵 행 예상
     ├── 02_target_volume.md        — 목표 볼륨
-    └── 03_accuracy_requirements.md — Accuracy 58~65% 가설
+    └── 03_accuracy_requirements.md — 초기 추정 58~65% vs 실측 Acc 0.6958·AUC 0.7570
 ```
 
 ---
@@ -83,8 +83,8 @@ docs/07_data/
 |------|------|
 | 데이터셋 전체 현황 | [01_current_status](./01_overview/01_current_status.md) |
 | 파서별 컬럼 매핑 | [04_column_definitions](./07_data_schema/04_column_definitions.md) |
-| 27종 요원 역할군 | [02_agent_role_mapping](./07_data_schema/02_agent_role_mapping.md) |
-| 12개 맵 목록 | [03_map_database](./07_data_schema/03_map_database.md) |
-| 43개 피처 목록 | [01_current_features](./08_feature_engineering/01_current_features.md) |
-| 품질 게이트 기준 | [01_quality_metrics](./09_data_quality/01_quality_metrics.md) |
+| 29종 요원 역할군 | [02_agent_role_mapping](./07_data_schema/02_agent_role_mapping.md) |
+| 13개 맵 목록 | [03_map_database](./07_data_schema/03_map_database.md) |
+| 피처 목록 (초기 설계 43개 / 실제 178·125개) | [01_current_features](./08_feature_engineering/01_current_features.md) |
+| 품질 지표 및 검사 기준 | [01_quality_metrics](./09_data_quality/01_quality_metrics.md) |
 | 예상 성능 범위 | [03_accuracy_requirements](./10_data_volume/03_accuracy_requirements.md) |

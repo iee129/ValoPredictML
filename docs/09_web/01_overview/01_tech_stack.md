@@ -48,7 +48,7 @@
 
 **선택 이유:**
 - `@theme {}` 블록으로 CSS 변수를 Tailwind 유틸리티로 직접 사용
-  - 예: `--color-valo-red: #ff4655` → `text-valo-red`, `bg-valo-red` 자동 생성
+  - 예: `--color-valo-red: #ff4655` → `text-valo-red`, `bg-valo-red` 자동 생성 (실제 값은 SSOT `06_styling/02_valo_theme.md` 기준)
 - CSS-first 설정 (별도 `tailwind.config.js` 불필요)
 - 발로란트 브랜드 색상 시스템을 CSS 변수로 일원화 가능
 
@@ -57,7 +57,7 @@
 /* v3: tailwind.config.js에서 theme.extend */
 /* v4: globals.css @theme 블록에서 바로 정의 */
 @theme {
-  --color-valo-red: #ff4655;  /* → bg-valo-red, text-valo-red 자동 생성 */
+  --color-valo-red: #ff4655;  /* 예시 — 실제 값은 SSOT: 06_styling/02_valo_theme.md */
 }
 ```
 

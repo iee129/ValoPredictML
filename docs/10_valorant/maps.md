@@ -3,7 +3,7 @@
 작성: 2026-05-09
 출처 정책: 사이드 어드밴티지 수치는 **VCT 2024-2025 추정 범위**, US-002/US-004에서 vct_2021_2023 + visualize25 SQLite + VLR.gg 데이터로 정확한 수치 산출 예정.
 
-`ml/agent_roles.py`의 `MAP_ORDER` 기준 12개 맵 + 2025년 신규 맵(Corrode) 포함. 활성 경쟁 풀(active competitive pool)은 시즌마다 7-9개로 로테이션됨.
+`ml/agent_roles.py`의 `MAP_ORDER` 기준 **13개 맵** (Corrode 정규 포함). 활성 경쟁 풀(active competitive pool)은 시즌마다 7-9개로 로테이션됨.
 
 ## VLR 검증 블록 (report-backed, 2026-05-10)
 
@@ -222,7 +222,7 @@
 ## Corrode
 - 사이트 수 / 특수 구조: **2 사이트 (A, B), Mid 3 lanes, 텔레포터 0** — France 테마 medieval fortress, 12번째 맵
 - 출시: **2025년 6월 25일 (패치 11.00)** — Liquipedia 검증
-- ⚠️ **코드 매핑 불일치**: `ml/agent_roles.py`의 `MAP_ORDER`에는 "Drift"로 등록되어 있고 "Corrode"는 미등록 상태. `normalize_map("Corrode")` 호출 시 `-1` 반환됨. US-002에서 두 가지 중 하나로 통일 필요 (Riot 공식 발표 맵 이름 기준). 본 문서에서는 Riot 공식 발표명 "Corrode"를 사용. `agent_roles.py` 동기화는 US-002에서 alias 추가 또는 `MAP_ORDER` 갱신으로 처리.
+- `ml/agent_roles.py`의 `MAP_ORDER`에 "Corrode"로 등록됨 (index 12). `normalize_map("Corrode")` 정상 동작.
 - 사이드 어드밴티지: **VCT 2025 Champions 어택 51.4% / 수비 48.6%** (148/288 어택 라운드 승) — Liquipedia 검증
 - 이상 구성 (VLR.gg pro 매치 검증 2026-05-09):
   - Controller: **Viper** (긴 벽 + lurk 시너지) 또는 Omen (TP 다수 위치)

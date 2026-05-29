@@ -76,8 +76,12 @@ export default function Navbar() {
 .brand { ... }
 
 .logo {
-  @apply text-xl font-black tracking-widest;
+  @apply text-xl font-black tracking-widest uppercase;
+  font-family: 'Bebas Neue', var(--font-headline);
   color: var(--color-valo-red);
+}
+.logo:hover {
+  color: var(--color-valo-red-hover);
 }
 
 .links {
@@ -85,7 +89,7 @@ export default function Navbar() {
 }
 
 .link {
-  @apply text-sm font-medium transition-colors;
+  @apply text-sm font-medium transition-colors duration-150;
   color: var(--color-valo-muted);
 }
 .link:hover {
@@ -93,11 +97,28 @@ export default function Navbar() {
 }
 
 .linkActive {
-  @apply text-sm font-bold;
+  @apply text-sm font-bold transition-colors duration-150;
   color: var(--color-valo-red);
   border-bottom: 2px solid var(--color-valo-red);
 }
+.linkActive:hover {
+  color: var(--color-valo-red-hover);
+  border-bottom-color: var(--color-valo-red-hover);
+}
 ```
+
+### 상태별 비주얼 스펙
+
+| 요소 | 상태 | 토큰 |
+|---|---|---|
+| `.nav` | 배경 | `var(--color-valo-panel)` |
+| `.nav` | 하단 테두리 | `var(--color-valo-border)` |
+| `.logo` | 기본 | `var(--color-valo-red)` |
+| `.logo` | hover | `var(--color-valo-red-hover)` |
+| `.link` | 기본 | `var(--color-valo-muted)` |
+| `.link` | hover | `var(--color-valo-text)` |
+| `.linkActive` | 기본 + 밑줄 | `var(--color-valo-red)` |
+| `.linkActive` | hover | `var(--color-valo-red-hover)` |
 
 ### 반응형 동작
 

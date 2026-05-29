@@ -6,7 +6,7 @@
 
 Early Stopping, 로깅, 평가 세트, 콜백을 포함한 XGBoost의 완전한 학습 구현 코드를 제공한다.
 XGBoost는 RF + XGBoost + LightGBM 앙상블 구성원 중 하나다.
-학습 시 `sample_weight = time_weight × source_weight` 적용. 스케일링 불필요.
+트리 기반이라 스케일링 불필요. 현재 활성 파이프라인은 `sample_weight` 미사용(균등 학습)이며, 하이퍼파라미터는 `ml/advanced/optimize.py`(Optuna)를 따른다.
 
 ---
 
@@ -42,9 +42,9 @@ def train_xgboost(
     XGBoost 완전한 학습 함수.
 
     Args:
-        X_train: 학습 피처 DataFrame (N_train, 43)
+        X_train: 학습 피처 DataFrame (N_train, 125)  # advanced 계약
         y_train: 학습 레이블 (0: 패, 1: 승)
-        X_val: 검증 피처 DataFrame (N_val, 43)
+        X_val: 검증 피처 DataFrame (N_val, 125)  # advanced 계약
         y_val: 검증 레이블
         params: 하이퍼파라미터 딕셔너리 (None이면 기본값 사용)
         model_dir: 모델 저장 경로
@@ -281,7 +281,7 @@ from sklearn.model_selection import GroupKFold
 def train_xgboost_cv(X, y, params, df, n_splits=5):
     """
     Group K-Fold (K=5) 교차 검증으로 XGBoost 안정적 성능 추정.
-    match_key 단위로 폴드를 분할해 경기 누수를 방지한다.
+    match_key 단위로 폴드를 분할해 같은 경기가 train/val에 동시에 들어가지 않게 한다.
     train을 5조각으로 나눠 각 조각을 한 번씩 검증셋으로 사용 → 5번 Accuracy 평균.
     test.csv는 이 함수와 완전 분리 — 최종 평가 1회만 사용.
     """
@@ -393,9 +393,10 @@ class XGBoostTrainingLogger:
         self.logger.info(
             f"  ROC-AUC:   {summary['roc_auc_mean']:.4f} ± {summary['roc_auc_std']:.4f}"
         )
+        # 0.80/0.82는 미달성 aspiration 목표 — 현재 False (XGB AUC 0.7641 / 앙상블 Acc 0.6958)
         goal_met = (summary['accuracy_mean'] >= 0.80 and
                     summary['roc_auc_mean'] >= 0.82)
-        self.logger.info(f"  목표 달성: {'예' if goal_met else '아니오'}")
+        self.logger.info(f"  aspiration 목표(Acc≥0.80, AUC≥0.82) 달성: {'예' if goal_met else '아니오 (현재 미달성)'}")
 ```
 
 ---
@@ -413,10 +414,12 @@ def save_training_metadata(training_info: dict, summary: dict,
         **training_info,
         "cv_summary": summary,
         "xgboost_version": xgb.__version__,
+        # 아래 goals는 미달성 aspiration — 실측: XGB Test AUC 0.7641 / 앙상블 Acc 0.6958
         "goals": {"accuracy": 0.80, "roc_auc": 0.82},
+        "achieved": {"roc_auc": 0.7641},  # XGB 실측 Test AUC (adv_kaggle_only)
         "goals_achieved": {
-            "accuracy": summary["accuracy_mean"] >= 0.80,
-            "roc_auc": summary["roc_auc_mean"] >= 0.82,
+            "accuracy": summary["accuracy_mean"] >= 0.80,  # 현재 False (실측 0.6958)
+            "roc_auc": summary["roc_auc_mean"] >= 0.82,    # 현재 False (실측 0.7641)
         }
     }
 

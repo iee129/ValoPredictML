@@ -109,7 +109,7 @@ diff_player_agent_kd_mean
 | 같은 연도 경기 | prior에서 제외 |
 | 연도 없는 경기 | history-derived 피처 0 |
 | 팀당 선수 5명이 안 되는 경기 | baseline 학습 행에서 제외 |
-| 28명 one-hot 밖 요원 | agent count 0, role count는 가능한 경우 반영 |
+| 28명 one-hot 밖 요원 (baseline 계약 한정) | agent count 0, role count는 가능한 경우 반영 (advanced 계약은 miks 포함 29명 적용) |
 
 ## 9. 검증 결과
 
@@ -118,15 +118,15 @@ diff_player_agent_kd_mean
 | 항목 | 값 |
 |---|---:|
 | 피처 수 | 178 |
-| 모델링 split | `train + val` |
+| 모델링 split | `train` (내부 GroupKFold 튜닝) |
 | 최종 평가 split | `test` |
 | source contract | `kaggle_*` only, `vlrgg_*` excluded |
-| Modeling rows | 56,767 |
-| Test rows | 10,017 |
-| CV ROC-AUC | 0.6608 |
-| Test ROC-AUC | 0.6562 |
+| Modeling rows | 53,427 |
+| Test rows | 13,357 |
+| CV ROC-AUC | 0.6599 |
+| Test ROC-AUC | 0.6587 |
 | Test Accuracy | 0.6290 |
-| Test F1 | 0.7243 |
+| Test F1 | 0.7231 |
 | forbidden feature count | 0 |
 | split overlap | 0 |
 | final verdict | `PASS_TRUSTED_PREMATCH_BASELINE` |
@@ -153,27 +153,37 @@ baseline 파이프라인은 현재 `kaggle_*` source만 사용한다. VLR.gg 스
 
 ---
 
-## 11. Advanced Contract (125피처)
+## 11. Advanced Contract (128피처)
 
-`feature_contract="advanced"`는 심화 모델(adv_kaggle_only 등)에서 사용한다. diff 컬럼을 모두 제거하고 `miks`를 29번째 요원으로 포함한다.
+`feature_contract="advanced"`는 심화 모델(adv_kaggle_only 등)에서 사용한다.
+피처 개선 실험(2026-05-29) 결과를 반영해 125→128로 갱신됐다.
 
-| 카테고리 | baseline (178) | advanced (125) | 변경 |
+주요 변경:
+- miks·drift·clutch 관련 9열 제거 (빈 칸·경쟁전 미사용)
+- prior/synergy/map_agent/player_agent에 diff 20열 복원
+- 드문 요원 8종 → a/b_agent_other_count로 묶기 (−14열)
+- cold-start missing flag 2열 추가
+- 팀 prior form a/b/diff + map 공격 유리도 4열 추가
+
+| 카테고리 | baseline (178) | advanced (128) | 비고 |
 |---|---:|---:|---|
-| 맵 원핫 | 13 | 13 | 동일 |
-| 역할군 count | 12 (a/b/diff) | 8 (a/b만) | diff 4개 제거 |
-| 요원 count | 84 (28명×3) | 58 (29명×2) | diff 제거, miks 추가 |
-| 선수 prior | 24 (8base×3) | 16 (8base×2) | diff 8개 제거 |
-| Synergy | 3 (a/b/diff) | 2 (a/b만) | diff 1개 제거 |
-| 맵×요원 | 21 (7stat×3) | 14 (7stat×2) | diff 7개 제거 |
-| 선수×요원 | 21 (7stat×3) | 14 (7stat×2) | diff 7개 제거 |
+| 맵 원핫 | 13 | 12 | drift 제거 |
+| 역할군 count | 12 (a/b/diff) | 8 (a/b만) | diff 없음 |
+| 요원 count | 84 (28명×3) | 42 (20명×2+other×2) | miks·8rare 제거, other 추가 |
+| 선수 prior | 24 (8base×3) | 21 (7base×3) | clutch 제거, diff 복원 |
+| Synergy | 3 (a/b/diff) | 3 (a/b/diff) | diff 복원 |
+| 맵×요원 | 21 (7stat×3) | 18 (6stat×3) | clutch 제거, diff 복원 |
+| 선수×요원 | 21 (7stat×3) | 18 (6stat×3) | clutch 제거, diff 복원 |
+| cold-start flags | — | 2 | map/player_agent 기록없음 |
+| 팀 form + atk adv | — | 4 | priorform a/b/diff + map_atk_adv |
 
 코드:
 
 ```python
 from ml.baseline.preprocess import build_xy, FEATURE_COLS_ADVANCED
 
-# advanced contract: 125피처, miks 포함, diff 없음
-X, y, groups = build_xy(df, feature_contract="advanced")
+# advanced contract: 128피처 (diff 포함, miks·rare·clutch·drift 제거)
+X, y, groups = build_xy(df, feature_contract="advanced", processed_dir="data/processed")
 ```
 
 전처리 출력 위치: `data/processed/adv_kaggle_only/`

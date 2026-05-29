@@ -4,16 +4,19 @@
 
 ## 1. 파서 개요
 
-소스마다 파일 구조가 달라 파서를 소스별로 분리한다. 파서 공통 출력 스키마는 동일하며, 이후 품질 게이트·피처 생성 단계는 소스에 무관하게 동일한 인터페이스로 처리된다.
+소스마다 파일 구조가 달라 파서를 소스별로 분리한다. 파서 공통 출력 스키마는 동일하며, 이후 품질 검사·피처 생성 단계는 소스에 무관하게 동일한 인터페이스로 처리된다.
 
 **파서 목록**:
 
-| 파서 | 소스 | 파일 |
-|------|------|------|
-| ryanluong | vct_2021_2023, ryanluong challengers | `ml/parsers/ryanluong.py` |
-| qualidea | qualidea1217 | `ml/parsers/qualidea.py` |
-| ~~piyush~~ | ~~piyush 2024/2025~~ | ~~`ml/parsers/piyush.py`~~ (제거됨) |
-| ediashtarevin | ediashtarevin | `ml/parsers/ediashtarevin.py` |
+실제 파싱은 `ml/raw_preprocess.py` 내 parser family로 구현되어 있다 (`ml/parsers/` 디렉토리는 존재하지 않음).
+
+| 파서 함수 | 소스 | 구현 위치 |
+|-----------|------|----------|
+| `parse_ryanluong` | vct_2021_2023, ryanluong challengers | `ml/raw_preprocess.py` |
+| `parse_qualidea` | qualidea1217 | `ml/raw_preprocess.py` |
+| `parse_ediashtarevin` | ediashtarevin | `ml/raw_preprocess.py` |
+| `parse_piyush2024` | piyush86kumar/valorant-champions-2024 | `ml/raw_preprocess.py` |
+| `parse_vlrgg_raw_detail` | vlrgg_* (예정) | `ml/raw_preprocess.py` |
 
 ---
 
@@ -152,9 +155,11 @@ def make_match_key(date, event, team_a, team_b):
 ## 6. 파싱 실행 흐름
 
 ```python
+# ml/raw_preprocess.py parser family 호출
 parse_ryanluong("data/raw/kaggle/vct_2021_2023")
 parse_ryanluong("data/raw/kaggle/ryanluong1__valorant-challengers-league-data")
 parse_qualidea ("data/raw/kaggle/qualidea1217__valorant-pro-matches-since-april-2021")
+parse_piyush2024("data/raw/kaggle/piyush86kumar__valorant-champions-2024")
 parse_edia     ("data/raw/kaggle/ediashtarevin__vct-champions-2023-stats")
 # → 공통 스키마 행 리스트로 병합
 ```
@@ -165,6 +170,6 @@ parse_edia     ("data/raw/kaggle/ediashtarevin__vct-champions-2023-stats")
 
 | 문서 | 내용 |
 |------|------|
-| [04_data_cleaning.md](04_data_cleaning.md) | 품질 게이트 및 dedup 중복 제거 |
+| [04_data_cleaning.md](04_data_cleaning.md) | 품질 검사 및 dedup 중복 제거 |
 | [05_aggregation.md](05_aggregation.md) | 선수 행 → 맵 행 집계 |
 | [../preprocessing.md](../preprocessing.md) | 전처리 전략 원문 (섹션 3) |

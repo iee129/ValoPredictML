@@ -12,8 +12,8 @@ US-005 cross-validation의 한 축(도메인 가설) — 데이터(US-004) 통�
 | 파일 | 내용 | 도메인 가설 수 |
 |------|------|---------------|
 | [valorant.md](valorant.md) | 게임 규칙·요원 역할 분류·맵 목록·승패 구조 (기본 안내) | — |
-| [agents.md](agents.md) | 29개 요원 카드 (능력/강한 맵/시너지/카운터/메타 위상) + 가설 ≥1/요원. 코드 기준 27 + 웹 검증 신규 2 (Miks/Veto) | 29 |
-| [maps.md](maps.md) | 12+ 맵 카드 (사이드 어드밴티지/이상 구성/카테고리) + 가설 ≥2/맵 | 29 |
+| [agents.md](agents.md) | 29개 요원 카드 (능력/강한 맵/시너지/카운터/메타 위상) + 가설 ≥1/요원 | 29 |
+| [maps.md](maps.md) | 13개 맵 카드 (사이드 어드밴티지/이상 구성/카테고리) + 가설 ≥2/맵 | 29 |
 | [meta.md](meta.md) | VCT 2024-2025 시즌 (8 카테고리) + 패치 매핑 ≥10건 | 8 |
 | [counters.md](counters.md) | 카운터 매트릭스 18쌍 (강도 0.4-0.7) + 데이터 검증 가설 | 18 |
 | [economy.md](economy.md) | 라운드 이코노미 + 27 요원 ult cost + visualize25 SQLite 매핑 | ≥18 |
@@ -48,14 +48,12 @@ for h in hypotheses:
 
 ### 요원 역할 분류 (코드 27 + 웹 검증 신규 2 = 29)
 
-`ml/agent_roles.py` `AGENT_ROLE_MAP` 기준 27개 + 2026-05-09 웹 검증으로 추가된 신규 2개:
+`ml/agent_roles.py` `AGENT_ROLE_MAP` 기준 **29개**:
 
 - **Duelist (타격대)** 8종: Jett · Phoenix · Raze · Reyna · Yoru · Neon · ISO · Waylay
 - **Initiator (척후대)** 7종: Sova · Skye · Breach · KAY/O · Fade · Gekko · Tejo
-- **Controller (전략가)** 7종: Brimstone · Viper · Omen · Astra · Harbor · Clove · **Miks** (2026-03 신규, 코드 미등록)
-- **Sentinel (감시자)** 7종: Cypher · Killjoy · Sage · Chamber · Deadlock · Vyse · **Veto** (2025-10 신규, 코드 미등록)
-
-⚠️ US-002에서 `AGENT_ROLE_MAP`에 Miks(Controller) / Veto(Sentinel) 추가 + alias(`miks`, `veto`) 등록 필요.
+- **Controller (전략가)** 7종: Brimstone · Viper · Omen · Astra · Harbor · Clove · Miks (2026-03)
+- **Sentinel (감시자)** 7종: Cypher · Killjoy · Sage · Chamber · Deadlock · Vyse · Veto (2025-10)
 
 ### 한국어 역할 명칭
 사용자 직접 확인 결과 (memory: `reference_valorant_roles.md`):
@@ -64,8 +62,8 @@ for h in hypotheses:
 - Controller = **전략가**
 - Sentinel = **감시자**
 
-### 활성 맵 (12+, `ml/agent_roles.py` `MAP_ORDER`)
-Ascent · Bind · Haven · Split · Icebox · Breeze · Fracture · Pearl · Lotus · Sunset · Abyss · Drift (+ 2025 Corrode)
+### 활성 맵 (13개, `ml/agent_roles.py` `MAP_ORDER`)
+Ascent · Bind · Haven · Split · Icebox · Breeze · Fracture · Pearl · Lotus · Sunset · Abyss · Drift · Corrode
 
 ---
 

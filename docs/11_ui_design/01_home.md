@@ -37,8 +37,8 @@ Team A 입력          Team B 입력
 
 | 항목 | Streamlit 컴포넌트 | 내용 |
 |------|-------------------|------|
-| 모델 상태 | `st.metric` | 로드된 모델명 (RF / XGBoost / LightGBM / 앙상블) |
-| DB 연결 상태 | `st.metric` | PostgreSQL 연결 여부 (연결됨 / 미연결) |
+| 모델 상태 | `st.metric` | 로드된 모델명 (앙상블 ensemble.joblib) |
+| DB 연결 상태 | `st.metric` | 예측 기록 영속화는 현재 미구현 (PostgreSQL/SQLite 범위 외) |
 | 최근 평가 지표 | `st.metric` × 3 | Accuracy, ROC-AUC, F1 |
 
 ---

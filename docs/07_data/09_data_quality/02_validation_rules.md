@@ -2,7 +2,7 @@
 
 마지막 업데이트: 2026-05-04
 
-> 품질 게이트 기준: [01_quality_metrics.md](./01_quality_metrics.md)
+> 품질 검사 기준: [01_quality_metrics.md](./01_quality_metrics.md)
 
 ## 1. 검증 규칙 카탈로그
 
@@ -128,6 +128,7 @@ def validate_agent_names(df: pd.DataFrame, fix: bool = True) -> tuple[pd.DataFra
 VALID_MAPS = {
     "Ascent", "Bind", "Breeze", "Drift", "Fracture", "Haven",
     "Icebox", "Lotus", "Pearl", "Split", "Sunset", "Abyss",
+    "Corrode",
 }
 
 MAP_ALIASES = {
@@ -135,6 +136,7 @@ MAP_ALIASES = {
     "drift": "Drift", "fracture": "Fracture", "haven": "Haven",
     "icebox": "Icebox", "lotus": "Lotus", "pearl": "Pearl",
     "split": "Split", "sunset": "Sunset", "abyss": "Abyss",
+    "corrode": "Corrode",
     # Riot API 경로 형식
     "/game/maps/ascent": "Ascent",
     "/game/maps/bonsai": "Split",

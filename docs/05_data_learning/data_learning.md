@@ -234,7 +234,7 @@ def lgbm_objective(trial, X, y):
     
     return scores.mean()
 
-def run_optimization(X_train, y_train, n_trials: int = 100):
+def run_optimization(X_train, y_train, n_trials: int = 50):  # DEFAULT_N_TRIALS=50
     """Optuna 최적화 실행"""
     print("[Optuna] XGBoost 최적화 시작...")
     xgb_study = optuna.create_study(direction="maximize")
@@ -260,9 +260,9 @@ def run_optimization(X_train, y_train, n_trials: int = 100):
 
 | 설정 | 값 | 설명 |
 |---|---|---|
-| `n_trials` | 100 | 탐색 횟수 (많을수록 좋지만 시간 증가) |
-| CV | 5-Fold | K=5 고정 (train.csv 내에서만) |
-| Sampler | TPE (기본값) | Tree-structured Parzen Estimator |
+| `n_trials` | 50 | 탐색 횟수 (TPESampler, 모델별 50 trials) |
+| CV | GroupKFold (K=5) | match_key 단위 분할, train+val 내에서만 |
+| Sampler | TPE | Tree-structured Parzen Estimator |
 | Pruner | MedianPruner | 성능 낮은 trial 조기 종료 |
 
 ---
@@ -273,17 +273,16 @@ def run_optimization(X_train, y_train, n_trials: int = 100):
 
 K-Fold (K=5) 교차검증 결과 및 test 세트 최종 평가:
 
-| 모델 | K-Fold Acc | K-Fold F1 | K-Fold AUC | Test Acc | Test F1 | Test AUC |
-|------|-----------|----------|-----------|---------|--------|---------|
-| Random Forest | 0.8652±0.0017 | 0.8652±0.0017 | 0.9449±0.0012 | 0.8595 | 0.8566 | 0.9378 |
-| XGBoost | 0.8488±0.0028 | 0.8488±0.0028 | 0.9343±0.0019 | 0.8443 | 0.8408 | 0.9281 |
-| LightGBM | 0.8494±0.0027 | 0.8494±0.0027 | 0.9353±0.0019 | 0.8480 | 0.8447 | 0.9292 |
-| **앙상블 (단순 평균)** | **0.8580±0.0034** | **0.8580±0.0034** | **0.9414±0.0017** | **0.8540** | **0.8508** | **0.9355** |
+| 모델 | Optuna CV best AUC | Test Acc | Test F1 | Test AUC |
+|------|-------------------|---------|--------|---------|
+| Random Forest | 0.6901 | — | — | 0.7013 |
+| XGBoost | 0.7465 | — | — | 0.7641 |
+| LightGBM | 0.7139 | — | — | 0.7332 |
+| **앙상블 (Soft Voting)** | — | **0.6958** | **0.7649** | **0.7570** |
 
-- RF OOB Score: **0.8713**
-- 다수 클래스(majority) baseline: **56.9%**
-- Ensemble 대비 개선: **+29.13%p**
-- K-Fold vs Test 성능 갭: **0.004** (과적합 없음)
+- 데이터 분할: 80/20 (train 53,427 / test 13,357, 별도 검증셋 없이 train 내부 GroupKFold로 튜닝)
+- Optuna TPESampler 50 trials per model
+- verdict: `PASS_TRUSTED_KAGGLE_ONLY_ADVANCED`
 
 ### 6.1 최종 성능 평가 (5-Fold)
 
@@ -295,7 +294,7 @@ import numpy as np
 
 def kfold_evaluate(model, X, y, df, n_splits: int = 5) -> dict:
     """Group K-Fold (K=5) 교차검증으로 최종 성능 평가.
-    match_key 단위로 폴드를 분할해 경기 누수를 방지한다.
+    match_key 단위로 폴드를 분할해 같은 경기가 train/val에 동시에 들어가지 않게 한다.
     train.csv를 5개 폴드로 분할하며, test.csv는 최종 평가 1회에만 사용한다.
     """
     gkf = GroupKFold(n_splits=n_splits)
@@ -428,8 +427,9 @@ def save_models(xgb_model, lgbm_model, le_map, metrics: dict):
 
 ```bash
 # 재학습 실행
-python ml/data_pipeline.py    # 새 데이터 포함 재전처리
-python ml/optimize.py         # 필요 시 하이퍼파라미터 재탐색
-python ml/train.py            # 모델 재학습
-python ml/evaluate.py         # 성능 검증
+python -m ml.advanced.preprocess  # 새 데이터 포함 재전처리
+python -m ml.advanced.optimize    # Optuna HPO 재탐색 (TPESampler 50 trials)
+python -m ml.advanced.ensemble    # Soft Voting 앙상블 재학습
+python -m ml.advanced.evaluate    # 성능 검증
+python -m ml.advanced.validate    # 지표 검증
 ```

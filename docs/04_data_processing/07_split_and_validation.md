@@ -2,90 +2,58 @@
 
 마지막 업데이트: 2026-05-05
 
-> **구현 완료** — `ml/data_pipeline.py`의 `split_features()` + `augment_swap()`으로 구현.
-> 실행 결과: clean 66,485행 → train 93,078행 / val 9,973행 / test 9,973행 (seed=42).
+> **구현 완료** — `ml/baseline/preprocess.py`의 `save_splits()`로 구현.
+> 실행 결과: clean 66,485행 → match_key 단위 80/20 분할 (seed=42), 증강 없음.
 
 ## 1. 분할 전략 — match_key 단위 GroupShuffleSplit
 
 단순 행 단위 Stratified Split이 아닌 **match_key 단위** GroupShuffleSplit을 사용한다.
 
-한 경기는 맵 2~3개로 구성된다. 맵 1이 train에, 맵 2가 val에 들어가면 "같은 경기"라는 정보가 모델에 간접 누수된다. match_key 단위로 경기 전체를 한 분할에 몰아야 누수가 없다.
+한 경기는 맵 2~3개로 구성된다. 맵 1이 train에, 맵 2가 val에 들어가면 "같은 경기"라는 정보가 모델에 간접적으로 전달된다. match_key 단위로 경기 전체를 한 분할에 몰아야 train과 test가 깔끔하게 분리된다.
 
 ```python
 from sklearn.model_selection import GroupShuffleSplit
 
-# 1차 분할: train(70%) / temp(30%)
-splitter = GroupShuffleSplit(n_splits=1, test_size=0.30, random_state=42)
-train_idx, temp_idx = next(splitter.split(df, groups=df["match_key"]))
-
-# 2차 분할: val(15%) / test(15%)
-splitter2 = GroupShuffleSplit(n_splits=1, test_size=0.50, random_state=42)
-val_idx, test_idx = next(
-    splitter2.split(df.iloc[temp_idx], groups=df.iloc[temp_idx]["match_key"])
-)
+# 단일 분할: train(80%) / test(20%)
+splitter = GroupShuffleSplit(n_splits=1, test_size=0.20, random_state=42)
+train_idx, test_idx = next(splitter.split(df, groups=df["match_key"]))
 
 train = df.iloc[train_idx]
-val   = df.iloc[temp_idx].iloc[val_idx]
-test  = df.iloc[temp_idx].iloc[test_idx]
+test  = df.iloc[test_idx]
 ```
 
-비율: **train 70% / val 15% / test 15%** — test는 최종 평가에만 한 번 사용.
+비율: **train 80% / test 20%** — 별도 검증셋 없이 train 내부 GroupKFold로 튜닝. test는 최종 평가에만 한 번 사용.
+
+`save_splits()`는 기존 train/test.csv의 match_key 멤버십을 `_load_split_membership()`으로 재사용하고, 없으면 seed=42로 shuffle 후 80/20 fallback 분할한다.
 
 ---
 
 ## 2. 분할 결과 (실측, seed=42)
 
-| 세트 | 비율 | 맵 행 수 | 비고 |
-|------|------|---------|------|
-| Train (증강 전) | 70% | 66,485 × 0.70 ≈ 32,590 | A/B swap 적용 전 |
-| Train (증강 후) | — | **93,078** | A/B swap 2x, 클래스 50:50 균형 |
-| Val | 15% | **9,973** | 증강 없음 |
-| Test | 15% | **9,973** | 최종 평가 전용, 열람 금지 |
+| 세트 | 비율 | 행 수 | 비고 |
+|------|------|-------|------|
+| Train (baseline / advanced, adv_kaggle_only) | 80% | **53,427** | match_key 단위 80% |
+| Test (baseline / advanced, adv_kaggle_only) | 20% | **13,357** | 최종 평가 전용, 열람 금지 |
 
-test 세트 label 분포: mean=0.569 (imbalance_ratio=1.32, label=1이 56.9%).
+test 세트 label 분포: mean ≈ 0.568 (label=1이 약 56.8%). 클래스 불균형은 자연 분포 그대로 유지한다.
 
 ---
 
-## 3. A/B swap 증강 (train 전용)
+## 3. 데이터 분리 장치
 
-분할 후 train에만 적용한다.
+증강 없이 다음 장치로 train과 test가 섞이지 않게 한다.
 
-```
-원본: team_a=T1, team_b=FNC, label=1
-swap: team_a=FNC, team_b=T1, label=0  ← train에만 추가
-```
-
-목적: 파일에 먼저 기록된 팀이 항상 team_a가 되는 구조적 편향 제거. 모델이 피처 내용(스탯, 역할군)으로만 승패를 판단하도록 학습.
-
-val/test 미적용 — 평가는 실제 경기 그대로의 행만 사용.
-`--no-augment-train` 플래그로 비활성화 가능.
-
-```python
-def augment_swap(df: pd.DataFrame) -> pd.DataFrame:
-    """train.csv에만 호출"""
-    flipped = df.copy()
-    # A/B 피처 스왑
-    for col_suffix in ["duelist", "initiator", "controller", "sentinel",
-                       "avg_acs", "avg_kd", "avg_kast", "avg_adr",
-                       "max_clutch", "avg_hs", "fk_fd_ratio", "avg_assists",
-                       "kast_std", "avg_agent_map_wr", "avg_agent_pick_rate",
-                       "avg_agent_exp"]:
-        a_col = f"a_{col_suffix}"
-        b_col = f"b_{col_suffix}"
-        if a_col in df.columns:
-            flipped[a_col], flipped[b_col] = df[b_col].copy(), df[a_col].copy()
-    for col in ["has_controller_a", "has_controller_b",
-                "is_double_duelist_a", "is_double_duelist_b"]:
-        a_col = col.replace("_a", "_TEMP")
-        # boolean 피처 스왑
-        pass  # 실제 구현에서 상세 처리
-    flipped["label"] = 1 - df["label"]
-    return pd.concat([df, flipped], ignore_index=True)
-```
+| 장치 | 설명 |
+|------|------|
+| match_key 단위 분할 | 같은 경기의 모든 맵 행이 단일 split에 배정 |
+| GroupKFold(match_key) | baseline CV에서 경기 단위 fold 분리 |
+| 금지 피처 26개 정규식 차단 | `find_forbidden_feature_names()`로 미래 정보 피처 학습 전 제외 |
+| 이전 연도만 prior | `agent_map_stats` 집계 시 `year < current_year` 조건 적용 |
+| 리그평균 smoothing | `RunningStats.smoothed_avg()`로 소표본 노이즈 억제 |
 
 ---
 
-## 4. 피처 사전 집계 누수 방지
+## 4. 피처 사전 집계 — 분할 기준 유지
 
 분할 이후 train.csv만으로 집계한 통계를 val/test에 join한다.
 
@@ -101,31 +69,14 @@ def augment_swap(df: pd.DataFrame) -> pd.DataFrame:
 
 ```
 data/processed/
-  matches_clean.csv       # 품질 게이트·dedup 통과 전체 행
+  matches_clean.csv       # 품질 검사·dedup를 통과한 전체 행
   features_base.csv       # 피처 테이블 (레이블 포함)
-  train.csv               # 학습셋 (A/B swap 증강 포함)
-  val.csv                 # 검증셋
+  train.csv               # 학습셋
   test.csv                # 테스트셋 (최종 평가 전용)
-```
 
-CSV 헤더 (43개 피처 + label):
-```
-match_key,
-a_duelist,a_initiator,a_controller,a_sentinel,
-b_duelist,b_initiator,b_controller,b_sentinel,
-diff_duelist,diff_initiator,diff_controller,diff_sentinel,
-has_controller_a,has_controller_b,
-is_double_duelist_a,is_double_duelist_b,
-a_avg_acs,b_avg_acs,a_avg_kd,b_avg_kd,
-a_avg_kast,b_avg_kast,a_avg_adr,b_avg_adr,
-a_max_clutch,b_max_clutch,a_avg_hs,b_avg_hs,
-a_fk_fd_ratio,b_fk_fd_ratio,a_avg_assists,b_avg_assists,
-a_kast_std,b_kast_std,
-a_avg_agent_map_wr,b_avg_agent_map_wr,
-a_avg_agent_pick_rate,b_avg_agent_pick_rate,
-a_avg_agent_exp,b_avg_agent_exp,
-map_encoded,atk_side_advantage,is_attacker_a,
-label
+data/processed/adv_kaggle_only/
+  train.csv               # advanced 학습셋 (53,427행)
+  test.csv                # advanced 테스트셋 (13,357행)
 ```
 
 ---
@@ -134,24 +85,17 @@ label
 
 ```python
 def validate_splits(train, val, test):
-    # 1. 행 수 합계 (증강 전 기준)
-    total = len(train) // 2 + len(val) + len(test)  # swap 증강 후 train은 2x
-    print(f"맵 행 총계(증강 전): {total}")
-
-    # 2. match_key 누수 없음 확인
+    # 1. match_key 겹침 없음 확인
     train_keys = set(train["match_key"])
-    val_keys   = set(val["match_key"])
     test_keys  = set(test["match_key"])
-    assert train_keys.isdisjoint(val_keys),  "train-val match_key 누수"
-    assert train_keys.isdisjoint(test_keys), "train-test match_key 누수"
-    assert val_keys.isdisjoint(test_keys),   "val-test match_key 누수"
+    assert train_keys.isdisjoint(test_keys), "train-test match_key 겹침"
 
-    # 3. 피처 수 확인 (FEATURE_COLS_P1=19 + FEATURE_COLS_P2=24 = 43)
+    # 2. 피처 수 확인 (파이프라인별 feature contract)
     feature_cols = [c for c in train.columns if c not in ["match_key", "label"]]
-    assert len(feature_cols) == 43, f"피처 수 오류: {len(feature_cols)}"
+    print(f"피처 수: {len(feature_cols)}")  # baseline 178 / advanced 125
 
-    # 4. 결측값 0 확인
-    for name, df in [("Train", train), ("Val", val), ("Test", test)]:
+    # 3. 결측값 0 확인
+    for name, df in [("Train", train), ("Test", test)]:
         null_count = df.isnull().sum().sum()
         assert null_count == 0, f"{name} 결측값: {null_count}"
 
@@ -177,23 +121,22 @@ test  : 2024-01 ~ 2025-현재
 
 ```bash
 # 전체 실행 (분할 포함)
-python -m ml.data_pipeline \
+python -m ml.baseline.preprocess \
   --input data/raw/kaggle \
   --output data/processed \
   --reports reports
 
 # 내부 실행 순서:
-# 1. 파싱 (5종 파서)
+# 1. 파싱 (소스별 파서)
 # 2. 정규화 (요원·맵·팀명)
-# 3. 품질 게이트
+# 3. 품질 검사
 # 4. dedup_key 중복 제거 → matches_clean.csv
-# 5. match_key 단위 GroupShuffleSplit (70/15/15)
+# 5. match_key 단위 GroupShuffleSplit (80/20)
 # 6. train.csv 기준 피처 사전 집계
-# 7. val/test에 집계값 join
-# 8. A/B swap 증강 (train 전용)
-# 9. sample_weight 계산
-# 10. features_base.csv / train.csv / val.csv / test.csv 저장
-# 11. validate_splits()
+# 7. test에 집계값 join
+# 8. sample_weight 계산
+# 9. features_base.csv / train.csv / test.csv 저장
+# 10. validate_splits()
 ```
 
 ---
@@ -202,5 +145,5 @@ python -m ml.data_pipeline \
 
 | 문서 | 내용 |
 |------|------|
-| [06_feature_engineering.md](06_feature_engineering.md) | 43개 피처 생성 상세 |
+| [06_feature_engineering.md](06_feature_engineering.md) | 피처 생성 상세 (baseline 178 / advanced 125) |
 | [../preprocessing.md](../preprocessing.md) | 전처리 전략 원문 (섹션 5·8·9) |

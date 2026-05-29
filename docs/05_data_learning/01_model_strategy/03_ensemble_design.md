@@ -150,28 +150,24 @@ ensemble = VotingClassifier(
 )
 ```
 
-### 3.3 sample_weight 적용
+### 3.3 가중치 (현재 미적용)
 
-세 모델 각각 학습 시 `sample_weight` 적용:
+현재 활성 앙상블(`ml/advanced/ensemble.py`)은 `sample_weight` 없이 균등 학습하며, soft voting도 `weights=[1, 1, 1]`로 균등하다. time/source 기반 표본 가중은 향후 후보이며 현재 코드에는 없다.
 
 ```python
-# sample_weight = time_weight * source_weight
-weights = df["time_weight"] * df["source_weight"]
-
-rf_model.fit(X_train, y_train, sample_weight=weights)
-xgb_model.fit(X_train, y_train,
-              sample_weight=weights,
-              eval_set=[(X_val, y_val)], verbose=False)
-lgbm_model.fit(X_train, y_train,
-               sample_weight=weights,
-               eval_set=[(X_val, y_val)],
-               callbacks=[lgb.early_stopping(50, verbose=False),
-                          lgb.log_evaluation(0)])
+# ml/advanced/ensemble.py — 균등 가중, sample_weight 미사용
+ensemble = VotingClassifier(
+    estimators=[("rf", make_rf(...)), ("xgb", make_xgb(...)), ("lgbm", make_lgbm(...))],
+    voting="soft", weights=[1, 1, 1],
+)
+ensemble.fit(X, y)
 ```
 
 ---
 
-## 4. 완전한 구현 코드
+## 4. 구현 (설계 예시)
+
+> 아래는 단순평균 앙상블의 설계 예시다. **실제 활성 구현은 `ml/advanced/ensemble.py`의 `VotingClassifier(voting="soft", weights=[1,1,1])`** + `ml/advanced/optimize.py`의 Optuna best_params이며, 하이퍼파라미터는 `reports/adv_kaggle_only/{rf,xgb,lgbm}_best_params.json`을 따른다(아래 하드코딩 값은 예시).
 
 ### 4.1 EnsemblePredictor 클래스
 
@@ -237,7 +233,7 @@ class SimpleAverageEnsemble:
         단일 경기 예측 (Streamlit 연동용).
 
         Args:
-            features: 43개 피처 딕셔너리
+            features: 125개 피처 딕셔너리 (advanced 계약)
 
         Returns:
             {"win_probability": 0.617, "prediction": 1, "confidence": "high"}
@@ -264,7 +260,7 @@ def build_ensemble(X_train, y_train, X_val, y_val, X_test, y_test,
                    sample_weight=None):
     """
     RF + XGBoost + LightGBM 앙상블 구축 파이프라인.
-    sample_weight = time_weight * source_weight (preprocessing.md 참조).
+    sample_weight 인자는 옵션이며 현재 활성 파이프라인(ml/advanced/ensemble.py)은 미사용(균등 학습).
     """
     import xgboost as xgb
     import lightgbm as lgb
@@ -371,21 +367,19 @@ ensemble.threshold = optimal_threshold
 
 ## 6. 앙상블 성능 (구현 완료)
 
-K-Fold (K=5) 교차 검증 및 test 세트 실제 측정 결과:
+Optuna TPESampler 50 trials + test 세트 실제 측정 결과 (adv_kaggle_only, 125피처):
 
-| 지표 | RF 단독 | XGBoost 단독 | LightGBM 단독 | **앙상블 (단순 평균)** |
-|------|---------|-------------|--------------|----------------------|
-| K-Fold Accuracy | 0.8652±0.0017 | 0.8488±0.0028 | 0.8494±0.0027 | **0.8580±0.0034** |
-| K-Fold ROC-AUC | 0.9449±0.0012 | 0.9343±0.0019 | 0.9353±0.0019 | **0.9414±0.0017** |
-| K-Fold F1-Score | 0.8652±0.0017 | 0.8488±0.0028 | 0.8494±0.0027 | **0.8580±0.0034** |
-| Test Accuracy | 0.8595 | 0.8443 | 0.8480 | **0.8540** |
-| Test ROC-AUC | 0.9378 | 0.9281 | 0.9292 | **0.9355** |
-| Test F1-Score | 0.8566 | 0.8408 | 0.8447 | **0.8508** |
+| 지표 | RF 단독 | XGBoost 단독 | LightGBM 단독 | **앙상블 (Soft Voting)** |
+|------|---------|-------------|--------------|-------------------------|
+| Optuna CV best AUC | 0.6901 | 0.7465 | 0.7139 | — |
+| Test ROC-AUC | 0.7013 | 0.7641 | 0.7332 | **0.7570** |
+| Test Accuracy | — | — | — | **0.6958** |
+| Test F1-Score | — | — | — | **0.7649** |
 
-앙상블이 단일 모델보다 분산이 낮고 안정적인 성능을 보임.
-앙상블 방식: predict_proba 3개 단순 평균 (균등 가중치, 별도 최적화 없음).
+앙상블이 단일 모델보다 안정적인 성능을 보임.
+앙상블 방식: `ml/advanced/ensemble.py` Soft Voting (균등 가중치).
+HPO: `ml/advanced/optimize.py` (Optuna TPESampler, 50 trials/model).
 
-**평가 지표**: Accuracy, ROC-AUC, F1
-**K-Fold**: K=5 (train 데이터를 5조각으로 나눠 각 조각을 한 번씩 검증셋으로 사용 → 5번 Accuracy 평균)
-**test.csv**: K-Fold와 완전 분리 — 최종 평가 1회만 사용
-**K-Fold vs Test 갭**: 0.004 — 과적합 없음
+**데이터**: 80/20 (train 53,427 / test 13,357)
+**피처**: 125개 (`data/processed/adv_kaggle_only/`)
+**verdict**: `PASS_TRUSTED_KAGGLE_ONLY_ADVANCED`

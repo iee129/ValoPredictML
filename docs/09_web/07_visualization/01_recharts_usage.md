@@ -42,10 +42,11 @@ import {
 ```js
 const percentage = Math.round(winRate * 100);
 
+// gaugeColor: 팀 A → var(--color-valo-red), 팀 B → var(--color-valo-cyan)
 const data = [{
   name: teamLabel,
   value: percentage,
-  fill: gaugeColor,  // 동적 색상
+  fill: gaugeColor,  // 동적 색상 — 반드시 var(--color-valo-*) 토큰 사용
 }];
 ```
 
@@ -72,7 +73,7 @@ const data = [{
   <RadialBar
     dataKey="value"
     cornerRadius={4}
-    background       // 빈 트랙 배경 표시
+    background={{ fill: 'var(--color-valo-border)' }}  // 빈 트랙 — 블랙 테마 구분선색
   />
 </RadialBarChart>
 ```
@@ -195,14 +196,38 @@ const radarData = ROLES.map(role => ({
 ## Recharts 다크 테마 적용 주의사항
 
 Recharts는 기본적으로 라이트 테마 색상을 사용함.
-다크 테마로 맞추려면 각 요소에 명시적으로 색상 지정 필요:
+다크 테마로 맞추려면 각 요소에 명시적으로 색상 지정 필요.
+색은 모두 `var(--color-valo-*)` 토큰 참조 — hex 직접 사용 금지.
+
+### WinRateGauge (RadialBarChart)
+
+```jsx
+// 빈 트랙 — 블랙 배경에서 구분선색으로 표시
+<RadialBar
+  background={{ fill: 'var(--color-valo-border)' }}
+  ...
+/>
+
+// 게이지 채우기 색 (데이터 배열 fill 속성)
+// 팀 A: 'var(--color-valo-red)'
+// 팀 B: 'var(--color-valo-cyan)'
+
+// 차트 컨테이너 배경 — CSS에서 처리
+// .wrapper { background: var(--color-valo-panel); }
+```
+
+### RoleRadarChart (RadarChart)
 
 ```jsx
 // PolarGrid 테두리
 <PolarGrid stroke="var(--color-valo-border)" />
 
 // 축 레이블
-<PolarAngleAxis tick={{ fill: 'var(--color-valo-muted)' }} />
+<PolarAngleAxis tick={{ fill: 'var(--color-valo-muted)', fontSize: 12 }} />
+
+// 시리즈 색 (팀 A = 레드, 팀 B = 시안)
+<Radar stroke="var(--color-valo-red)"  fill="var(--color-valo-red)"  fillOpacity={0.25} />
+<Radar stroke="var(--color-valo-cyan)" fill="var(--color-valo-cyan)" fillOpacity={0.25} />
 
 // Legend
 <Legend formatter={(v) => <span style={{ color: 'var(--color-valo-muted)' }}>{v}</span>} />

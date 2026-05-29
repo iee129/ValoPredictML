@@ -2,22 +2,22 @@
 
 마지막 업데이트: 2026-05-05
 
-> **구현 완료** — `ml/data_pipeline.py` 전체 파이프라인 구현 완료.
-> 실행 결과: clean 66,485행 → train 93,078행(A/B swap 증강) / val 9,973행 / test 9,973행.
+> **구현 완료** — `ml/baseline/preprocess.py` 전처리 파이프라인 구현 완료.
+> 실행 결과: clean 66,485행 → train/test 분할 (match_key 단위 80/20).
 
 ## 1. 전처리 파이프라인 개요
 
 ```
-[수집] → [파싱] → [정규화] → [품질 게이트] → [dedup] → [분할] → [피처 집계] → [피처 생성] → [증강] → [저장]
+[수집] → [파싱] → [정규화] → [품질 검사] → [dedup] → [분할] → [피처 집계] → [피처 생성] → [저장]
 ```
 
-외부 API 미사용 — Kaggle CSV 7개만 사용한다. 전처리는 `ml/data_pipeline.py`와 `ml/parsers/*.py`로 처리한다.
+외부 API 미사용 — Kaggle CSV 5개만 사용한다. 전처리는 `ml/baseline/preprocess.py`와 `ml/raw_preprocess.py` (parser family)로 처리한다.
 
 ---
 
 ## 2. 데이터 수집
 
-### 2.1 Kaggle 7개 데이터셋 다운로드
+### 2.1 Kaggle 5개 데이터셋 다운로드
 
 ```python
 # dataload.py
@@ -30,6 +30,8 @@ DATASETS = [
      "data/raw/kaggle/ryanluong1__valorant-challengers-league-data"),
     ("qualidea1217/valorant-pro-matches-since-april-2021",
      "data/raw/kaggle/qualidea1217__valorant-pro-matches-since-april-2021"),
+    ("piyush86kumar/valorant-champions-2024",
+     "data/raw/kaggle/piyush86kumar__valorant-champions-2024"),
     ("ediashtarevin/vct-champions-2023-stats",
      "data/raw/kaggle/ediashtarevin__vct-champions-2023-stats"),
 ]
@@ -87,27 +89,27 @@ team_a = normalize_team(raw_team_a)
 team_b = normalize_team(raw_team_b)
 
 # 요원·맵 정규화
-agent = normalize_agent(raw_agent)   # None이면 품질 게이트 탈락
-map_  = normalize_map(raw_map)       # None이면 품질 게이트 탈락
+agent = normalize_agent(raw_agent)   # None이면 품질 검사 탈락
+map_  = normalize_map(raw_map)       # None이면 품질 검사 탈락
 ```
 
 컬럼명 통일: `hs%` / `hs_percent` / `HS%` → `hs`, `kast%` / `Kill Assist Trade Survive %` → `kast`.
 
 ---
 
-## 5. 품질 게이트
+## 5. 품질 검사
 
 | 조건 | 기준 |
 |------|------|
 | 팀당 요원 수 | 팀 A·B 각각 정확히 5명 |
 | 요원 유효성 | AGENT_ROLE_MAP에 모두 존재 |
-| 맵 유효성 | MAP_ORDER 12개에 존재 |
+| 맵 유효성 | MAP_ORDER 13개에 존재 |
 | 레이블 유효성 | winner가 team_a 또는 team_b |
 | 핵심 스탯 결측 | ACS·KD 비결측 |
 | 소스 비중 | 단일 소스 < 전체의 20% |
 | 동점 | score_a != score_b |
 
-탈락 행 → `reports/rejected_matches.csv`.
+탈락 행 → `data/processed/rejects.csv`.
 
 ---
 
@@ -146,32 +148,36 @@ match_key 단위 GroupShuffleSplit (seed=42) — 구현 완료:
 ```python
 from sklearn.model_selection import GroupShuffleSplit
 
-splitter = GroupShuffleSplit(n_splits=1, test_size=0.30, random_state=42)
-train_idx, temp_idx = next(splitter.split(df, groups=df["match_key"]))
+# 단일 분할: train(80%) / test(20%) — 별도 val 세트 없음
+splitter = GroupShuffleSplit(n_splits=1, test_size=0.20, random_state=42)
+train_idx, test_idx = next(splitter.split(df, groups=df["match_key"]))
 
-splitter2 = GroupShuffleSplit(n_splits=1, test_size=0.50, random_state=42)
-val_idx, test_idx = next(
-    splitter2.split(df.iloc[temp_idx], groups=df.iloc[temp_idx]["match_key"])
-)
+train = df.iloc[train_idx]
+test  = df.iloc[test_idx]
 ```
 
-비율: train 70% / val 15% / test 15%.
+비율: train 80% / test 20% — 별도 검증셋 없이 train 내부 GroupKFold로 튜닝.
 
 ---
 
 ## 8. 피처 엔지니어링
 
-### 8.1 피처 카테고리 (43개 + 1 레이블)
+### 8.1 피처 카테고리 (구 설계 43개는 폐기됨 — 실제 구현 참조)
 
-| 카테고리 | 피처 수 |
-|----------|---------|
-| 역할군 카운트 (a/b 각 4 + diff 4) | 12 |
-| 역할군 파생 (has_controller, is_double_duelist) | 4 |
-| 선수 스탯 (acs/kd/kast/adr/clutch/hs, 팀당) | 12 |
-| 시너지 (fk_fd_ratio/assists/kast_std, 팀당) | 6 |
-| 요원 조합 (agent_map_wr/pick_rate/exp, 팀당) | 6 |
-| 맵 (map_encoded/atk_side_advantage/is_attacker_a) | 3 |
-| 레이블 | 1 |
+> 아래 43개 카테고리 표는 초기 설계 명세이며 현재 파이프라인과 다르다.
+> 실제 구현: **baseline 178개** / **advanced 125개** (06_feature_engineering.md 참조).
+
+| 카테고리 | baseline | advanced |
+|----------|---------|---------|
+| 맵 원핫 | 13 | 13 |
+| 역할군 count (a/b/diff) | 12 | 8 (diff 제거) |
+| 요원 count (28명×3 / 29명×2) | 84 | 58 |
+| 선수 prior (8base×3 / 8base×2) | 24 | 16 |
+| Synergy (a/b/diff) | 3 | 2 |
+| 맵×요원 (7stat×3 / 7stat×2) | 21 | 14 |
+| 선수×요원 (7stat×3 / 7stat×2) | 21 | 14 |
+| **합계** | **178** | **125** |
+| 레이블 | 1 | 1 |
 
 ### 8.2 피처 생성 함수 스켈레톤
 
@@ -224,17 +230,16 @@ def build_features(row: dict, agent_map_stats: dict, agent_exp: dict) -> dict:
     return feats
 ```
 
-### 8.3 피처 사전 집계 (누수 방지)
+### 8.3 피처 사전 집계 (데이터가 섞이지 않게 함)
 
 ```
-Step 1. matches_clean.csv → train/val/test 분할
+Step 1. matches.csv → train/test 분할 (80/20, val 세트 없음)
 Step 2. train.csv만으로:
           atk_side_advantage, agent_map_stats, agent_experience 집계
 Step 3. train/val/test 각각에 join
           신규 조합: winrate=0.5, experience=0
-Step 4. A/B swap 증강 (train 전용)
-Step 5. sample_weight = time_weight x source_weight
-Step 6. features_base.csv 저장
+Step 4. sample_weight = time_weight x source_weight
+Step 5. features_base.csv 저장
 ```
 
 ### 8.4 sample_weight
@@ -260,7 +265,7 @@ sample_weight = get_time_weight(row["date"]) * SOURCE_WEIGHT[row["source"]]
 ## 9. 전체 파이프라인 실행
 
 ```python
-# ml/data_pipeline.py 메인 실행 흐름
+# ml/baseline/preprocess.py 메인 실행 흐름
 if __name__ == "__main__":
     # 1. 파싱 (5종 파서)
     rows = []
@@ -272,16 +277,16 @@ if __name__ == "__main__":
     # 2. 정규화
     rows = [normalize_row(r) for r in rows]
 
-    # 3. 품질 게이트
+    # 3. 품질 검사
     rows, rejected = quality_gate_all(rows)
-    save_rejected(rejected, "reports/rejected_matches.csv")
+    save_rejected(rejected, "data/processed/rejects.csv")
 
     # 4. dedup
     rows = dedup_rows(rows)
-    save_clean(rows, "data/processed/matches_clean.csv")
+    save_clean(rows, "data/processed/matches.csv")
 
-    # 5. 분할 (match_key 단위 GroupShuffleSplit)
-    train_rows, val_rows, test_rows = split_rows(rows, seed=42)
+    # 5. 분할 (match_key 단위 GroupShuffleSplit, 80/20)
+    train_rows, test_rows = split_rows(rows, seed=42)
 
     # 6. 피처 사전 집계 (train 기준)
     agent_map_stats = compute_agent_map_stats(train_rows)
@@ -290,15 +295,11 @@ if __name__ == "__main__":
 
     # 7. 피처 생성
     train_df = build_features_df(train_rows, agent_map_stats, agent_exp, atk_advantage)
-    val_df   = build_features_df(val_rows,   agent_map_stats, agent_exp, atk_advantage)
     test_df  = build_features_df(test_rows,  agent_map_stats, agent_exp, atk_advantage)
 
-    # 8. A/B swap 증강 (train 전용)
-    train_df = augment_swap(train_df)
-
-    # 9. 저장
+    # 8. 저장
     train_df.to_csv("data/processed/train.csv", index=False)
-    val_df.to_csv("data/processed/val.csv",     index=False)
+    # val.csv 없음 — 별도 검증셋 없이 train 내부 GroupKFold로 튜닝
     test_df.to_csv("data/processed/test.csv",   index=False)
 ```
 
@@ -308,15 +309,14 @@ if __name__ == "__main__":
 
 | 체크 항목 | 확인 방법 | 기준 | 실측 결과 |
 |----------|----------|------|----------|
-| 맵 행 총수 (dedup 후) | `len(matches_clean)` | — | 66,485행 |
-| train (A/B swap 증강 후) | `len(train)` | — | 93,078행 |
-| val | `len(val)` | — | 9,973행 |
-| test | `len(test)` | — | 9,973행 |
+| 맵 행 총수 (dedup 후) | `len(matches)` | — | 66,485행 |
+| train (advanced, adv_kaggle_only) | `len(train)` | — | 53,427행 |
+| test | `len(test)` | — | 13,357행 |
 | 클래스 균형 (test) | `df["label"].mean()` | 0.45~0.55 | 0.569 (imbalance_ratio 1.32) |
 | 결측값 없음 | `df.isnull().sum()` | 모든 피처 0 | 통과 |
 | 역할군 합계 | `a_duelist+...+a_sentinel` | 각 팀 = 5 | 통과 |
-| match_key 누수 없음 | train/val/test 교집합 | 0 | 통과 |
-| 피처 수 | `len(feature_cols)` | 43 | FEATURE_COLS_P1(19) + FEATURE_COLS_P2(24) = 43 |
+| match_key 겹침 없음 | train/test 교집합 | 0 | 통과 |
+| 피처 수 | `len(feature_cols)` | baseline 178 / advanced 125 | 파이프라인별 feature contract 참조 |
 | 중복 dedup_key | `dedup_key.duplicated().sum()` | 0 | 통과 |
 
 ---
@@ -325,12 +325,11 @@ if __name__ == "__main__":
 
 | 경로 | 내용 |
 |------|------|
-| `data/processed/matches_clean.csv` | 품질 게이트·dedup 통과한 맵 행 전체 |
+| `data/processed/matches.csv` | 품질 검사·dedup를 통과한 맵 행 전체 |
 | `data/processed/features_base.csv` | 피처 테이블 (레이블 포함) |
-| `data/processed/train.csv` | 학습셋 (A/B swap 증강 포함) |
-| `data/processed/val.csv` | 검증셋 |
+| `data/processed/train.csv` | 학습셋 |
 | `data/processed/test.csv` | 테스트셋 (최종 평가 전용) |
 | `reports/preprocess_summary.json` | 소스별 행수·제거율·최종 분포 등 실행 통계 |
-| `reports/rejected_matches.csv` | 품질 게이트 탈락 행 및 탈락 사유 |
+| `data/processed/rejects.csv` | 품질 검사에서 탈락한 행 및 탈락 사유 |
 
 모두 로컬 생성, git 제외 (`.gitignore`에 포함).

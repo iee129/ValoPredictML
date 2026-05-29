@@ -19,22 +19,34 @@ ValoPredictML/
 ├── models/                         # 학습된 모델
 ├── ml/                             # ML 파이프라인
 │   ├── __init__.py
-│   ├── valorant.py                 # 요원→역할 매핑, 맵 목록, 정규화 함수 (미구현)
-│   ├── baseline/                   # 단순 베이스라인 모델 (미구현)
+│   ├── valorant.py                 # 요원→역할 매핑, 맵 목록, 정규화 함수 (완료)
+│   ├── agent_roles.py              # 요원→역할군 매핑, 맵 목록 (완료)
+│   ├── raw_preprocess.py           # Kaggle raw → data/processed/ 정제 (완료)
+│   ├── baseline/                   # 베이스라인 모델 (완료, Test AUC 0.6587)
+│   │   ├── __init__.py
 │   │   ├── preprocess.py
+│   │   ├── eda.py                  # EDA 차트 생성
 │   │   ├── train.py
 │   │   ├── evaluate.py
 │   │   └── validate.py
-│   ├── advanced/                   # RF + XGBoost + LightGBM 앙상블 (미구현)
-│   │   ├── preprocess.py
-│   │   ├── ensemble.py
+│   ├── advanced/                   # RF + XGBoost + LightGBM 앙상블 (완료, Test AUC 0.7570)
+│   │   ├── __init__.py
+│   │   ├── preprocess.py           # (비활성) 구 advanced 전처리
+│   │   ├── optimize.py             # Optuna HPO (rf/xgb/lgbm best_params)
+│   │   ├── ensemble.py             # Soft Voting 앙상블 학습
 │   │   ├── evaluate.py
-│   │   └── validate.py
+│   │   ├── shap_analysis.py        # SHAP TreeExplainer 분석
+│   │   ├── validate.py
+│   │   ├── chrono_preprocess.py    # 시간순 연도블록 분할 (비활성 실험)
+│   │   └── svm_experiment.py       # SVM 사이드카 비교 (비승격 실험)
 │   └── vlrgg/                      # VLR.gg 데이터 수집 (부분 구현)
+│       ├── __init__.py
 │       ├── client.py
 │       ├── collector.py
+│       ├── preprocess.py           # 수집 데이터 → matches.csv 포맷 변환
 │       └── worker.py
-└── app/                            # Streamlit UI (미구현)
+└── app/                            # Streamlit UI (완료)
+    ├── __init__.py
     ├── main.py                     # Streamlit 진입점
     └── predict.py                  # 모델 로드 + 추론
 ```
@@ -80,7 +92,7 @@ docs/
 │   └── 06_ml_pipeline_architecture.md
 ├── overview.md               # 프로젝트 정전 개요 (iee 정전 문서)
 ├── preprocessing.md          # 전처리 파이프라인 정전 설계 (iee 정전 문서)
-└── datasets.md               # 7개 Kaggle 데이터셋 가이드 (iee 정전 문서)
+└── datasets.md               # 5개 Kaggle 데이터셋 가이드 (iee 정전 문서)
 ```
 
 ---
@@ -96,7 +108,7 @@ data/
 │       ├── qualidea1217__valorant-pro-matches-since-april-2021/
 │       └── ediashtarevin__vct-champions-2023-stats/
 └── processed/              # 전처리 스크립트 실행 결과물 (git 제외)
-    ├── matches.csv         # 품질 게이트·dedup 통과한 맵 행
+    ├── matches.csv         # 품질 검사·dedup 통과한 맵 행
     ├── players.csv         # 선수 스탯 집계
     ├── teams.csv           # 팀별 집계
     ├── features_lineup.csv # 요원 조합 피처
@@ -104,10 +116,9 @@ data/
     ├── files.csv           # 소스 파일 레지스트리
     ├── schemas.csv         # 스키마 정의
     ├── sources.csv         # 소스별 메타데이터
-    ├── rejects.csv         # 품질 게이트 탈락 행
-    ├── train.csv           # 학습용 (70%)
-    ├── val.csv             # 검증용 (15%)
-    └── test.csv            # 테스트용 (15%)
+    ├── rejects.csv         # 품질 검사에서 제외된 행
+    ├── train.csv           # 학습용 (80%)
+    └── test.csv            # 테스트용 (20%)
 ```
 
 **규칙:**
@@ -128,6 +139,7 @@ models/
     ├── rf.joblib            # Random Forest
     ├── xgb.joblib           # XGBoost
     ├── lgbm.joblib          # LightGBM
+    ├── ensemble.joblib      # Soft Voting 앙상블 (서빙용)
     └── meta.json            # 학습 날짜, AUC·Acc·F1
 ```
 

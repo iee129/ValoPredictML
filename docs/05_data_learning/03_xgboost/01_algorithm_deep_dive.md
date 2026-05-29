@@ -307,7 +307,7 @@ def simulate_best_split(X_feature, g, h, lambda_reg=1.0, gamma=0.0):
 | 추론 (1개) | O(T × max_depth) | 매우 빠름 |
 | 메모리 | O(N × d) | 블록 저장 |
 
-ValoPredictML (N~80K 맵 행, d=43, T=500, max_depth=6):
-- 전처리: 80000 × 43 × log(80000) ≈ 37M 연산
-- 전체 학습: 500 × 43 × 80000 = 1.72B 연산 → 약 20초
-- 추론: 500 × 6 = 3,000 연산 → < 1ms
+ValoPredictML (N~80K 맵 행, d=125 (advanced 계약), T=242 (XGB best n_estimators), max_depth=10 (XGB best)):
+- 전처리: 80000 × 125 × log(80000) ≈ 107M 연산
+- 전체 학습: 242 × 125 × 80000 = 2.42B 연산 → 약 20초
+- 추론: 242 × 10 = 2,420 연산 → < 1ms

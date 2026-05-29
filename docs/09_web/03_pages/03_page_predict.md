@@ -207,6 +207,138 @@ disabled={loading || teamA.length !== 5 || teamB.length !== 5}
 
 ---
 
+## 비주얼 스펙
+
+### 배경 레이아웃
+
+| 영역 | 토큰 | 비고 |
+|------|------|------|
+| 페이지 전체 | `var(--color-valo-bg)` | 순수 블랙 |
+| 팀 A/B 슬롯 패널 | `var(--color-valo-panel)` | 1px `var(--color-valo-border)` 테두리 |
+| AgentGrid 배경 | `var(--color-valo-panel-alt)` | 슬롯 패널보다 한 단계 밝음 — 선택 영역 구분 |
+| 예측 결과 섹션 | `var(--color-valo-red-dim)` | 레드 틴트 배경 — 예측 완료 후 영역 강조 |
+
+---
+
+### 페이지 헤더 타이포그래피
+
+```css
+/* page.module.css */
+.pageTitle {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(2rem, 5vw, 3.5rem);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-valo-text);
+  border-left: 3px solid var(--color-valo-red);
+  padding-left: 0.75rem;
+}
+```
+
+---
+
+### clip-path 적용 지점
+
+| 컴포넌트 | clip-path 사용 이유 |
+|----------|---------------------|
+| AgentCard | 요원 카드 우상단 8px 잘림 — 발로란트 각진 카드 정체성 (정본: `04_components/03_predict_components.md`) |
+| PredictButton (`승률 예측하기`) | 페이지 주 CTA — 택티컬 각진 형태로 행동 유도 |
+| 결과 섹션 래퍼 | 예측 결과 영역 시각적 분리 — 게임 결과 화면 느낌 |
+
+```css
+/* PredictButton — 활성/비활성 상태 포함 */
+.predictButton {
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%);
+  background: var(--color-valo-red);
+  color: var(--color-valo-text);
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.2rem;
+  letter-spacing: 0.1em;
+  padding: 0.875rem 3rem;
+  transition: background 0.2s ease;
+  width: 100%;
+  max-width: 320px;
+}
+.predictButton:hover:not(:disabled) {
+  background: var(--color-valo-red-hover);
+}
+.predictButton:disabled {
+  clip-path: none;
+  background: var(--color-valo-border);
+  color: var(--color-valo-muted);
+  cursor: not-allowed;
+}
+
+/* 결과 섹션 래퍼 */
+.resultSection {
+  background: var(--color-valo-red-dim);
+  border-top: 2px solid var(--color-valo-red);
+  padding: 2rem 1.5rem;
+  clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 0 100%);
+}
+```
+
+---
+
+### 레드 강조 포인트
+
+| 요소 | 강조 방식 | 토큰 |
+|------|-----------|------|
+| PredictButton | 배경 + clip-path | `--color-valo-red` · `--color-valo-red-hover` |
+| 팀 A 헤더 | 좌측 3px 강조 바 | `--color-valo-red` |
+| 팀 B 헤더 | 좌측 3px 강조 바 | `--color-valo-cyan` (팀 구분색 유지) |
+| 활성 역할군 필터 탭 | 하단 2px underline + 텍스트색 | `--color-valo-red` |
+| 결과 섹션 상단 | 2px `border-top` | `--color-valo-red` |
+
+```css
+/* 역할군 필터 탭 — 기본 / hover / 활성 */
+.filterTab {
+  font-family: Pretendard, sans-serif;
+  font-size: 0.875rem;
+  color: var(--color-valo-muted);
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s ease, border-color 0.15s ease;
+  padding-bottom: 0.25rem;
+}
+.filterTab:hover {
+  color: var(--color-valo-text);
+}
+.filterTabActive {
+  color: var(--color-valo-red);
+  border-bottom-color: var(--color-valo-red);
+}
+
+/* 팀 헤더 강조 바 */
+.teamAHeader {
+  border-left: 3px solid var(--color-valo-red);
+  padding-left: 0.5rem;
+  font-family: 'Bebas Neue', sans-serif;
+  letter-spacing: 0.06em;
+  color: var(--color-valo-text);
+}
+.teamBHeader {
+  border-left: 3px solid var(--color-valo-cyan);
+  padding-left: 0.5rem;
+  font-family: 'Bebas Neue', sans-serif;
+  letter-spacing: 0.06em;
+  color: var(--color-valo-text);
+}
+```
+
+---
+
+### 팀 슬롯 상태 색상
+
+| 상태 | 테두리 | 배경 |
+|------|--------|------|
+| 기본 (비어있음) | `var(--color-valo-border)` | `var(--color-valo-panel)` |
+| hover | `var(--color-valo-muted)` | `var(--color-valo-panel)` |
+| 선택됨 — 팀 A | `var(--color-valo-red)` | `var(--color-valo-red-dim)` |
+| 선택됨 — 팀 B | `var(--color-valo-cyan)` | `rgba(41, 197, 224, 0.1)` |
+| disabled (5명 완성 후 미선택) | `var(--color-valo-border)` | `var(--color-valo-bg)` (불투명 처리) |
+
+---
+
 ## 관련 문서
 
 - 요원 선택 UI 상세: [04_components/03_predict_components.md](../04_components/03_predict_components.md)

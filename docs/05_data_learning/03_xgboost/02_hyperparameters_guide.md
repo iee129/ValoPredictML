@@ -22,13 +22,13 @@ XGBoost는 RF + XGBoost + LightGBM 앙상블 구성원 중 하나다. 스케일�
 | 값 | 효과 | 사용 시기 |
 |----|------|---------|
 | 3~4 | 단순 모델, 과적합 저항, 빠름 | 소규모 데이터, 피처 수 적을 때 |
-| 5~7 | 균형 (기본값 6 권장) | **ValoPredictML (피처 43개)** |
+| 5~7 | 균형 (기본값 6 권장) | **ValoPredictML (피처 125개, advanced 계약)** |
 | 8~10 | 복잡한 패턴, 과적합 위험 | 피처 수 많고 데이터 클 때 |
 
 ```python
-# ValoPredictML: 피처 43개, 샘플 ~80K 맵 행
+# ValoPredictML: 피처 125개 (advanced 계약), 샘플 ~80K 맵 행
 # max_depth=6: 2^6=64개 리프 가능 → 피처 간 6단계 상호작용 포착
-# max_depth > 8: 과적합 위험 높음
+# max_depth > 8: 과적합 위험 높음 (실측 XGB best max_depth=10)
 param_xgb = {"max_depth": 6}
 ```
 
@@ -119,7 +119,7 @@ xgb_model = xgb.XGBClassifier(
 권장 범위: 0 ~ 1.0
 
 높은 값: 일부 피처 계수를 0으로 만드는 효과
-ValoPredictML: 피처 43개, L1 과도하면 정보 손실 위험
+ValoPredictML: 피처 125개 (advanced 계약), L1 과도하면 정보 손실 위험
 ```
 
 ### 3.2 reg_lambda (L2 정규화)
@@ -158,7 +158,7 @@ lambda 크면 → 리프 점수 작아짐 → 모델 보수적
 기본값: 1.0
 권장 범위: 0.5 ~ 1.0
 
-ValoPredictML (d=43): colsample_bytree=0.8 → 34개 피처 사용
+ValoPredictML (d=125, advanced 계약): colsample_bytree=0.8 → 100개 피처 사용
 ```
 
 ### 4.3 colsample_bylevel / colsample_bynode
@@ -270,7 +270,7 @@ xgb_params_starter = {
 ### 8.2 Optuna 최적화 후 기대 파라미터 범위
 
 ```python
-# Optuna 100 trials 결과 예상 범위
+# Optuna 50 trials 결과 예상 범위 (DEFAULT_N_TRIALS=50)
 expected_optimal = {
     "max_depth": 5,           # 6보다 약간 얕게 (과적합 방지)
     "min_child_weight": 4,    # 기본 1보다 높게

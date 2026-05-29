@@ -9,8 +9,8 @@
 ```
 app/
 ├── __init__.py
-├── main.py        # Streamlit 진입점 (미구현)
-└── predict.py     # 모델 로드 + 추론 (미구현)
+├── main.py        # Streamlit 진입점 (완료)
+└── predict.py     # 모델 로드 + 추론 (완료)
 ```
 
 ---
@@ -34,25 +34,27 @@ streamlit run app/main.py
 
 ---
 
-## 3. 예상 UI 구조
+## 3. UI 구조 (st.tabs 3탭)
 
 ```
 [ValoPredictML - Streamlit 로컬 분석 도구]
 │
-├── 사이드바
-│   ├── 맵 선택 (selectbox)
-│   ├── 선공/후공 선택
-│   └── 팀 A / 팀 B 요원 선택 (multiselect or selectbox × 5)
-│
-├── 메인 영역
-│   ├── [예측 실행] 버튼
-│   ├── 승률 출력 (팀 A: X%, 팀 B: Y%)
-│   ├── 피처 중요도 바 차트 (Plotly)
-│   ├── 역할군 분포 레이더 차트 (Plotly)
-│   └── 교체 시뮬레이션 결과 테이블
-│
-└── (후보) 예측 기록 탭
-    └── PostgreSQL predictions 테이블 조회
+└── st.tabs(["커스텀 5v5", "경기 다시보기", "모델 근거"])
+    │
+    ├── [커스텀 5v5] 탭
+    │   ├── 맵 선택 (selectbox)
+    │   ├── 선공/후공 선택
+    │   ├── 팀 A / 팀 B 요원 선택 (selectbox × 5)
+    │   ├── [예측 실행] 버튼
+    │   ├── 승률 출력 (팀 A: X%, 팀 B: Y%)
+    │   └── 역할군 분포 시각화
+    │
+    ├── [경기 다시보기] 탭
+    │   └── 과거 경기 데이터 기반 예측 재현
+    │
+    └── [모델 근거] 탭
+        ├── 피처 중요도 바 차트 (Plotly)
+        └── SHAP 시각화
 ```
 
 ---
@@ -64,15 +66,15 @@ import streamlit as st
 import joblib
 
 @st.cache_resource
-def load_models():
+def load_model():
     """Streamlit 세션 시작 시 1회 로드 후 캐시"""
-    rf  = joblib.load("models/advanced/rf.joblib")
-    xgb = joblib.load("models/advanced/xgb.joblib")
-    lgb = joblib.load("models/advanced/lgbm.joblib")
-    return rf, xgb, lgb
+    model = joblib.load("models/advanced/ensemble.joblib")
+    return model
 
-rf_model, xgb_model, lgb_model = load_models()
+model = load_model()
 ```
+
+> **주의:** 서빙은 `models/advanced/ensemble.joblib` 단일 파일(VotingClassifier soft voting) 로드. rf/xgb/lgbm 개별 파일을 따로 로드하지 않음.
 
 ---
 
@@ -81,16 +83,15 @@ rf_model, xgb_model, lgb_model = load_models()
 ```
 사용자 입력 (맵 + 팀 A/B 요원 + 선수 스탯)
         ↓
-피처 벡터 생성 (43개)
+피처 벡터 생성 (125개, FEATURE_COLS_ADVANCED 계약)
   - ml/valorant.py 참조
   - 역할군 카운트/diff, has_controller, is_double_duelist
   - 선수 스탯 집계, 시너지 피처
   - 요원×맵 집계값 join (사전 집계 결과물)
   - map_encoded, atk_side_advantage, is_attacker_a
         ↓
-RF / XGBoost / LightGBM predict_proba()
-        ↓
-앙상블: 세 모델 예측 확률 평균
+ensemble_model.predict_proba(X)
+  — VotingClassifier(rf+xgb+lgbm) soft voting, 단일 호출
         ↓
 승률 출력 + 피처 중요도 / SHAP 시각화
 ```

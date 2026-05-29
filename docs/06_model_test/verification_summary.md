@@ -1,107 +1,60 @@
 # 검증 결과 종합 요약 — ValoPredictML
 
-기반: `reports/eval_summary.json`, `reports/baseline_comparison.json`,  
-`reports/generalization_check.json`, `reports/shap_analysis.json`
+기반: `ml/baseline/`·`ml/advanced/`의 evaluate/validate 산출물.
+4모델(분할 × 계열) 산출물: `reports/{baseline, adv_kaggle_only, baseline_chrono, adv_kaggle_chrono}/`.
+각 모델 단독·교차 분석은 [`07_model_evaluation/`](./07_model_evaluation/00_overview.md)에 정리한다.
 
 ---
 
-## 1. 성과지표 스냅샷 (eval_summary.json)
+## 1. 4모델 성과지표 스냅샷
 
-### K-Fold 교차검증 결과
+| # | 모델 | 분할 | 피처 | CV AUC | Test AUC | Test Acc | Test F1 |
+|---|------|------|-----:|-------:|---------:|---------:|--------:|
+| ① | 랜덤순 베이스라인 (LR+DT) | match_key 랜덤 80/20 | 178 | 0.6599±0.0016 | 0.6587 | 0.6290 | 0.7231 |
+| ② | 랜덤순 심화 (RF+XGB+LGBM) | match_key 랜덤 80/20 | 125 | — | 0.7570 | 0.6958 | 0.7649 |
+| ③ | 시간순 베이스라인 (LR+DT) | 연도 블록 ≤2023/≥2024 | 178 | 0.6684±0.0103 | 0.6124 | 0.5795 | 0.6226 |
+| ④ | 시간순 심화 (RF+XGB+LGBM) | 연도 블록 ≤2023/≥2024 | 125 | — | 0.6182 | 0.5885 | 0.6539 |
 
-| 모델 | Accuracy | F1 (macro) | ROC-AUC |
-|------|----------|-----------|---------|
-| RF | 0.8652 ± 0.0017 | 0.8652 ± 0.0017 | 0.9449 ± 0.0012 |
-| XGBoost | 0.8488 ± 0.0028 | 0.8488 ± 0.0028 | 0.9343 ± 0.0019 |
-| LightGBM | 0.8494 ± 0.0027 | 0.8494 ± 0.0027 | 0.9353 ± 0.0019 |
-| **Ensemble** | **0.8580 ± 0.0034** | **0.8580 ± 0.0034** | **0.9414 ± 0.0017** |
+코드: baseline `ml/baseline/{train,evaluate,validate}.py`, advanced `ml/advanced/{optimize,ensemble,evaluate,validate,shap_analysis}.py`.
 
-### Test 세트 최종 평가
+## 2. 랜덤순 심화 개별 모델 (Test, 125피처)
 
-| 모델 | Accuracy | F1 (macro) | ROC-AUC |
-|------|----------|-----------|---------|
-| RF | 0.8595 | 0.8566 | 0.9378 |
-| XGBoost | 0.8443 | 0.8408 | 0.9281 |
-| LightGBM | 0.8480 | 0.8447 | 0.9292 |
-| **Ensemble** | **0.8540** | **0.8508** | **0.9355** |
+| 모델 | ROC-AUC | Accuracy | F1 |
+|------|--------:|---------:|---:|
+| RF | 0.7013 | — | — |
+| XGBoost | 0.7641 | — | — |
+| LightGBM | 0.7332 | — | — |
+| **Ensemble (Soft Voting)** | **0.7570** | **0.6958** | **0.7649** |
 
----
+시간순 심화 개별 모델은 RF 0.6319 / XGB 0.6031 / LGBM 0.6032 / Ensemble 0.6182 (`reports/adv_kaggle_chrono/metrics.json`).
 
-## 2. Baseline 비교 (baseline_comparison.json)
+## 3. 다수 클래스 대비 (랜덤 holdout)
 
 | 기준선 | Accuracy |
-|--------|----------|
-| 무작위 (Random) | 0.5000 |
-| 다수 클래스 (Majority, label=1) | 0.5687 |
-| **Ensemble (Test)** | **0.8540** |
+|--------|---------:|
+| 무작위 | 0.5000 |
+| 다수 클래스 (label=1) | 0.5690 |
+| 랜덤순 베이스라인 (①) | 0.6290 |
+| 랜덤순 심화 (②) | 0.6958 |
 
-**개선폭: +29.13%p** (다수 클래스 기준 대비)
+다수 클래스 정확도 0.5690 대비, 랜덤순 베이스라인은 +6.0%p, 랜덤순 심화는 +12.7%p다.
 
----
+## 4. 분할·과적합 관찰
 
-## 3. 과적합 판정 (generalization_check.json)
+- 네 모델 모두 `match_key`(경기) 단위로 분할해, 같은 경기에서 나온 여러 맵 행이 train·test에 동시에 들어가지 않는다.
+- 결과 이후 정보(스코어·라운드·킬·데스·승률 등) 용어는 정규식(`find_forbidden_feature_names`)으로 입력 피처에서 제외하고, 선수 prior는 이전 연도까지만 집계한다.
+- 심화 앙상블의 train·test AUC 차이는 랜덤 holdout 0.198, 시간순 holdout 0.344이다(상세 [`07_model_evaluation/05_cross_model_comparison.md`](./07_model_evaluation/05_cross_model_comparison.md)).
 
-| 항목 | 값 |
-|------|-----|
-| K-Fold Accuracy (평균) | 0.8580 |
-| Test Accuracy | 0.8540 |
-| **Gap** | **0.004** |
-| 기준 (과적합 경계) | 0.03 |
-| `overfitting_flag` | **false** |
-| 판정 | **PASS — 과적합 없음** |
+## 5. SHAP 피처 영향도 (`reports/adv_kaggle_only/shap_importance.json`)
 
-gap=0.004로 K-Fold와 test 간 성능이 일관적이다.
-
----
-
-## 4. SHAP 일관성 (shap_analysis.json)
-
-### 모델 간 Spearman 상관관계
-
-| 비교 | Spearman r | 판정 |
-|------|-----------|------|
-| RF vs XGBoost | **0.899** | 높음 (> 0.7) |
-| RF vs LightGBM | 0.898 | 높음 |
-| XGBoost vs LightGBM | 0.992 | 거의 동일 |
-
-`consistency_verdict: "높음 (r=0.899 > 0.7)"`
-
-### Top 5 피처 (XGBoost 기준)
-
-| 순위 | 피처 | SHAP 값 | 해석 |
-|------|------|---------|------|
-| 1 | `a_avg_assists` | 1.107 | 팀 A 어시스트 — 협력 전투력 |
-| 2 | `b_avg_assists` | 1.051 | 팀 B 어시스트 — 협력 전투력 |
-| 3 | `b_fk_fd_ratio` | 0.630 | 팀 B 선빵/선죽 비율 |
-| 4 | `a_fk_fd_ratio` | 0.520 | 팀 A 선빵/선죽 비율 |
-| 5 | `b_avg_agent_exp` | 0.340 | 팀 B 요원 숙련도 |
-
-세 모델이 일관되게 **어시스트**와 **FK/FD ratio**를 가장 중요한 피처로 식별한다.  
-이는 Valorant 도메인 지식(팀 플레이·선제 교전 우위)과 일치한다.
-
----
-
-## 5. 검증 통과 체크리스트
-
-| 검증 항목 | 기준 | 결과 | 상태 |
-|-----------|------|------|------|
-| Baseline 대비 개선 | > +10%p | +29.13%p | ✓ PASS |
-| 과적합 여부 | gap < 0.03 | gap = 0.004 | ✓ PASS |
-| SHAP 일관성 | r > 0.7 | r = 0.899 | ✓ PASS |
-| ROC-AUC (Ensemble Test) | > 0.9 | 0.9355 | ✓ PASS |
-| F1 (Ensemble Test) | > 0.8 | 0.8508 | ✓ PASS |
-| Accuracy (Ensemble Test) | > 0.8 | 0.8540 | ✓ PASS |
-
----
+`ml/advanced/shap_analysis.py`가 TreeExplainer로 RF/XGB/LGBM summary와 mean|SHAP|를 산출한다(sample 5,000).
+세 모델 공통으로 상위는 **선수의 이전 연도 prior**(`b_prior_games_mean`, `a_prior_games_mean`, `a_prior_kd_mean`,
+`a_prior_adr_mean`, `b_prior_adr_mean` 등) — 이전 시즌 출전 경험과 교전 성과(KD/ADR) 누적이 예측에 크게 기여한다.
 
 ## 결론
 
-**이 프로젝트는 ML 개념적으로 올바르다.**
-
-근거:
-
-1. **실질적 예측력**: 다수 클래스 baseline 대비 +29.13%p 개선 — 모델이 의미 있는 패턴을 학습했다.
-2. **일반화 검증**: K-Fold vs Test gap=0.004로 과적합이 없다. GroupKFold(match_key 단위)가 실제 배포 환경을 정직하게 시뮬레이션했다.
-3. **피처 신뢰성**: 세 독립 모델의 SHAP 순위가 r=0.899로 일치한다 — 특정 모델의 아티팩트가 아닌 실제 신호다.
-4. **도메인 정합성**: 최상위 피처(어시스트, FK/FD ratio, 요원 숙련도)가 Valorant 게임 메카닉과 일치한다.
-5. **검증 프로세스 무결성**: leakage-free GroupKFold, holdout test, 독립 SHAP 검증으로 다층 검증 완료.
+네 모델은 동일한 Kaggle 소스 데이터와 동일한 피처 계약(베이스라인 178 / 심화 125)을 공유하며, **분할 축**(랜덤 / 시간순)과
+**모델 축**(베이스라인 / 심화)만 바꿔 측정한 결과다. 랜덤 holdout과 시간순 holdout은 서로 다른 대상을 측정하므로(전 기간
+보류 경기 / 학습 이후 기간 경기), 두 분할의 수치는 같은 척도의 우열이 아니라 다른 측정 맥락의 값이다. 분할별·계열별 차이의
+의미와 배경은 [`07_model_evaluation/05_cross_model_comparison.md`](./07_model_evaluation/05_cross_model_comparison.md)와
+[`../05_data_learning/03_advanced_models/02_advanced_metric_analysis.md`](../05_data_learning/03_advanced_models/02_advanced_metric_analysis.md)에 정리한다.

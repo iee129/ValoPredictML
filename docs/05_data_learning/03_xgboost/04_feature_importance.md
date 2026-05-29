@@ -122,7 +122,7 @@ feature_names = [
     "has_controller_a", "has_controller_b",
     "is_double_duelist_a", "is_double_duelist_b",
     # 선수 스탯 (12), 시너지 (6), 요원 조합 (6), 맵 (3) ...
-    # 전체 43개 피처 목록은 preprocessing.md 7장 참조
+    # 전체 125개 피처 목록은 preprocessing.md 7장 참조 (advanced 계약)
 ]
 
 importance_df = extract_all_feature_importances(xgb_model, feature_names)
@@ -404,7 +404,7 @@ def select_features_by_importance(
 ) -> list[str]:
     """
     중요도 임계값 이하 피처 제거.
-    ValoPredictML: 43개 피처가 이미 선별되어 있어 제거 최소화.
+    ValoPredictML: 125개 피처(advanced 계약)가 이미 선별되어 있어 제거 최소화.
     """
     importance_df = extract_all_feature_importances(model, feature_names)
 
@@ -416,7 +416,7 @@ def select_features_by_importance(
 
     print(f"선택된 피처 ({len(selected)}개): {selected}")
     print(f"제거된 피처 ({len(removed)}개): {removed}")
-    print("\n주의: ValoPredictML은 43개 피처가 도메인 지식으로 선별됨.")
+    print("\n주의: ValoPredictML은 125개 피처(advanced 계약)가 도메인 지식으로 선별됨.")
     print("중요도 낮은 피처도 제거 전 도메인 전문가 검토 필요.")
     print("Ablation study(카테고리 단위 제거)로 최종 확인 권장.")
 

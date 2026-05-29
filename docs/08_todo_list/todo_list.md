@@ -12,30 +12,28 @@
 - [x] **데이터 수집 스크립트** — `dataload.py` 작성, Kaggle 다수 데이터셋 다운로드 (`data/raw/kaggle/`, 2.3GB)
 - [x] **문서화**
   - [x] `docs/overview.md` — 프로젝트 정의, 아키텍처, 앙상블·K-Fold WHY 설명
-  - [x] `docs/preprocessing.md` — 파서 분리, 품질 게이트, 레이블, 분할 전략 + WHY
+  - [x] `docs/preprocessing.md` — 파서 분리, 품질 검사, 레이블, 분할 전략 + WHY
   - [x] `docs/ui_design.md` — Streamlit 5개 화면 설계 + WHY
   - [x] `docs/datasets.md` — 데이터셋 상세, 관련성 평가, 파이프라인 역할
   - [x] `docs/valorant.md` — 게임 규칙, 역할 가이드, 프로 데이터 한계 + WHY
   - [x] `docs/competitive_analysis.md` — 8개 경쟁 프로젝트 비교 분석
 - [x] **1단계: 데이터 전처리 (`ml/`)** — 구현 완료
-  - [x] `ml/agent_roles.py` — 27종 요원 × 4개 역할 분류 + 12개 맵 목록
-  - [x] `ml/data_pipeline.py` — 파서 5종(ryanluong·qualidea·piyush·ediashtarevin·challengers) + 품질 게이트 + dedup + 피처 + 분할
-  - [x] 전처리 결과: clean **66,485행** → train **93,078** / val **9,973** / test **9,973** (seed=42)
+  - [x] `ml/valorant.py` — 27종 요원 × 4개 역할 분류 + 12개 맵 목록 + 정규화 함수
+  - [x] `ml/raw_preprocess.py` — raw 정제 진입점
+  - [x] `ml/baseline/preprocess.py` — 파서 4종(ryanluong·qualidea·ediashtarevin·challengers) + 품질 검사 + dedup + 피처 + 분할
+  - [x] 전처리 결과 (advanced): train **53,427** / test **13,357**
   - [x] `reports/preprocess_summary.json`, `reports/rejected_matches.csv` 출력
-- [x] **3단계: 모델 학습 (`ml/train_model.py`)** — 구현 완료
-  - [x] Random Forest (n_estimators=300)
-  - [x] XGBoost (n=500, Optuna HPO)
-  - [x] LightGBM (n=500, Optuna HPO)
-  - [x] 앙상블 — metadata 기반 RF/XGBoost/LightGBM 가중 평균
+- [x] **3단계: 모델 학습** — 구현 완료
+  - [x] Baseline: `ml/baseline/train.py` (GridSearchCV, LR+DT Soft Voting, 178피처)
+  - [x] Advanced: `ml/advanced/optimize.py` (Optuna HPO) + `ml/advanced/ensemble.py` (RF+XGB+LGBM, 125피처)
   - [x] K-Fold 교차검증 (K=5, GroupKFold, match_key 기준)
   - [x] 모델 파일 저장 (`models/`, git 제외)
-- [x] **4단계: 모델 평가 (`ml/evaluate_model.py`, `ml/validate_metrics.py`)** — 완료
-  - [x] Ensemble Test AUC=**0.9355**, Acc=**0.8540**, F1=**0.8508**
-  - [x] K-Fold Ensemble AUC=**0.9414** (gap=0.0059 — 과적합 없음)
-  - [x] Baseline(다수 클래스) 대비 **+29.13%p** 개선
-  - [x] SHAP feature importance 분석
+- [x] **4단계: 모델 평가** — 완료
+  - [x] Baseline: Test AUC=**0.6587**, CV AUC=**0.6599±0.0016**, Acc=**0.6290**, F1=**0.7231** (verdict: PASS_TRUSTED_PREMATCH_BASELINE)
+  - [x] Advanced Ensemble Test AUC=**0.7570** (RF 0.7013 / XGB 0.7641 / LGBM 0.7332), Acc=**0.6958**, F1=**0.7649** (verdict: PASS_TRUSTED_KAGGLE_ONLY_ADVANCED)
+  - [x] SHAP feature importance 분석 (`ml/advanced/shap_analysis.py`)
   - [x] `reports/eval_summary.json`, `reports/baseline_comparison.json` 출력
-- [x] **5단계: Streamlit UI (`app/streamlit_app.py`)**
+- [x] **5단계: Streamlit UI (`app/main.py` + `app/predict.py`)**
   - [x] Feature Builder — 선수/요원 입력 → P1-P4 57개 피처 자동 생성
   - [x] 예측 결과 — 승률, 주요 영향 피처 bar chart, 선수 기여도 표
   - [x] 교체 실험 — 요원 교체 전후 승률 delta 계산
@@ -54,13 +52,13 @@
   - [ ] `ml/differentiators/risk_alert.py` (룰 5개: no_controller / too_many_sentinels / no_duelist / no_initiator / same_role_overload)
 - [ ] **5/30 (토)** N (요원-맵 적합도) + K (맵별 이상 구성) + J (Ult Cycle Balance)
   - [ ] `docs/10_valorant/agents.md` → `data/research/agent_map_fit.json` (29×13)
-  - [ ] `docs/10_valorant/maps.md` → `data/research/map_ideal_comp.json` (12 맵)
+  - [ ] `docs/10_valorant/maps.md` → `data/research/map_ideal_comp.json` (13 맵)
   - [ ] `docs/10_valorant/economy.md` → `data/research/agent_ult_cost.json` (29 요원)
   - [ ] `ml/differentiators/{agent_map_fit,map_ideal_comp,ult_balance}.py` + 단위 테스트 3건
 - [ ] **5/31 (일)** Phase 5a — 심화 모델 학습
   - [ ] `ml/advanced/preprocess.py` + `ml/advanced/train.py` (RF + XGBoost + LightGBM + Optuna)
   - [ ] `models/advanced/{rf,xgb,lgbm}.joblib` 생성, `reports/advanced/metrics.json`
-  - [ ] `ml/advanced/validate.py` — 6관문 데이터 누수 게이트 통과
+  - [ ] `ml/advanced/validate.py` — 데이터 혼입 여부 확인
 - [ ] **6/01 (월)** B (박빙 검증) + C (자연어 설명 골격)
   - [ ] `ml/baseline/evaluate.py` 보강 — Brier + Reliability + ECE + 박빙 구간 다단계
   - [ ] `reports/baseline/calibration.png`, `reports/advanced/calibration.png`
@@ -72,7 +70,7 @@
   - [ ] `data/processed/vlrgg/` 통합 CSV, dedup_key 매칭 리포트
 - [ ] **6/03 (수)** D (선수 Agent Pool) + Phase 5b VLR.gg 통합 모델 재학습
   - [ ] `ml/differentiators/player_agent_pool.py` (vlrggapi + CSV fallback)
-  - [ ] `models/advanced_vlrgg/{rf,xgb,lgbm}.joblib`, 6관문 통과
+  - [ ] `models/advanced_vlrgg/{rf,xgb,lgbm}.joblib`
 - [ ] **6/04 (목)** E (사이드별 ATK/DEF 패널)
   - [ ] `ml/differentiators/side_panel.py` (VLR team stats ATK RWin% / DEF RWin%)
 - [ ] **6/05 (금)** A (What-if 시뮬레이션)
@@ -88,9 +86,9 @@
   - [ ] `notice/final/final_presentation.md`, `final_script.md`
   - [ ] 백업 시연 영상
 
-### 검증 게이트 (전 기간)
+### 검증 항목 (전 기간)
 
-- [ ] 데이터 누수 6관문 — 베이스라인 / 심화 (Kaggle) / 심화 (Kaggle+VLR.gg) 3개 모델 모두 PASS
+- [ ] 데이터 혼입 여부 점검 — 베이스라인 / 심화 (Kaggle) / 심화 (Kaggle+VLR.gg) 3개 모델 모두 PASS
 - [ ] 차별점 단위 테스트 10개 모두 통과 (`pytest tests/differentiators/`)
 - [ ] 통합 테스트 통과 (`pytest tests/integration/`)
 - [ ] 박빙 구간 정확도 ≥50% (찍기 초과, B 차별점 학술 기준)

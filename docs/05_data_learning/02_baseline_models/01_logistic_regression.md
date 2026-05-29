@@ -16,7 +16,7 @@
 
 팀명 기반 prior나 현재 경기 스코어/스탯은 모델 피처에 넣지 않는다. 선수 성능 피처는 현재 경기 연도보다 이전 연도의 기록만 사용한다.
 
-활성 baseline은 Kaggle source만 사용한다. `vlrgg_*` source는 raw table에 남아 있어도 `data/processed/train.csv`, `val.csv`, `test.csv` 생성 전에 제외한다.
+활성 baseline은 Kaggle source만 사용한다. `vlrgg_*` source는 raw table에 남아 있어도 `data/processed/train.csv`, `test.csv` 생성 전에 제외한다.
 
 세부 피처 명세: [../../04_data_processing/06_feature_engineering.md](../../04_data_processing/06_feature_engineering.md)
 
@@ -47,28 +47,25 @@ python -m ml.baseline.validate
 | 파일 | 내용 |
 |---|---|
 | `data/processed/train.csv` | previous-year 178피처 baseline modeling split |
-| `data/processed/val.csv` | previous-year 178피처 baseline modeling split |
 | `data/processed/test.csv` | previous-year 178피처 final holdout split |
 | `models/baseline/model.joblib` | LR+DT soft-voting 모델 |
 | `models/baseline/meta.json` | 입력 계약, 피처 목록, 튜닝 결과, trust verdict |
 | `reports/baseline/metrics.json` | CV/test 성능 |
-| `reports/baseline/validation.json` | leakage/trust gate 결과 |
+| `reports/baseline/validation.json` | 분리 검증 및 신뢰도 확인 결과 |
 
 ## 현재 성능
 
-`reports/baseline/metrics.json` 기준 (재학습 예정):
+`reports/baseline/metrics.json` 기준:
 
 | 지표 | 값 |
 |---|---:|
 | Feature count | 178 |
-| Modeling rows (`train + val`) | 56,767 |
-| Test rows | 10,017 |
-| CV ROC-AUC | 0.6608 |
-| CV Accuracy | 0.6260 |
-| CV F1 | 0.7197 |
-| Test ROC-AUC | 0.6562 |
+| Train rows | 53,427 |
+| Test rows | 13,357 |
+| CV ROC-AUC | 0.6599 ± 0.0016 |
+| Test ROC-AUC | 0.6587 |
 | Test Accuracy | 0.6290 |
-| Test F1 | 0.7243 |
+| Test F1 | 0.7231 |
 
 `reports/baseline/validation.json` 기준:
 
@@ -82,7 +79,7 @@ python -m ml.baseline.validate
 
 ## 해석
 
-이 baseline은 높은 숫자를 만들기 위해 현재 경기의 선수 스탯을 쓰지 않는다. Test AUC 0.6707은 이전 누설성 claim보다 낮지만, UI 입력으로 재현 가능한 pre-match 피처만 사용한다는 점에서 신뢰 가능한 기준선이다.
+이 baseline은 높은 숫자를 만들기 위해 현재 경기의 선수 스탯을 쓰지 않는다. Test AUC 0.6587은 UI 입력으로 재현 가능한 pre-match 피처만 사용한다는 점에서 신뢰 가능한 기준선이다.
 
 ## 데이터 소스별 성능 비교 계획
 

@@ -17,9 +17,9 @@
 
 ---
 
-## 2. FastAPI 엔드포인트 전체 스펙
+## 2. FastAPI 엔드포인트 전체 스펙 (미구현 — FastAPI 범위 외, 참고용)
 
-### 2.1 `POST /predict` — 승률 예측
+### 2.1 `POST /predict` — 승률 예측 (미구현)
 
 **요청 (Request)**
 
@@ -144,7 +144,7 @@ def calculate_confidence(prob: float) -> str:
 
 ---
 
-### 2.2 `GET /agents` — 요원 목록
+### 2.2 `GET /agents` — 요원 목록 (미구현)
 
 ```http
 GET /agents
@@ -171,7 +171,7 @@ GET /agents
 
 ---
 
-### 2.3 `GET /maps` — 맵 목록
+### 2.3 `GET /maps` — 맵 목록 (미구현)
 
 ```http
 GET /maps
@@ -190,7 +190,7 @@ GET /maps
 
 ---
 
-### 2.4 `GET /history` — 예측 기록
+### 2.4 `GET /history` — 예측 기록 (미구현)
 
 ```http
 GET /history?limit=20&offset=0&map=Ascent
@@ -218,7 +218,7 @@ GET /history?limit=20&offset=0&map=Ascent
 
 ---
 
-### 2.5 `GET /health` — 서버 상태 확인
+### 2.5 `GET /health` — 서버 상태 확인 (미구현)
 
 ```http
 GET /health
@@ -237,7 +237,7 @@ GET /health
 
 ---
 
-## 3. FastAPI 구현 코드
+## 3. FastAPI 구현 코드 (미구현 예시 — 실제 서빙은 `app/predict.py`가 `models/advanced/ensemble.joblib` 단일 로드)
 
 ### 3.1 main.py
 
@@ -302,7 +302,7 @@ async def predict_win_rate(request: PredictRequest):
         raise HTTPException(status_code=500, detail=f"예측 오류: {str(e)}")
 ```
 
-### 3.3 prediction_service.py
+### 3.3 prediction_service.py (미구현 참고용 — 실제 서빙: `app/predict.py`, `models/advanced/ensemble.joblib` 단일 로드)
 
 ```python
 # backend/services/prediction_service.py
@@ -347,7 +347,7 @@ class PredictionService:
         xgb_prob  = self.xgb_model.predict_proba(features)[0, 1]
         lgbm_prob = self.lgbm_model.predict_proba(features)[0, 1]
         
-        # 단순 평균 (RF + XGBoost + LightGBM, 1/3씩)
+        # 미구현 FastAPI 예시 — 실제 서빙은 단일 ensemble.joblib(soft voting). 아래는 참고용(soft-voting과 동치)
         win_prob = float((rf_prob + xgb_prob + lgbm_prob) / 3.0)
         
         # 피처 중요도 (XGBoost 기준)
@@ -479,10 +479,16 @@ curl -X POST http://localhost:8000/predict \
 
 ## 8. 검증 문서 참조
 
-이번 세션에서 추가된 ML 검증 문서:
+ML 평가·검증 문서:
 
 | 문서 | 경로 | 내용 |
 |------|------|------|
-| ML 개념 검증 | [`ml_concept_validation.md`](./ml_concept_validation.md) | GroupKFold, 앙상블, SHAP, 증강 방법론 검증 |
-| 프로젝트 차별점 | [`project_differentiation.md`](./project_differentiation.md) | 5개 차별점 + 기술 스택 점검표 |
-| 검증 결과 종합 | [`verification_summary.md`](./verification_summary.md) | AUC=0.935, gap=0.004, +29.13%p 결과 종합 |
+| ML 개념 검증 | [`ml_concept_validation.md`](./ml_concept_validation.md) | GroupKFold·앙상블·SHAP·알고리즘 선택 |
+| 프로젝트 차별점 | [`project_differentiation.md`](./project_differentiation.md) | 5개 차별점 + 4모델 성능표 |
+| 검증 결과 종합 | [`verification_summary.md`](./verification_summary.md) | 4모델 성과지표 종합 |
+| 4모델 평가 (개요) | [`07_model_evaluation/00_overview.md`](./07_model_evaluation/00_overview.md) | 2×2 매트릭스 · 평가 축 |
+| ① 랜덤순 베이스라인 | [`07_model_evaluation/01_random_baseline.md`](./07_model_evaluation/01_random_baseline.md) | Test AUC 0.6587 |
+| ② 랜덤순 심화 | [`07_model_evaluation/02_random_advanced.md`](./07_model_evaluation/02_random_advanced.md) | Test AUC 0.7570 |
+| ③ 시간순 베이스라인 | [`07_model_evaluation/03_chrono_baseline.md`](./07_model_evaluation/03_chrono_baseline.md) | Test AUC 0.6124 |
+| ④ 시간순 심화 | [`07_model_evaluation/04_chrono_advanced.md`](./07_model_evaluation/04_chrono_advanced.md) | Test AUC 0.6182 |
+| 4모델 교차 비교 | [`07_model_evaluation/05_cross_model_comparison.md`](./07_model_evaluation/05_cross_model_comparison.md) | 분할·모델 축 비교 |

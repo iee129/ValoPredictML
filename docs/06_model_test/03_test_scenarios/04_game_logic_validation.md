@@ -29,6 +29,7 @@ ML 모델이 발로란트 게임 로직에 부합하는 예측을 수행하는�
 **검증**: 균형 팀의 승률이 50% 초과해야 함
 
 ```bash
+# 미구현 — FastAPI 범위 외. 동등 검증: python -m streamlit run app/main.py 후 탭 1(커스텀 5v5)에서 직접 입력
 # 균형 팀(A) vs 타격대 5명 팀(B)
 curl -s -X POST http://localhost:8000/predict \
   -H "Content-Type: application/json" \
@@ -54,6 +55,8 @@ print('검증:', '통과' if d['win_probability'] > 0.5 else '실패 (모델 재
 ### TC-GL-002: 균형 팀 vs. 전략가 5명 팀
 
 ```bash
+# 미구현 — FastAPI 범위 외. Streamlit 탭 1(커스텀 5v5)에서 직접 검증 가능
+# 참고: Controller는 현재 7종 (Brimstone·Viper·Omen·Astra·Harbor·Clove·Miks). team_b 5명은 모두 Controller.
 curl -s -X POST http://localhost:8000/predict \
   -H "Content-Type: application/json" \
   -d '{
@@ -75,6 +78,7 @@ print('팀 B 역할:', d['team_b_role_counts'])
 ### TC-GL-003: 전략가 없는 팀 vs. 전략가 있는 팀
 
 ```bash
+# 미구현 — FastAPI 범위 외. Streamlit 탭 1(커스텀 5v5)에서 직접 검증 가능
 # 팀 A: 전략가 없음 (타격대 + 척후대 + 감시자)
 # 팀 B: 전략가 포함 (표준 구성)
 curl -s -X POST http://localhost:8000/predict \
@@ -101,6 +105,7 @@ print('검증:', '통과' if d['win_probability'] < 0.5 else '실패')
 ### TC-GL-004: 같은 조합, 맵 변경 시 확률 변화
 
 ```bash
+# 미구현 — FastAPI 범위 외. Streamlit 탭 1(커스텀 5v5)에서 맵 변경하며 직접 검증 가능
 TEAM_A='["Viper","Omen","Sova","Killjoy","Jett"]'
 TEAM_B='["Brimstone","Fade","Breach","Cypher","Reyna"]'
 
@@ -123,6 +128,7 @@ done
 Bind는 좁은 구도와 텔레포트 맵으로, Viper의 벽/오브/스크린 조합이 특히 강합니다.
 
 ```bash
+# 미구현 — FastAPI 범위 외. Streamlit 탭 1(커스텀 5v5)에서 직접 검증 가능
 # 팀 A: Viper 포함 구성
 # 팀 B: Viper 없는 스모크 구성
 curl -s -X POST http://localhost:8000/predict \
@@ -145,6 +151,7 @@ print(f'Bind Viper 포함 팀 A 승률: {d[\"win_probability\"]:.3f}')
 Breeze는 맵이 넓어 긴 교전거리가 형성됩니다.
 
 ```bash
+# 미구현 — FastAPI 범위 외. Streamlit 탭 1(커스텀 5v5)에서 직접 검증 가능
 # 팀 A: 원거리 특화 (Sova, Chamber, Viper, Jett, KAY/O)
 # 팀 B: 근거리 특화 (Breach, Yoru, Neon, Phoenix, Skye)
 curl -s -X POST http://localhost:8000/predict \

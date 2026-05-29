@@ -1,10 +1,10 @@
-# 01. 데이터 품질 지표 및 품질 게이트
+# 01. 데이터 품질 지표 및 품질 검사
 
 마지막 업데이트: 2026-05-04
 
 ---
 
-## 1. 품질 게이트 (Phase 3)
+## 1. 품질 검사 (Phase 3)
 
 아래 조건 중 하나라도 실패하면 해당 맵 행 제외 → `reports/rejected_matches.csv`에 기록.
 
@@ -36,7 +36,7 @@
 
 ```python
 def run_quality_gate(row: dict) -> tuple[bool, str]:
-    """단일 맵 행 품질 게이트. (통과, 사유)를 반환."""
+    """단일 맵 행 품질 검사. (통과, 사유)를 반환."""
     agents_a = [p["agent"] for p in row["players_a"]]
     agents_b = [p["agent"] for p in row["players_b"]]
 

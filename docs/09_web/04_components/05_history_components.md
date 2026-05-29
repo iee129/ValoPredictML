@@ -61,6 +61,43 @@ const formatDate = (iso) =>
 
 `team_a.join(', ')` — 단순 텍스트. 이미지 없음 (공간 절약).
 
+### 상태별 비주얼 스펙
+
+```css
+/* HistoryTable.module.css */
+@reference "tailwindcss";
+
+.table {
+  @apply w-full text-sm;
+  color: var(--color-valo-text);
+}
+
+.thead th {
+  @apply py-2 px-3 text-left font-semibold uppercase tracking-wider text-xs;
+  color: var(--color-valo-muted);
+  border-bottom: 1px solid var(--color-valo-border);
+}
+
+.row {
+  @apply border-b transition-colors duration-100;
+  border-color: var(--color-valo-border);
+}
+.row:hover {
+  background: var(--color-valo-panel-alt);
+}
+
+/* 팀 A 승률 강조 */
+.winRateHigh { color: var(--color-valo-red); font-weight: 700; }
+.winRateLow  { color: var(--color-valo-muted); }
+```
+
+| 요소 | 상태 | 토큰 |
+|---|---|---|
+| `.row` | 기본 | 배경 없음 (페이지 배경 투과) |
+| `.row` | hover | `var(--color-valo-panel-alt)` |
+| 팀 A 승률 우세 | 텍스트 | `var(--color-valo-red)` |
+| 팀 A 승률 열세 | 텍스트 | `var(--color-valo-muted)` |
+
 ---
 
 ## HistoryFilter
@@ -95,6 +132,40 @@ const handleReset = () => {
 ```
 [맵 선택 ▼]  [시작 날짜 📅]  [종료 날짜 📅]  [초기화 버튼]
 ```
+
+### 상태별 비주얼 스펙
+
+```css
+/* HistoryFilter.module.css */
+.select, .dateInput {
+  @apply px-3 py-1.5 rounded text-sm transition-colors duration-150;
+  background: var(--color-valo-panel-alt);
+  color: var(--color-valo-text);
+  border: 1px solid var(--color-valo-border);
+}
+.select:focus, .dateInput:focus {
+  outline: none;
+  border-color: var(--color-valo-red);
+}
+
+.resetBtn {
+  @apply px-3 py-1.5 rounded text-sm transition-colors duration-150;
+  background: var(--color-valo-panel-alt);
+  color: var(--color-valo-muted);
+  border: 1px solid var(--color-valo-border);
+}
+.resetBtn:hover {
+  border-color: var(--color-valo-red);
+  color: var(--color-valo-text);
+}
+```
+
+| 요소 | 상태 | 토큰 |
+|---|---|---|
+| 입력 필드 | 기본 | background `var(--color-valo-panel-alt)`, border `var(--color-valo-border)` |
+| 입력 필드 | focus | border `var(--color-valo-red)` |
+| 초기화 버튼 | 기본 | color `var(--color-valo-muted)` |
+| 초기화 버튼 | hover | border `var(--color-valo-red)`, color `var(--color-valo-text)` |
 
 ---
 
@@ -159,14 +230,22 @@ const pages = range(start, end);
 
 ```css
 .page {
-  @apply px-3 py-1 rounded;
+  @apply px-3 py-1 rounded transition-colors duration-150;
   background: var(--color-valo-panel-alt);
   color: var(--color-valo-muted);
+  border: 1px solid var(--color-valo-border);
+}
+.page:hover {
+  border-color: var(--color-valo-red);
+  color: var(--color-valo-text);
 }
 
 .pageActive {
   @apply px-3 py-1 rounded font-bold;
   background: var(--color-valo-red);
-  color: white;
+  color: var(--color-valo-text);
+}
+.pageActive:hover {
+  background: var(--color-valo-red-hover);
 }
 ```

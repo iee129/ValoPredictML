@@ -45,7 +45,7 @@ Feature importance (SHAP / 모델 내장)
 
 | 카드 | 내용 | 컴포넌트 |
 |------|------|---------|
-| 총 예측 횟수 | PostgreSQL 저장 기록 수 | `st.metric` |
+| 총 예측 횟수 | 세션 내 예측 횟수 (예측 기록 영속화 미구현 — PostgreSQL/SQLite 범위 외) | `st.metric` |
 | 평균 예측 승률 | 기록 기준 평균 | `st.metric` |
 | 현재 모델 | 선택된 모델명 | `st.metric` |
 | 평가 지표 | Accuracy, ROC-AUC, F1 | `st.metric` × 3 |

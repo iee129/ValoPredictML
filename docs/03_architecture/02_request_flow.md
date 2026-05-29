@@ -11,7 +11,7 @@
     │
     │  1. 맵 선택, 팀 A/B 선수 5명 + 요원 5명 선택 후 "예측 실행" 클릭
     ↓
-[app/streamlit_app.py]
+[app/main.py]
     │
     │  2. 입력값 검증
     │     - 팀당 요원 정확히 5명
@@ -48,16 +48,16 @@
     │  9. 맵 피처 (3개)
     │     map_encoded, atk_side_advantage, is_attacker_a
     │
-    │  반환: shape (1, 43) NumPy 배열
+    │  반환: shape (1, 125) NumPy 배열 (advanced 계약, FEATURE_COLS_ADVANCED)
     ↓
 [앙상블 예측]
     │
-    │  10. rf_model.predict_proba(X)   → p_a_rf
-    │  11. xgb_model.predict_proba(X)  → p_a_xgb
-    │  12. lgb_model.predict_proba(X)  → p_a_lgb
+    │  10. ensemble_model.predict_proba(X)
+    │      — models/advanced/ensemble.joblib (VotingClassifier soft voting)
+    │      — 내부적으로 RF + XGBoost + LightGBM 가중평균 (weights=[1,1,1])
     │
-    │  13. 앙상블 (확률 평균)
-    │      final_prob = (p_a_rf + p_a_xgb + p_a_lgb) / 3
+    │  11. 최종 승률 반환
+    │      final_prob = ensemble_model.predict_proba(X)[0][1]
     ↓
 [Streamlit UI 출력]
     │
@@ -76,9 +76,11 @@
 
 ---
 
-## 2. 단계별 피처 목록 (43개)
+## 2. 단계별 피처 목록 (125개, advanced 계약)
 
-| 번호 | 카테고리 | 피처명 | 설명 |
+> 아래는 advanced 계약(FEATURE_COLS_ADVANCED, 125피처)의 주요 카테고리 요약이다. 전체 목록은 `models/advanced/meta.json` `feature_names` 참조.
+
+| 번호 | 카테고리 | 피처명 예시 | 설명 |
 |------|----------|--------|------|
 | 1~4 | 역할군 카운트 (A) | `a_duelist` ~ `a_sentinel` | 팀 A 4역할군 수 |
 | 5~8 | 역할군 카운트 (B) | `b_duelist` ~ `b_sentinel` | 팀 B 4역할군 수 |
@@ -97,20 +99,21 @@
 | 35~36 | 요원 조합 | `a_avg_agent_map_wr`, `b_avg_agent_map_wr` | 요원×맵 평균 승률 |
 | 37~38 | 요원 조합 | `a_avg_agent_pick_rate`, `b_avg_agent_pick_rate` | 요원×맵 평균 픽률 |
 | 39~40 | 요원 조합 | `a_avg_agent_exp`, `b_avg_agent_exp` | 선수-요원 경험치 |
-| 41 | 맵 | `map_encoded` | 맵 Label Encoding (0~11) |
+| 41 | 맵 | `map_encoded` | 맵 Label Encoding (0~12, 13개 맵) |
 | 42 | 맵 | `atk_side_advantage` | 맵별 공격 사이드 승률 |
 | 43 | 맵 | `is_attacker_a` | 팀 A 선공 여부 (0/1) |
+| 44~125 | 요원 one-hot 등 | `a_agent_*_count`, `b_agent_*_count` 등 | 29종 요원 카운트·one-hot 등 advanced 전용 피처 |
 
 ---
 
 ## 3. 앙상블 계산
 
 ```python
-p_a_rf  = rf_model.predict_proba(X)[0][1]   # 팀 A 승률
-p_a_xgb = xgb_model.predict_proba(X)[0][1]
-p_a_lgb = lgb_model.predict_proba(X)[0][1]
+# 단일 ensemble.joblib 로드 (VotingClassifier soft voting, weights=[1,1,1])
+model = joblib.load("models/advanced/ensemble.joblib")
 
-final_prob = (p_a_rf + p_a_xgb + p_a_lgb) / 3  # 단순 평균
+# 단일 predict_proba 호출 — 내부적으로 RF + XGBoost + LightGBM 가중평균
+final_prob = model.predict_proba(X)[0][1]   # 팀 A 승률
 p_b = 1 - final_prob
 ```
 
@@ -131,6 +134,6 @@ p_b = 1 - final_prob
 
 | 문서 | 내용 |
 |------|------|
-| [../docs/preprocessing.md](../preprocessing.md) | 43개 피처 상세 설계 |
+| [../04_data_processing/06_feature_engineering.md](../04_data_processing/06_feature_engineering.md) | baseline 178 / advanced 125 피처 생성 상세 |
 | [06_ml_pipeline_architecture.md](06_ml_pipeline_architecture.md) | ML 파이프라인 전체 |
 | [03_database_schema.md](03_database_schema.md) | predictions 테이블 스키마 |

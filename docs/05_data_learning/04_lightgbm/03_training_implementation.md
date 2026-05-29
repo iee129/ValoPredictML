@@ -5,7 +5,7 @@
 ## 개요
 
 LightGBM의 완전한 학습 코드를 Native API와 sklearn API 두 가지 방식으로 제공한다. callbacks, early_stopping, 로깅, 평가를 포함한다.
-LightGBM은 RF + XGBoost + LightGBM 앙상블 구성원 중 하나다. 스케일링 불필요. sample_weight = time_weight × source_weight를 model.fit()에 전달한다.
+LightGBM은 RF + XGBoost + LightGBM 앙상블 구성원 중 하나다. 스케일링 불필요. 현재 활성 파이프라인은 `sample_weight` 미사용(균등 학습)이며, 아래 함수의 `sample_weight` 인자는 옵션(None이면 균등 가중)이다.
 
 ---
 
@@ -301,7 +301,7 @@ from sklearn.model_selection import GroupKFold
 def train_lightgbm_cv(X, y, params, df, n_splits=5):
     """
     Group K-Fold (K=5) 교차 검증으로 LightGBM 안정적 성능 추정.
-    match_key 단위로 폴드를 분할해 경기 누수를 방지한다.
+    match_key 단위로 폴드를 분할해 같은 경기가 train/val에 동시에 들어가지 않게 한다.
     train.csv를 5개 폴드로 분할해 각 폴드를 한 번씩 검증에 사용한다.
     test.csv는 K-Fold와 완전히 분리되어 최종 평가 1회에만 사용한다.
     """

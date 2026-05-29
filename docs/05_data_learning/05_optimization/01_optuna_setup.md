@@ -239,7 +239,7 @@ def lgbm_objective(trial, X, y, df, n_splits=5):
 ## 6. 최적화 실행 전체 코드
 
 ```python
-def run_optimization(X, y, model_type="xgb", n_trials=100, n_splits=5):
+def run_optimization(X, y, model_type="xgb", n_trials=50, n_splits=5):  # DEFAULT_N_TRIALS=50
     """
     XGBoost 또는 LightGBM 하이퍼파라미터 최적화 실행.
 
@@ -327,16 +327,16 @@ if __name__ == "__main__":
 
     # 데이터 로드 (실제 경로로 변경)
     df = pd.read_csv("data/processed/train.csv")
-    # 43개 피처 — 전체 컬럼 목록은 docs/preprocessing.md 참조
+    # 125개 피처 (advanced 계약) — 전체 컬럼 목록은 docs/preprocessing.md 참조
     feature_cols = [c for c in df.columns if c not in ["label", "match_key", "dedup_key"]]
     X = df[feature_cols]
     y = df["label"]
 
     # XGBoost 최적화
-    xgb_study, xgb_best = run_optimization(X, y, model_type="xgb", n_trials=100)
+    xgb_study, xgb_best = run_optimization(X, y, model_type="xgb", n_trials=50)
 
     # LightGBM 최적화
-    lgbm_study, lgbm_best = run_optimization(X, y, model_type="lgbm", n_trials=100)
+    lgbm_study, lgbm_best = run_optimization(X, y, model_type="lgbm", n_trials=50)
 
     print("\n두 모델 최적화 완료!")
     print(f"XGBoost 최적 AUC: {xgb_study.best_value:.4f}")

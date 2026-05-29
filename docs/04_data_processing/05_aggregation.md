@@ -4,7 +4,7 @@
 
 ## 1. 집계 필요성
 
-원본 데이터는 **선수 단위** (1행 = 선수 1명 × 맵 1개)다. 품질 게이트·dedup 이후 `matches_clean.csv`도 선수 행 단위. 피처 엔지니어링을 위해 팀별 5명 스탯을 집계한 **맵 행 단위** (1행 = 맵 1개, 양 팀 포함)로 변환한다.
+원본 데이터는 **선수 단위** (1행 = 선수 1명 × 맵 1개)다. 품질 검사·dedup 이후 `matches_clean.csv`도 선수 행 단위. 피처 엔지니어링을 위해 팀별 5명 스탯을 집계한 **맵 행 단위** (1행 = 맵 1개, 양 팀 포함)로 변환한다.
 
 ```
 선수 행 단위 (matches_clean.csv 일부):
@@ -36,7 +36,7 @@ def aggregate_to_map_level(rows: list[dict]) -> list[dict]:
     result = []
     for row in rows:
         if len(row["players_a"]) != 5 or len(row["players_b"]) != 5:
-            continue  # 품질 게이트 통과 후에도 방어 체크
+            continue  # 품질 검사 통과 후에도 방어 체크
         result.append(row)
     return result
 ```
@@ -59,17 +59,9 @@ ryanluong 파서는 `overview.csv`와 `maps_scores.csv` 조인 시 이미 팀 �
 
 ---
 
-## 4. A/B swap 증강 (train 한정)
+## 4. 학습·평가 데이터 분리
 
-파이프라인에서 분할 후 train에만 적용. 집계 단계에서는 적용하지 않는다.
-
-```
-원본: team_a=T1, team_b=FNC, label=1
-swap: team_a=FNC, team_b=T1, label=0  ← train에만 추가
-```
-
-`--no-augment-train` 플래그로 비활성화 가능.
-val/test에는 미적용 — 평가는 실제 경기 그대로의 행만 사용.
+집계 단계에서는 train/val/test 분할 전이므로 아직 split이 없다. 분할 후 `agent_map_stats`·`agent_experience`·`atk_side_advantage`는 **train만으로 집계**한 뒤 val/test에 join한다(미등록 조합: winrate=0.5, experience=0). 증강은 없으며 클래스 균형은 자연 분포(약 56.8:43.2)를 유지한다.
 
 ---
 
@@ -77,8 +69,8 @@ val/test에는 미적용 — 평가는 실제 경기 그대로의 행만 사용.
 
 | 예외 | 처리 |
 |------|------|
-| 팀이 3개 이상 | 해당 맵 행 제외 (품질 게이트에서 선차단) |
-| 동점 경기 | 해당 맵 행 제외 (품질 게이트에서 선차단) |
+| 팀이 3개 이상 | 해당 맵 행 제외 (품질 검사에서 미리 제거) |
+| 동점 경기 | 해당 맵 행 제외 (품질 검사에서 미리 제거) |
 | 요원이 5명 미만인 팀 | 해당 맵 행 제외 |
 | 같은 경기의 같은 요원 2명 이상 | 경고 로그 후 제외 |
 
@@ -97,4 +89,4 @@ val/test에는 미적용 — 평가는 실제 경기 그대로의 행만 사용.
 | 문서 | 내용 |
 |------|------|
 | [06_feature_engineering.md](06_feature_engineering.md) | 집계 후 43개 피처 생성 |
-| [07_split_and_validation.md](07_split_and_validation.md) | 분할 및 A/B swap 증강 |
+| [07_split_and_validation.md](07_split_and_validation.md) | match_key 단위 분할 및 검증 |

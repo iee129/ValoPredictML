@@ -15,7 +15,7 @@
     ├── data/raw/kaggle/       ← Kaggle 데이터셋 (2.3GB, git 제외)
     ├── data/processed/        ← 전처리 결과물 (git 제외)
     ├── models/                ← 학습된 모델 (git 제외)
-    └── app/streamlit_app.py   ← Streamlit UI 진입점 (미구현)
+    └── app/main.py            ← Streamlit UI 진입점 (구현 완료)
 ```
 
 ---
@@ -44,28 +44,31 @@ python dataload.py
 ### 2.3 전처리 파이프라인 실행 (구현 완료)
 
 ```bash
-python -m ml.data_pipeline \
-  --input data/raw/kaggle \
-  --output data/processed \
-  --reports reports
+# raw 정제
+python -m ml.raw_preprocess
 
-# dry-run (원본 무수정)
-python -m ml.data_pipeline \
-  --input data/raw/kaggle \
-  --output /tmp/valo_out \
-  --reports /tmp/valo_reports
+# baseline 전처리
+python -m ml.baseline.preprocess
+
+# advanced 전처리
+python -m ml.baseline.preprocess --feature-contract advanced
 ```
 
 ### 2.4 모델 학습 (구현 완료)
 
 ```bash
-python -m ml.train_model
+# baseline
+python -m ml.baseline.train --input data/processed --output models/baseline
+
+# advanced (Optuna HPO + 앙상블)
+python -m ml.advanced.optimize
+python -m ml.advanced.ensemble
 ```
 
-### 2.5 Streamlit UI 실행 (미구현)
+### 2.5 Streamlit UI 실행 (구현 완료)
 
 ```bash
-streamlit run app/streamlit_app.py
+streamlit run app/main.py
 # 브라우저에서 http://localhost:8501 접속
 ```
 
@@ -86,13 +89,13 @@ streamlit run app/streamlit_app.py
 
 Phase별 추가 의존성:
 
-| Phase | 추가 패키지 |
-|-------|------------|
-| 1 (완료) | `kagglehub`, `pandas`, `numpy` |
-| 2-3 (예정) | `scikit-learn` |
-| 4 (예정) | `xgboost`, `lightgbm`, `shap`, `joblib` |
-| 5 (예정) | `streamlit`, `plotly` |
-| DB 후보 | `sqlalchemy`, `psycopg2-binary` |
+| Phase | 추가 패키지 | 상태 |
+|-------|------------|------|
+| 1 | `kagglehub`, `pandas`, `numpy` | 완료 |
+| 2-3 | `scikit-learn` | 완료 |
+| 4 | `xgboost`, `lightgbm`, `shap`, `joblib` | 완료 |
+| 5 | `streamlit`, `plotly` | 완료 |
+| DB 후보 | `sqlalchemy`, `psycopg2-binary` | 미구현 (후보) |
 
 ---
 
