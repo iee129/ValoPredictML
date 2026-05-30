@@ -1,0 +1,51 @@
+@import "tailwindcss";
+
+/* 발로란트 테마 토큰 — docs_web/07_styling/01_valorant_theme.md
+   (기존 Streamlit 앱 app/main.py 팔레트 계승) */
+@theme {
+  --color-base: #07080c;
+  --color-base2: #0d1017;
+  --color-panel: #11151f;
+  --color-panel2: #171c27;
+  --color-line: rgba(255, 255, 255, 0.1);
+  --color-ink: #f5f7fb;
+  --color-muted: #9ba3b3;
+
+  --color-vred: #ff4655;
+  --color-vred-dark: #b91f2e;
+  --color-vcyan: #29c5e0;
+  --color-vgreen: #30d08c;
+  --color-vamber: #ffd166;
+
+  --font-sans: "Pretendard", "Apple SD Gothic Neo", system-ui, sans-serif;
+}
+
+html,
+body {
+  height: 100%;
+}
+body {
+  background:
+    linear-gradient(135deg, rgba(255, 70, 85, 0.1) 0%, rgba(255, 70, 85, 0) 26%),
+    linear-gradient(180deg, #10131b 0%, var(--color-base) 44%, #050609 100%);
+  background-attachment: fixed;
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+}
+
+/* 발로란트 각진 코너 (주 CTA·결과 카드 한정) */
+.tactical-cut {
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: #2a313d;
+  border-radius: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}

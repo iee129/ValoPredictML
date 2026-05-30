@@ -10,6 +10,7 @@
 !/README.md
 !/requirements.txt
 !/dataload.py
+!/CLAUDE.md
 
 # Public project areas.
 !/app/
@@ -18,6 +19,12 @@
 !/ml/**
 !/docs/
 !/docs/**
+!/docs_web/
+!/docs_web/**
+!/valo_web_backend/
+!/valo_web_backend/**
+!/valo_web_frontend/
+!/valo_web_frontend/**
 
 # Generated/local clutter stays private, including inside allowed trees.
 __pycache__/
@@ -45,3 +52,9 @@ tests/
 *.db
 *.sqlite
 *.sqlite3
+
+# Node / Next.js (valo_web_frontend) — 소스만 커밋, 빌드 산출물 제외
+node_modules/
+.next/
+*.tsbuildinfo
+next-env.d.ts
