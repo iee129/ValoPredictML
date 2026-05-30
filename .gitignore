@@ -25,6 +25,8 @@
 !/valo_web_backend/**
 !/valo_web_frontend/
 !/valo_web_frontend/**
+!/.claude/
+!/.claude/**
 
 # Generated/local clutter stays private, including inside allowed trees.
 __pycache__/
@@ -42,7 +44,7 @@ notice/
 reports/
 scripts/
 tests/
-.claude/
+.claude/settings.local.json
 .codex/
 .omc/
 .omx/
