@@ -1,10 +1,10 @@
-"""Evaluate the Kaggle-only advanced models on train/val/test splits.
+"""Evaluate the active advanced models on train/test splits.
 
 Usage:
     python -m ml.advanced.evaluate \
-        --input data/processed/adv_kaggle_only \
+        --input data/processed/advanced \
         --models models/advanced \
-        --reports reports/adv_kaggle_only
+        --reports reports/advanced
 """
 from __future__ import annotations
 
@@ -18,11 +18,11 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import accuracy_score, confusion_matrix, f1_score, roc_auc_score
 
-from ml.baseline.preprocess import FEATURE_COLS_ADVANCED, build_xy
+from ml.baseline.preprocess import FEATURE_COLS_ADVANCED, build_xy, compute_adv_impute_means
 
-DEFAULT_INPUT_DIR = "data/processed/adv_kaggle_only"
+DEFAULT_INPUT_DIR = "data/processed/advanced"
 DEFAULT_MODELS_DIR = "models/advanced"
-DEFAULT_REPORTS_DIR = "reports/adv_kaggle_only"
+DEFAULT_REPORTS_DIR = "reports/advanced"
 
 
 def _metrics(y_true: pd.Series, probs: np.ndarray) -> dict[str, Any]:
@@ -35,23 +35,32 @@ def _metrics(y_true: pd.Series, probs: np.ndarray) -> dict[str, Any]:
     }
 
 
-def _load_baseline_metrics() -> dict[str, float] | None:
-    path = Path("reports/baseline/metrics.json")
-    if not path.exists():
-        return None
-    with open(path) as f:
-        payload = json.load(f)
-    return {
-        "baseline_test_auc": float(payload.get("test_auc", 0.0)),
-        "baseline_test_acc": float(payload.get("test_acc", 0.0)),
-        "baseline_test_f1": float(payload.get("test_f1", 0.0)),
-    }
+def _load_baseline_metrics() -> dict[str, Any] | None:
+    candidates = [
+        ("baseline", Path("reports/baseline/metrics.json")),
+    ]
+    for source, path in candidates:
+        if not path.exists():
+            continue
+        with open(path) as f:
+            payload = json.load(f)
+        return {
+            "baseline_source": source,
+            "baseline_metrics_path": str(path),
+            "baseline_test_auc": float(payload.get("test_auc", 0.0)),
+            "baseline_test_acc": float(payload.get("test_acc", 0.0)),
+            "baseline_test_f1": float(payload.get("test_f1", 0.0)),
+        }
+    return None
 
 
 def _feature_importances(model: Any, n_features: int) -> np.ndarray:
     if hasattr(model, "feature_importances_"):
         values = np.asarray(model.feature_importances_, dtype=float)
-        return values if len(values) == n_features else np.zeros(n_features, dtype=float)
+        if len(values) != n_features:
+            return np.zeros(n_features, dtype=float)
+        total = float(np.nansum(np.abs(values)))
+        return values / total if total > 0 else np.zeros(n_features, dtype=float)
 
     if hasattr(model, "estimators_"):
         weights = getattr(model, "weights", None) or [1.0] * len(model.estimators_)
@@ -100,10 +109,17 @@ def evaluate(
 
     frames = {
         split: pd.read_csv(inp / f"{split}.csv", low_memory=False)
-        for split in ("train", "val", "test")
+        for split in ("train", "test")
     }
+    processed_dir = str(inp.parent)
+    impute_means = compute_adv_impute_means(frames["train"])
     xy = {
-        split: build_xy(frame, feature_contract="advanced")
+        split: build_xy(
+            frame,
+            feature_contract="advanced",
+            processed_dir=processed_dir,
+            impute_means=impute_means,
+        )
         for split, frame in frames.items()
     }
     feature_names = list(xy["train"][0].columns)
@@ -121,11 +137,11 @@ def evaluate(
             )
 
     all_metrics: dict[str, Any] = {}
-    print(f"Data: train={xy['train'][0].shape} val={xy['val'][0].shape} test={xy['test'][0].shape}")
+    print(f"Data: train={xy['train'][0].shape} test={xy['test'][0].shape}")
 
     for name, model in models.items():
         model_metrics: dict[str, Any] = {}
-        for split in ("train", "val", "test"):
+        for split in ("train", "test"):
             X, y, _ = xy[split]
             probs = model.predict_proba(X)[:, 1]
             model_metrics[split] = _metrics(y, probs)
@@ -133,11 +149,11 @@ def evaluate(
         print(
             f"{name:10s} "
             f"train_auc={model_metrics['train']['auc']:.4f} "
-            f"val_auc={model_metrics['val']['auc']:.4f} "
             f"test_auc={model_metrics['test']['auc']:.4f}"
         )
 
     ensemble_test = all_metrics["ensemble"]["test"]
+    ensemble_train = all_metrics["ensemble"]["train"]
     baseline = _load_baseline_metrics()
     baseline_comparison = None
     if baseline:
@@ -150,23 +166,45 @@ def evaluate(
         }
         print(
             "\nEnsemble test AUC="
-            f"{ensemble_test['auc']:.4f} baseline={baseline['baseline_test_auc']:.4f} "
+            f"{ensemble_test['auc']:.4f} {baseline['baseline_source']}={baseline['baseline_test_auc']:.4f} "
             f"delta={baseline_comparison['delta_test_auc']:+.4f}"
         )
+
+    train_test_gaps = {
+        name: float(metrics["train"]["auc"] - metrics["test"]["auc"])
+        for name, metrics in all_metrics.items()
+    }
+    single_model_test_auc = {
+        name: float(all_metrics[name]["test"]["auc"])
+        for name in ("rf", "xgb", "lgbm")
+    }
+    best_single_model = max(single_model_test_auc, key=single_model_test_auc.get)
+    ensemble_diagnostics = {
+        "train_test_auc_gap": train_test_gaps["ensemble"],
+        "single_model_test_auc": single_model_test_auc,
+        "best_single_model": best_single_model,
+        "best_single_test_auc": single_model_test_auc[best_single_model],
+        "delta_vs_rf_test_auc": float(ensemble_test["auc"] - all_metrics["rf"]["test"]["auc"]),
+        "delta_vs_best_single_test_auc": float(
+            ensemble_test["auc"] - single_model_test_auc[best_single_model]
+        ),
+    }
 
     metrics: dict[str, Any] = {
         "feature_contract": "advanced",
         "feature_count": len(feature_names),
         "feature_names": feature_names,
         "train_rows": int(len(frames["train"])),
-        "val_rows": int(len(frames["val"])),
-        "modeling_rows": int(len(frames["train"]) + len(frames["val"])),
+        "modeling_rows": int(len(frames["train"])),
         "test_rows": int(len(frames["test"])),
         "models": all_metrics,
+        "train_test_auc_gap": train_test_gaps,
+        "ensemble_diagnostics": ensemble_diagnostics,
         "rf": all_metrics["rf"],
         "xgb": all_metrics["xgb"],
         "lgbm": all_metrics["lgbm"],
         "ensemble": all_metrics["ensemble"],
+        "train_auc": ensemble_train["auc"],
         "test_auc": ensemble_test["auc"],
         "test_acc": ensemble_test["acc"],
         "test_f1": ensemble_test["f1"],

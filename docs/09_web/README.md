@@ -1,89 +1,88 @@
-> ⚠️ **범위 외**: Next.js 미사용. UI는 Streamlit 로컬 도구로 대체. 본문은 참고용으로 보존된다.
+# docs_web — FastAPI + Next.js 16 (TypeScript) 시연 문서
 
-# 09. 웹 대시보드 — 문서 인덱스
+이 문서 세트는 **학습된 ML 모델을 FastAPI로 서빙하고, Next.js 16 (TypeScript) 프론트엔드와 연동해 UI로 시연**하는 것을 목적으로 한다. 모든 계약(엔드포인트·스키마·타입)은 저장소의 **실제 모델 코드**(`app/predict.py`, `ml/baseline/preprocess.py`, `ml/agent_roles.py`)에서 역으로 도출했다.
 
-ValoPredictML 웹 프론트엔드(Next.js 16 + Tailwind CSS v4)의 설계 및 구현 문서.  
-현재 UI는 **Streamlit 로컬 도구**로 구현되어 있으며, 이 문서는 Streamlit 베이스를 기반으로 **향후 웹 확장을 선행 설계**한 참고 자료다. 실제 Next.js 구현은 현재 범위 외다.
-
-> **화면 레이아웃 설계** → [`docs/11_ui_design/`](../11_ui_design/)  
-> **백엔드 API 설계** → [`docs/03_architecture/`](../03_architecture/)
+> `docs/09_web`와의 관계: `docs/09_web`는 과거에 작성됐다가 "범위 외(Streamlit으로 대체)"로 폐기 선언된 문서다. 본 `docs_web`는 그것을 대체하지 않고 **별개로** 존재하며, 실제 모델 계약과 TypeScript 목표에 맞춰 새로 작성됐다. 무엇이 어떻게 달라졌는지는 [05_appendix/01_diff_from_09_web.md](05_appendix/01_diff_from_09_web.md) 참조.
 
 ---
 
-## 폴더 구조
+## 한눈에 보는 아키텍처
 
 ```
-docs/09_web/
-├── README.md                          ← 지금 이 파일
-├── 01_overview/
-│   ├── 01_tech_stack.md               기술 스택 및 선택 이유
-│   ├── 02_architecture.md             프론트엔드 아키텍처 다이어그램
-│   └── 03_design_decisions.md         주요 설계 결정 사항
-├── 02_project_structure/
-│   ├── 01_directory_tree.md           전체 디렉터리 트리 (실제 파일 기반)
-│   ├── 02_file_roles.md               각 파일/폴더의 역할 상세
-│   └── 03_conventions.md              명명 규칙, import 별칭, 코드 컨벤션
-├── 03_pages/
-│   ├── 01_app_router.md               Next.js App Router 개요
-│   ├── 02_page_home.md                / 메인 페이지
-│   ├── 03_page_predict.md             /predict 승률 예측 페이지
-│   ├── 04_page_history.md             /history 예측 기록 페이지
-│   └── 05_page_analytics.md           /analytics 통계 분석 페이지
-├── 04_components/
-│   ├── 01_component_tree.md           전체 컴포넌트 트리 + 의존 관계
-│   ├── 02_layout_components.md        Navbar, PageWrapper
-│   ├── 03_predict_components.md       AgentPicker, AgentCard, MapSelector, RoleFilter, TeamSlot, PredictButton
-│   ├── 04_result_components.md        WinRateGauge, ConfidenceBadge, RoleRadarChart, FeatureImportanceBar
-│   ├── 05_history_components.md       HistoryTable, HistoryFilter, Pagination
-│   ├── 06_analytics_components.md     Analytics 도메인 컴포넌트 + 커스텀 바 차트
-│   └── 07_ui_components.md            LoadingSpinner, ErrorMessage, StatCard
-├── 05_state_and_data/
-│   ├── 01_state_strategy.md           상태 관리 전략
-│   ├── 02_data_flow.md                데이터 흐름 다이어그램
-│   └── 03_lib_modules.md              src/lib/ 모듈 상세 (api.js, agentImage.js)
-├── 06_styling/
-│   ├── 00_design_principles.md        블랙&레드 디자인 원칙·언어 (신규)
-│   ├── 01_tailwind_v4_setup.md        Tailwind CSS v4 설정
-│   ├── 02_valo_theme.md               발로란트 테마 CSS 변수 전체 (토큰 SSOT)
-│   ├── 03_css_modules_strategy.md     CSS 모듈 전략 (@reference 규칙)
-│   ├── 04_responsive_design.md        반응형 브레이크포인트 전략
-│   └── 05_visual_moodboard.md         비주얼 무드보드·타이포 (신규)
-├── 07_visualization/
-│   ├── 01_recharts_usage.md           Recharts 컴포넌트 사용 가이드
-│   └── 02_custom_css_charts.md        커스텀 CSS 바 차트 구현
-├── 08_api_integration/
-│   ├── 01_api_client.md               api.js 함수 전체 명세
-│   ├── 02_fastapi_endpoints.md        FastAPI 엔드포인트 명세 (프론트 관점)
-│   └── 03_error_handling.md           에러 처리 전략
-└── 09_deployment/
-    ├── 01_vercel_config.md            vercel.json 상세 설명
-    ├── 02_env_vars.md                 환경변수 목록 및 관리
-    └── 03_cicd.md                     GitHub Actions CI/CD 파이프라인
+┌─────────────────────────────┐      ┌──────────────────────────────┐      ┌───────────────────────────┐
+│  Next.js 16 (TypeScript)    │      │       FastAPI 백엔드         │      │   학습 산출물 (로컬)       │
+│  App Router + React 19      │ HTTP │  app/predict.py 재사용       │ load │  models/advanced/          │
+│  /predict 시연 페이지       │─────▶│  /predict /options /replay   │─────▶│   ensemble.joblib (125F)   │
+│  lib/api.ts (타입 안전)     │ JSON │  /model /agents /maps        │      │  data/processed/...        │
+└─────────────────────────────┘      └──────────────────────────────┘      │  reports/adv_kaggle_only/  │
+                                                                            └───────────────────────────┘
 ```
 
----
-
-## 빠른 탐색
-
-| 목적 | 문서 |
-|---|---|
-| "어떤 기술을 쓰나?" | [01_overview/01_tech_stack.md](01_overview/01_tech_stack.md) |
-| "전체 구조가 어떻게 생겼나?" | [02_project_structure/01_directory_tree.md](02_project_structure/01_directory_tree.md) |
-| "예측 페이지 로직이 궁금하다" | [03_pages/03_page_predict.md](03_pages/03_page_predict.md) |
-| "이 컴포넌트가 뭘 하나?" | [04_components/01_component_tree.md](04_components/01_component_tree.md) |
-| "상태는 어떻게 관리하나?" | [05_state_and_data/01_state_strategy.md](05_state_and_data/01_state_strategy.md) |
-| "디자인 원칙·발로란트 언어가 궁금하다" | [06_styling/00_design_principles.md](06_styling/00_design_principles.md) |
-| "Tailwind v4 설정 방법?" | [06_styling/01_tailwind_v4_setup.md](06_styling/01_tailwind_v4_setup.md) |
-| "CSS 변수가 뭐가 있나?" | [06_styling/02_valo_theme.md](06_styling/02_valo_theme.md) |
-| "무드보드·타이포 레퍼런스" | [06_styling/05_visual_moodboard.md](06_styling/05_visual_moodboard.md) |
-| "Recharts 어떻게 쓰나?" | [07_visualization/01_recharts_usage.md](07_visualization/01_recharts_usage.md) |
-| "FastAPI와 어떻게 통신하나?" | [08_api_integration/01_api_client.md](08_api_integration/01_api_client.md) |
-| "Vercel 배포 방법?" | [09_deployment/01_vercel_config.md](09_deployment/01_vercel_config.md) |
+FastAPI는 모델 로직을 새로 구현하지 않는다. `app/predict.py`의 `predict_custom_lineup`·`predict_replay_match`·`available_options`·`load_model`·`load_reports`를 그대로 호출하고, 결과 `PredictionResult`를 JSON으로 직렬화할 뿐이다.
 
 ---
 
-## 관련 문서
+## 문서 인덱스
 
-- **화면 레이아웃 설계** (와이어프레임 수준): [`docs/11_ui_design/`](../11_ui_design/)
-- **전체 시스템 아키텍처**: [`docs/03_architecture/`](../03_architecture/)
-- **TODO 목록**: [`docs/08_todo_list/`](../08_todo_list/)
+| 폴더 | 문서 | 내용 |
+|------|------|------|
+| **01_overview** | [01_goal_and_scope.md](01_overview/01_goal_and_scope.md) | 시연 목적, 포함/제외 범위 |
+| | [02_architecture.md](01_overview/02_architecture.md) | 3계층 아키텍처, 요청 흐름 |
+| | [03_tech_stack.md](01_overview/03_tech_stack.md) | Next.js 16 / TS / FastAPI 버전·선택 이유 |
+| **02_backend_fastapi** | [01_app_structure.md](02_backend_fastapi/01_app_structure.md) | `valo_web_backend/` 패키지 구조 |
+| | [02_model_serving.md](02_backend_fastapi/02_model_serving.md) | `app/predict.py` 재사용, 캐싱, 콜드스타트 |
+| | [03_endpoints.md](02_backend_fastapi/03_endpoints.md) | 엔드포인트 명세(실제 계약 기반) |
+| | [04_schemas.md](02_backend_fastapi/04_schemas.md) | Pydantic 스키마 ↔ `PredictionResult` 매핑 |
+| | [05_run_and_cors.md](02_backend_fastapi/05_run_and_cors.md) | uvicorn 실행, CORS, 환경변수 |
+| **03_frontend_nextjs** | [01_setup_and_structure.md](03_frontend_nextjs/01_setup_and_structure.md) | create-next-app(TS), 디렉터리 |
+| | [02_types_and_api_client.md](03_frontend_nextjs/02_types_and_api_client.md) | `types/api.ts`, `lib/api.ts` |
+| | [03_predict_page.md](03_frontend_nextjs/03_predict_page.md) | 예측 페이지(선수+요원 입력) |
+| | [04_pages_and_components.md](03_frontend_nextjs/04_pages_and_components.md) | replay·model 페이지, 컴포넌트 |
+| **04_integration** | [01_data_contract.md](04_integration/01_data_contract.md) | 프론트↔백 데이터 계약 SSOT |
+| | [02_demo_runbook.md](04_integration/02_demo_runbook.md) | 시연 실행 순서(런북) |
+| **06_insights** | [00_overview.md](06_insights/00_overview.md) | 부가 인사이트 6종 개요 + 범위 외(D) |
+| | [01_agent_map_fit.md](06_insights/01_agent_map_fit.md) | 요원-맵 적합도 ✓/△/✗ (N) |
+| | [02_comp_match.md](06_insights/02_comp_match.md) | 메타 조합 매칭률 % (K) |
+| | [03_balance_warning.md](06_insights/03_balance_warning.md) | 구성 결함 알림 (G) |
+| | [04_nl_explanation.md](06_insights/04_nl_explanation.md) | 자연어 승부 근거 (C) |
+| | [05_precompute_and_data.md](06_insights/05_precompute_and_data.md) | 사전 집계 빌더(`ml/insights/`) |
+| **07_styling** | [00_design_principles.md](07_styling/00_design_principles.md) | 가독성·한눈에 원칙(시연용) |
+| | [01_valorant_theme.md](07_styling/01_valorant_theme.md) | 발로란트 테마 토큰(색·타이포) |
+| | [02_layout_demo_dashboard.md](07_styling/02_layout_demo_dashboard.md) | 한 화면 대시보드 레이아웃 |
+| | [03_component_visual_specs.md](07_styling/03_component_visual_specs.md) | 컴포넌트 시각·props 명세 |
+| **08_testing** | [01_test_strategy.md](08_testing/01_test_strategy.md) | 테스트 전략 + 시연 체크리스트 |
+| **05_appendix** | [01_diff_from_09_web.md](05_appendix/01_diff_from_09_web.md) | 09_web 대비 정정 내역 |
+
+---
+
+## 핵심 계약 요약 (전체 문서의 기준점)
+
+**입력** — `POST /predict`
+```json
+{
+  "map": "Ascent",
+  "cutoff_year": 2026,
+  "team_a": [{ "player": "TenZ", "agent": "Jett" }, "...총 5쌍"],
+  "team_b": [{ "player": "aspas", "agent": "Reyna" }, "...총 5쌍"]
+}
+```
+
+**출력** — `PredictionResult` 직렬화 (필드 원본: `app/predict.py`)
+```json
+{
+  "predicted_winner": "A",
+  "team_a": { "name": "팀 A", "win_probability": 0.62 },
+  "team_b": { "name": "팀 B", "win_probability": 0.38 },
+  "confidence": 0.24,
+  "role_counts": { "team_a": { "duelist": 2 }, "team_b": { "duelist": 1 } },
+  "top_features": [
+    { "feature": "a_prior_kd_mean", "value": 1.05, "importance": 0.03, "contribution": 0.032 }
+  ],
+  "model": { "contract": "advanced", "n_features": 125 }
+}
+```
+
+**불변 사실** (`ml/`에서 확정):
+- 요원 **29종** (`AGENT_ROLE_MAP`), 맵 **13종** (`MAP_ORDER`)
+- 모델 입력 피처 **정확히 125개** (`FEATURE_COLS_ADVANCED`, import 시 어서션)
+- 학습/평가 소스는 `kaggle_*`만 (`SOURCE_CONTRACT`)

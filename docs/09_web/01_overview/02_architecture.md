@@ -1,161 +1,102 @@
-> ⚠️ **범위 외**: Next.js 미사용. UI는 Streamlit 로컬 도구로 대체. 본문은 참고용으로 보존된다.
+# 02. 아키텍처
 
-# 02. 프론트엔드 아키텍처
-
-## 전체 아키텍처 다이어그램
+## 1. 3계층 구성
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    사용자 브라우저                            │
-│                                                             │
-│  ┌───────────────────────────────────────────────────────┐  │
-│  │                  Next.js App Router                   │  │
-│  │                                                       │  │
-│  │  ┌──────────────┐  ┌──────────────┐  ┌────────────┐  │  │
-│  │  │  layout.js   │  │   globals    │  │  Navbar    │  │  │
-│  │  │ (공통 래퍼)   │  │    .css      │  │ PageWrapper│  │  │
-│  │  └──────┬───────┘  └──────────────┘  └────────────┘  │  │
-│  │         │                                             │  │
-│  │  ┌──────┴──────────────────────────────────────────┐  │  │
-│  │  │                  페이지 레이어                    │  │  │
-│  │  │  page.js  predict/  history/  analytics/        │  │  │
-│  │  └──────┬──────────────────────────────────────────┘  │  │
-│  │         │                                             │  │
-│  │  ┌──────┴──────────────────────────────────────────┐  │  │
-│  │  │               컴포넌트 레이어                     │  │  │
-│  │  │  predict/  result/  history/  analytics/  ui/   │  │  │
-│  │  └──────┬──────────────────────────────────────────┘  │  │
-│  │         │                                             │  │
-│  │  ┌──────┴──────────────────────────────────────────┐  │  │
-│  │  │                    lib 레이어                    │  │  │
-│  │  │          api.js          agentImage.js           │  │  │
-│  │  └──────┬──────────────────────────────────────────┘  │  │
-│  └─────────┼─────────────────────────────────────────────┘  │
-└────────────┼────────────────────────────────────────────────┘
-             │ HTTP (fetch / NEXT_PUBLIC_API_URL)
-             ▼
-┌─────────────────────────────┐
-│      FastAPI 백엔드          │
-│  POST /predict              │
-│  GET  /agents               │
-│  GET  /maps                 │
-│  GET  /history              │
-│  GET  /analytics            │
-└─────────────────────────────┘
-             │
-             ▼
-┌─────────────────────────────┐
-│     ML 모델 (scikit-learn)   │
-│  RandomForest / XGBoost     │
-│  win_probability 반환        │
-└─────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│  계층 1 — Next.js 16 프론트엔드 (TypeScript)            :3000          │
+│                                                                        │
+│  app/predict/page.tsx   app/replay/page.tsx   app/model/page.tsx       │
+│        │                      │                      │                 │
+│        └──────────────┬───────┴──────────────────────┘                 │
+│                       ▼                                                │
+│  lib/api.ts  ── 타입 안전 fetch 래퍼 (types/api.ts) ──┐                │
+└───────────────────────────────────────────────────────┼───────────────┘
+                                                         │ HTTP/JSON
+                                                         │ NEXT_PUBLIC_API_URL
+                                                         ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│  계층 2 — FastAPI 백엔드 (api/)                         :8000          │
+│                                                                        │
+│  routers/predict.py   routers/options.py   routers/model.py            │
+│        │                      │                    │                   │
+│        ▼                      ▼                    ▼                   │
+│  services/prediction.py  ── app.predict 래핑 ──────────────────────┐   │
+│        │  predict_custom_lineup / predict_replay_match /           │   │
+│        │  available_options / load_model / load_reports            │   │
+└────────┼───────────────────────────────────────────────────────────┼───┘
+         │ import (재사용, 재구현 X)                                   │
+         ▼                                                            ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│  계층 3 — 학습 산출물 + ML 코어 (로컬 파일, .gitignore)               │
+│                                                                        │
+│  app/predict.py ─ ml/baseline/preprocess.py ─ ml/agent_roles.py        │
+│  models/advanced/ensemble.joblib (125F)                                │
+│  data/processed/{matches,players}.csv, adv_kaggle_only/test.csv        │
+│  reports/adv_kaggle_only/{metrics,validation}.json                     │
+└──────────────────────────────────────────────────────────────────────┘
 ```
+
+**핵심 설계 원칙: 백엔드는 모델 로직을 재구현하지 않는다.** 계층 2는 계층 3의 `app/predict.py`를 import해 호출하고 결과를 직렬화만 한다. 피처 생성·정규화·이전연도 조회·앙상블 추론은 전부 기존 코드 경로를 탄다. 이로써 Streamlit 앱(`app/main.py`)과 웹 API가 **동일한 예측 결과**를 보장한다.
 
 ---
 
-## 레이어별 역할
-
-### 1. App Router 레이어 (`src/app/`)
-
-Next.js의 파일 시스템 기반 라우팅. 각 폴더가 URL 경로에 1:1 매핑된다.
+## 2. 커스텀 예측 요청 흐름 (`POST /predict`)
 
 ```
-src/app/
-├── layout.js         → 공통 레이아웃 (Navbar, 배경색, 폰트)
-├── globals.css       → Tailwind @theme, 전역 CSS 변수, body 스타일
-├── page.js           → / 홈
-├── predict/page.js   → /predict
-├── history/page.js   → /history
-└── analytics/page.js → /analytics
-```
-
-모든 페이지는 `'use client'` 지시어를 사용하는 클라이언트 컴포넌트.  
-(예측 결과를 실시간으로 표시해야 하므로 서버 컴포넌트 불가)
-
----
-
-### 2. 컴포넌트 레이어 (`src/components/`)
-
-도메인별로 5개 폴더로 구성. 각 컴포넌트는 `.js` + `.module.css` 쌍으로 존재.
-
-```
-src/components/
-├── layout/     → 레이아웃 (Navbar, PageWrapper)
-├── predict/    → 예측 입력 UI (AgentPicker, TeamSlot 등)
-├── result/     → 예측 결과 시각화 (차트, 배지)
-├── history/    → 기록 조회 UI (테이블, 필터, 페이지네이션)
-└── ui/         → 공통 UI (로딩, 에러, StatCard)
-```
-
-**설계 원칙:**
-- 컴포넌트는 순수 표현(presentation) 위주 — 비즈니스 로직은 page.js에
-- props로 데이터를 받아 렌더링만 담당
-- 상태를 내부에 갖는 경우는 UI 상태(탭 선택, 토글)에만 한정
-
----
-
-### 3. lib 레이어 (`src/lib/`)
-
-재사용 가능한 유틸리티 모듈.
-
-| 파일 | 역할 |
-|---|---|
-| `api.js` | FastAPI 통신 함수 모음 (`predictWinRate`, `fetchAgents`, ...) |
-| `agentImage.js` | 요원 이름 → UUID → 이미지 URL 변환, 역할군 색상/레이블 맵 |
-
----
-
-### 4. 스타일 레이어
-
-```
-globals.css          → @theme 블록 (CSS 변수 정의), body 기본 스타일
-*.module.css         → 컴포넌트별 격리된 CSS (@reference + @apply)
-```
-
-Tailwind 유틸리티는 JSX에 직접 쓰지 않고 `.module.css`에서 `@apply`로만 사용.
-
----
-
-## 클라이언트-서버 데이터 흐름
-
-```
-사용자 액션
+[프론트] /predict 페이지
+  사용자: 맵 + 기준연도 + 팀A 5×{선수,요원} + 팀B 5×{선수,요원}
     │
-    ▼
-page.js (useState, event handler)
-    │ api.js 함수 호출
-    ▼
-src/lib/api.js
-    │ fetch(NEXT_PUBLIC_API_URL + "/endpoint")
-    ▼
-FastAPI 서버
-    │ JSON 응답
-    ▼
-api.js → page.js (setState)
-    │ props 전달
-    ▼
-컴포넌트 (re-render)
+    ▼ lib/api.ts → fetch POST /predict  (PredictRequest)
+[백엔드] routers/predict.py
+    │ Pydantic 검증 (5쌍×2, 맵 화이트리스트, 연도 범위)
+    ▼ services/prediction.py
+    │ app.predict.predict_custom_lineup(map, cutoff_year, team_a_slots, team_b_slots)
+    │     ├─ _history_state_before_year(...)   # 기준연도 이전 선수/맵·요원/선수·요원 이력 (lru_cache)
+    │     ├─ _build_feature_row(...)           # 125피처 1행 생성 (include_diff=False)
+    │     └─ ensemble.predict_proba(X)[:,1]    # 팀 A 승률
+    ▼ PredictionResult → serialize_prediction()  → PredictResponse(JSON)
+[프론트] setState(result) → 게이지/레이더/피처바 렌더
 ```
+
+> **콜드스타트 주의**: 첫 `/predict`는 `data/processed`에서 이전연도 이력 상태를 구축하느라 수 초~수십 초 걸릴 수 있다(`_historical_match_inputs`, `_history_state_before_year`가 `lru_cache`). 두 번째 호출부터 빠르다. 자세히 → [../02_backend_fastapi/02_model_serving.md](../02_backend_fastapi/02_model_serving.md).
 
 ---
 
-## 빌드 결과
+## 3. 경기 다시보기 흐름 (`/replay`)
 
 ```
-Route (app)                   Size     First Load JS
-┌ ○ /                         2.1 kB   105 kB
-├ ○ /analytics                3.4 kB   110 kB
-├ ○ /history                  4.2 kB   108 kB
-└ ○ /predict                  8.7 kB   142 kB
-
-○  (Static)  prerendered as static content
+[프론트] /replay 페이지
+    │ GET /replay/matches?limit=200  → [{match_key, label, date, map, team_a, team_b}]
+    │ 사용자가 경기 1건 선택
+    ▼ GET /replay/{match_key}
+[백엔드] app.predict.predict_replay_match(match_key)
+    │ test.csv에서 해당 행 로드 → build_xy(advanced) → 추론
+    ▼ PredictResponse + {actual_label, match_key} 포함
+[프론트] 예측 승자 vs 실제 승자 대조 표시
 ```
 
-`/predict`가 가장 큰 이유: Recharts(RadialBar, Radar) 번들이 포함되기 때문.
+replay는 피처가 `test.csv`에 이미 계산돼 있어 **콜드스타트가 없고** 시연 시 가장 안정적이다.
 
 ---
 
-## 관련 문서
+## 4. 기동 시 데이터 흐름 (`/options`)
 
-- 상세 컴포넌트 구조 → [04_components/01_component_tree.md](../04_components/01_component_tree.md)
-- 데이터 흐름 상세 → [05_state_and_data/02_data_flow.md](../05_state_and_data/02_data_flow.md)
+프론트는 페이지 진입 시 `GET /options`로 입력 위젯 데이터를 한 번에 받는다. 이는 `available_options()`를 그대로 직렬화한다:
+
+| 키 | 출처 (`app/predict.py`) | 용도 |
+|----|--------------------------|------|
+| `maps` | `matches.csv`에 등장하는 `MAP_ORDER` 맵 | 맵 드롭다운 |
+| `agents` | `sorted(AGENT_ROLE_MAP)` (29종) | 요원 셀렉트 |
+| `players` | kaggle 소스 선수 빈도순 | 선수 자동완성 |
+| `years` | 등장 연도 + (max+1) | 기준연도 드롭다운 |
+
+`replay_matches`는 양이 많아 `/options`에서 분리해 `/replay/matches`로 별도 제공한다.
+
+---
+
+## 5. 관련 문서
+
+- 백엔드 앱 구조 → [../02_backend_fastapi/01_app_structure.md](../02_backend_fastapi/01_app_structure.md)
+- 모델 서빙/캐싱 → [../02_backend_fastapi/02_model_serving.md](../02_backend_fastapi/02_model_serving.md)
+- 프론트 데이터 흐름 → [../03_frontend_nextjs/03_predict_page.md](../03_frontend_nextjs/03_predict_page.md)
