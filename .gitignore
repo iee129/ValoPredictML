@@ -1,5 +1,5 @@
 # GitHub-visible allowlist.
-# Keep the branch surface limited to app/, ml/, docs/, and root essentials.
+# Keep the branch surface limited to src/, web/, docs/, and root essentials.
 
 # Hide everything at the repository root by default.
 /*
@@ -7,47 +7,60 @@
 
 # Root essentials that should remain visible.
 !/.gitignore
+!/.dockerignore
+!/Dockerfile.presentation
 !/README.md
 !/requirements.txt
-!/dataload.py
+!/pyproject.toml
 !/CLAUDE.md
+!/deploy/
+!/deploy/**
 
 # Public project areas.
-!/app/
-!/app/**
-!/ml/
-!/ml/**
+!/src/
+!/src/**
 !/docs/
 !/docs/**
-!/docs_web/
-!/docs_web/**
-!/valo_web_backend/
-!/valo_web_backend/**
-!/valo_web_frontend/
-!/valo_web_frontend/**
-!/.claude/
-!/.claude/**
-
+!/web/
+!/web/**
 # Generated/local clutter stays private, including inside allowed trees.
 __pycache__/
 *.py[cod]
 *$py.class
+*.egg-info/
+build/
+dist/
 .DS_Store
 .env
 .env.*
 .venv/
-data/
-logs/
-models/
-notebooks/
-notice/
-reports/
-scripts/
-tests/
-.claude/settings.local.json
+
+# 루트 산출물 디렉토리만 숨김(루트 고정) — src/data 등 코드 디렉토리와 충돌 방지
+/data/
+/logs/
+/models/
+/notebooks/
+/notice/
+/reports/
+/scripts/
+/tests/
+
+# AI 도구 로컬 상태 디렉토리 (Claude, Codex, Cursor, Aider 등)
+.claude/
 .codex/
 .omc/
 .omx/
+.cursor/
+.continue/
+.codeium/
+.windsurf/
+.gemini/
+.aider/
+.aider.chat.history.md
+.aider.input.history
+.roomodes
+.clinerules
+.anthropic/
 .playwright-mcp/
 *.joblib
 *.pkl
@@ -55,7 +68,7 @@ tests/
 *.sqlite
 *.sqlite3
 
-# Node / Next.js (valo_web_frontend) — 소스만 커밋, 빌드 산출물 제외
+# Node / Next.js (web) — 소스만 커밋, 빌드 산출물 제외
 node_modules/
 .next/
 *.tsbuildinfo

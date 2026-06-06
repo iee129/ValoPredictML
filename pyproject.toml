@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "valopredictml"
+version = "0.1.0"
+description = "Valorant 5v5 라인업 승률 예측 ML 도구 (tree-based)"
+requires-python = ">=3.14"
+# 런타임 의존성은 requirements.txt를 단일 진실로 유지한다(`pip install -r requirements.txt`).
+# 여기서는 src-layout 패키지만 editable 등록한다.
+
+# src-layout: src/ 아래 최상위 패키지(domain·data·features·ml·insights·inference·api)를 노출.
+# `pip install -e .` 1회로 어디서든 `from domain...`, `python -m ml.advanced.ensemble`,
+# `uvicorn api.main:app` 가 동작한다.
+[tool.setuptools.packages.find]
+where = ["src"]
