@@ -1,0 +1,74 @@
+# 루트 기본 비공개
+/*
+/.*
+
+# 루트 공개 파일
+!/.gitignore
+!/README.md
+!/requirements.txt
+!/pyproject.toml
+
+# 공개 소스 영역
+!/src/
+!/src/**
+!/docs/
+!/docs/**
+!/web/
+!/web/**
+
+# 환경변수 비공개
+.env
+.env.*
+
+# 빌드 산출물 비공개
+build/
+dist/
+.DS_Store
+.venv/
+docs/**/*.pdf
+
+# 루트 산출물 비공개
+/data/
+/logs/
+/models/
+/notebooks/
+/notice/
+/reports/
+/scripts/
+/tests/
+
+# 개발 도구 상태 비공개
+.claude/
+.codex/
+.omc/
+.omx/
+.cursor/
+.continue/
+.codeium/
+.windsurf/
+.gemini/
+.aider/
+.aider.chat.history.md
+.aider.input.history
+.roomodes
+.clinerules
+.anthropic/
+.playwright-mcp/
+
+# 파이썬 캐시 비공개
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+*.joblib
+*.pkl
+*.db
+*.sqlite
+*.sqlite3
+CLAUDE.md
+
+# Node와 Next 산출물 비공개
+node_modules/
+.next/
+*.tsbuildinfo
+next-env.d.ts

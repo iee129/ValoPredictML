@@ -1,0 +1,337 @@
+# 04. 데이터 로드 및 전처리 전략
+
+마지막 업데이트: 2026-05-05
+
+> **구현 완료** — `src/features/preprocess.py` 전처리 파이프라인 구현 완료.
+> 현행 advanced 실행 결과: train 75,405개 + test 16,053개 = 총 91,458개 **맵 단위 승패 샘플**. 이 값은 BO 시리즈 전체 경기 수가 아니라 모델 학습·평가 행 수다.
+
+## 1. 전처리 파이프라인 개요
+
+```
+[수집] → [파싱] → [정규화] → [품질 검사] → [dedup] → [분할] → [피처 집계] → [피처 생성] → [저장]
+```
+
+외부 API 미사용 — Kaggle CSV 5개만 사용한다. 전처리는 `src/features/preprocess.py`와 `src/data/raw_preprocess.py` (parser family)로 처리한다.
+
+---
+
+## 2. 데이터 수집
+
+### 2.1 Kaggle 5개 데이터셋 다운로드
+
+```python
+# src/data/dataload.py
+import kagglehub
+
+DATASETS = [
+    ("ryanluong1/valorant-champion-tour-2021-2023-data",
+     "data/raw/kaggle/vct_2021_2023"),
+    ("ryanluong1/valorant-challengers-league-data",
+     "data/raw/kaggle/ryanluong1__valorant-challengers-league-data"),
+    ("qualidea1217/valorant-pro-matches-since-april-2021",
+     "data/raw/kaggle/qualidea1217__valorant-pro-matches-since-april-2021"),
+    ("piyush86kumar/valorant-champions-2024",
+     "data/raw/kaggle/piyush86kumar__valorant-champions-2024"),
+    ("ediashtarevin/vct-champions-2023-stats",
+     "data/raw/kaggle/ediashtarevin__vct-champions-2023-stats"),
+]
+```
+
+실행:
+```bash
+source .venv/bin/activate
+python -m data.dataload
+```
+
+`~/.kaggle/kaggle.json` 필요. API 키나 raw CSV는 절대 커밋 금지.
+
+---
+
+## 3. 소스별 파서
+
+소스마다 파일 구조가 달라 파서를 소스별로 분리한다. 파서 공통 출력 스키마:
+
+```python
+{
+    "source": str,           # 소스 식별자
+    "match_key": str,        # 16자 SHA-1 (경기 단위 grouping)
+    "dedup_key": str,        # 24자 SHA-1 (중복 제거 키)
+    "date": str,             # YYYY-MM-DD
+    "event": str,
+    "map": str,
+    "team_a": str,
+    "team_b": str,
+    "players_a": list[dict], # 5명 x {player, agent, acs, kd, kast, adr, fk, fd, assists}
+    "players_b": list[dict],
+    "score_a": int,
+    "score_b": int,
+    "atk_a": int | None,
+    "def_a": int | None,
+    "label": int,            # 1 = team_a 승, 0 = team_b 승
+}
+```
+
+| 파서 | 소스 | 조인 필요 |
+|------|------|----------|
+| ryanluong | vct_2021_2023, challengers | 필요 (Match Name + Map) |
+| qualidea | qualidea1217 | 불필요 |
+| ediashtarevin | ediashtarevin | 불필요 |
+
+---
+
+## 4. 정규화
+
+```python
+from ml.agent_roles import normalize_agent, normalize_map, normalize_team
+
+# 파서 내 팀명 확정 직후
+team_a = normalize_team(raw_team_a)
+team_b = normalize_team(raw_team_b)
+
+# 요원·맵 정규화
+agent = normalize_agent(raw_agent)   # None이면 품질 검사 탈락
+map_  = normalize_map(raw_map)       # None이면 품질 검사 탈락
+```
+
+컬럼명 통일: `hs%` / `hs_percent` / `HS%` → `hs`, `kast%` / `Kill Assist Trade Survive %` → `kast`.
+
+---
+
+## 5. 품질 검사
+
+| 조건 | 기준 |
+|------|------|
+| 팀당 요원 수 | 팀 A·B 각각 정확히 5명 |
+| 요원 유효성 | AGENT_ROLE_MAP에 모두 존재 |
+| 맵 유효성 | MAP_ORDER 13개에 존재 |
+| 레이블 유효성 | winner가 team_a 또는 team_b |
+| 핵심 스탯 결측 | ACS·KD 비결측 |
+| 소스 비중 | 단일 소스 < 전체의 20% |
+| 동점 | score_a != score_b |
+
+탈락 행 → `data/processed/rejects.csv`.
+
+---
+
+## 6. dedup_key 중복 제거
+
+```python
+import hashlib
+
+def make_dedup_key(date, event, map_, team_a, team_b, agents_a, agents_b, score_a, score_b):
+    canonical = "|".join([
+        str(date), event.lower().strip(), map_.lower(),
+        team_a.lower(), team_b.lower(),
+        ",".join(sorted(agents_a)), ",".join(sorted(agents_b)),
+        str(score_a), str(score_b)
+    ])
+    return hashlib.sha1(canonical.encode()).hexdigest()[:24]
+```
+
+소스 가중치:
+
+| 소스 | 가중치 |
+|------|--------|
+| ryanluong challengers | 1.8 |
+| vct_2021_2023 | 1.0 |
+| qualidea | 1.0 |
+| ediashtarevin | 0.9 |
+
+동일 dedup_key 중 소스 가중치가 가장 높은 행 보존. 동점 시 컬럼 수 많은 행 보존.
+
+---
+
+## 7. 데이터 분할
+
+match_key 단위 GroupShuffleSplit (seed=42) — 구현 완료:
+
+```python
+from sklearn.model_selection import GroupShuffleSplit
+
+# 단일 분할: train(80%) / test(20%) — 별도 val 세트 없음
+splitter = GroupShuffleSplit(n_splits=1, test_size=0.20, random_state=42)
+train_idx, test_idx = next(splitter.split(df, groups=df["match_key"]))
+
+train = df.iloc[train_idx]
+test  = df.iloc[test_idx]
+```
+
+비율: train 80% / test 20% — 별도 검증셋 없이 train 내부 GroupKFold로 튜닝.
+
+---
+
+## 8. 피처 엔지니어링
+
+### 8.1 피처 카테고리
+
+> baseline은 중간발표 기준 **421개** 슬롯 구조이며, advanced는 **179개** 시간순 계약이다 (06_feature_engineering.md 참조).
+
+**baseline (421) — 슬롯 구조**
+
+| 카테고리 | 수 |
+|----------|---:|
+| 슬롯 선수 피처 (10슬롯 × [PRIOR 8 + 요원 one-hot 27 + 역할군 one-hot 5]) | 400 |
+| 매치 컨텍스트 — 맵 one-hot | 12 |
+| 매치 컨텍스트 — 팀 합동출전 | 3 |
+| 매치 컨텍스트 — 역할 조합 prior | 6 |
+| **합계** | **421** |
+| 레이블 | 1 |
+
+**advanced (179) — 시간순 계약**
+
+advanced 계약은 맵 원핫, 역할군·요원 count, 선수 prior, synergy, 맵×요원, 선수×요원, 팀 form, composition meta, cold-start flag 등 총 179개 피처로 구성된다. 정본은 `ml.baseline.preprocess.FEATURE_COLS_ADVANCED`와 `models/advanced/meta.json`이다.
+
+### 8.2 피처 생성 함수 스켈레톤
+
+```python
+from ml.agent_roles import AGENT_ROLE_MAP, MAP_TO_INDEX
+
+def build_features(row: dict, agent_map_stats: dict, agent_exp: dict) -> dict:
+    agents_a = [p["agent"] for p in row["players_a"]]
+    agents_b = [p["agent"] for p in row["players_b"]]
+
+    # 역할군 카운트
+    def count_roles(agents):
+        counts = {"Duelist": 0, "Initiator": 0, "Controller": 0, "Sentinel": 0}
+        for a in agents:
+            role = AGENT_ROLE_MAP.get(a)
+            if role:
+                counts[role] += 1
+        return counts
+
+    a_cnt = count_roles(agents_a)
+    b_cnt = count_roles(agents_b)
+
+    feats = {}
+    for role in ["Duelist", "Initiator", "Controller", "Sentinel"]:
+        r = role.lower()
+        feats[f"a_{r}"] = a_cnt[role]
+        feats[f"b_{r}"] = b_cnt[role]
+        feats[f"diff_{r}"] = a_cnt[role] - b_cnt[role]
+
+    feats["has_controller_a"] = int(a_cnt["Controller"] >= 1)
+    feats["has_controller_b"] = int(b_cnt["Controller"] >= 1)
+    feats["is_double_duelist_a"] = int(a_cnt["Duelist"] >= 2)
+    feats["is_double_duelist_b"] = int(b_cnt["Duelist"] >= 2)
+
+    # 선수 스탯 (train split 후 집계 없이 직접 계산)
+    def mean_stat(players, key):
+        vals = [p[key] for p in players if p.get(key) is not None]
+        return sum(vals) / len(vals) if vals else None
+
+    feats["a_avg_acs"]  = mean_stat(row["players_a"], "acs")
+    feats["b_avg_acs"]  = mean_stat(row["players_b"], "acs")
+    feats["a_avg_kd"]   = mean_stat(row["players_a"], "kd")
+    feats["b_avg_kd"]   = mean_stat(row["players_b"], "kd")
+    # ... 나머지 스탯 동일 패턴
+
+    # 맵
+    feats["map_encoded"] = MAP_TO_INDEX.get(row["map"], 0)
+    feats["label"] = row["label"]
+
+    return feats
+```
+
+### 8.3 피처 사전 집계 (데이터가 섞이지 않게 함)
+
+```
+Step 1. matches.csv → train/test 분할 (80/20, val 세트 없음)
+Step 2. train.csv만으로:
+          atk_side_advantage, agent_map_stats, agent_experience 집계
+Step 3. train/val/test 각각에 join
+          신규 조합: winrate=0.5, experience=0
+Step 4. sample_weight = time_weight x source_weight
+Step 5. features_base.csv 저장
+```
+
+### 8.4 sample_weight
+
+```python
+def get_time_weight(date_str: str) -> float:
+    year = int(date_str[:4])
+    if year <= 2022:   return 0.6
+    elif year == 2023: return 0.8
+    else:              return 1.2  # 2024+
+
+SOURCE_WEIGHT = {
+    "ryanluong_challengers": 1.8,
+    "vct_2021_2023": 1.0, "qualidea": 1.0,
+    "ediashtarevin": 0.9,
+}
+
+sample_weight = get_time_weight(row["date"]) * SOURCE_WEIGHT[row["source"]]
+```
+
+---
+
+## 9. 전체 파이프라인 실행
+
+```python
+# src/features/preprocess.py 메인 실행 흐름
+if __name__ == "__main__":
+    # 1. 파싱 (5종 파서)
+    rows = []
+    rows += parse_ryanluong("data/raw/kaggle/vct_2021_2023")
+    rows += parse_ryanluong("data/raw/kaggle/ryanluong1__valorant-challengers-league-data")
+    rows += parse_qualidea ("data/raw/kaggle/qualidea1217__valorant-pro-matches-since-april-2021")
+    rows += parse_edia     ("data/raw/kaggle/ediashtarevin__vct-champions-2023-stats")
+
+    # 2. 정규화
+    rows = [normalize_row(r) for r in rows]
+
+    # 3. 품질 검사
+    rows, rejected = quality_gate_all(rows)
+    save_rejected(rejected, "data/processed/rejects.csv")
+
+    # 4. dedup
+    rows = dedup_rows(rows)
+    save_clean(rows, "data/processed/matches.csv")
+
+    # 5. 분할 (match_key 단위 GroupShuffleSplit, 80/20)
+    train_rows, test_rows = split_rows(rows, seed=42)
+
+    # 6. 피처 사전 집계 (train 기준)
+    agent_map_stats = compute_agent_map_stats(train_rows)
+    agent_exp       = compute_agent_experience(train_rows)
+    atk_advantage   = compute_atk_side_advantage(train_rows)
+
+    # 7. 피처 생성
+    train_df = build_features_df(train_rows, agent_map_stats, agent_exp, atk_advantage)
+    test_df  = build_features_df(test_rows,  agent_map_stats, agent_exp, atk_advantage)
+
+    # 8. 저장
+    train_df.to_csv("data/processed/train.csv", index=False)
+    # val.csv 없음 — 별도 검증셋 없이 train 내부 GroupKFold로 튜닝
+    test_df.to_csv("data/processed/test.csv",   index=False)
+```
+
+---
+
+## 10. 데이터 품질 검증 체크리스트
+
+| 체크 항목 | 확인 방법 | 기준 | 실측 결과 |
+|----------|----------|------|----------|
+| 맵 단위 승패 후보 (dedup·5v5 후) | `len(matches)` | — | 91,459행 |
+| train (advanced) | `len(train)` | — | 75,405개 맵 단위 승패 샘플 |
+| test (advanced) | `len(test)` | — | 16,053개 맵 단위 승패 샘플 |
+| 클래스 균형 (test) | `df["label"].mean()` | 0.45~0.55 | 0.569 (imbalance_ratio 1.32) |
+| 결측값 없음 | `df.isnull().sum()` | 모든 피처 0 | 통과 |
+| 역할군 합계 | `a_duelist+...+a_sentinel` | 각 팀 = 5 | 통과 |
+| match_key 겹침 없음 | train/test 교집합 | 0 | 통과 |
+| 피처 수 | `len(feature_cols)` | baseline 421 / advanced 179 | 파이프라인별 feature contract 참조 |
+| 중복 dedup_key | `dedup_key.duplicated().sum()` | 0 | 통과 |
+
+---
+
+## 11. 전처리 출력 파일
+
+| 경로 | 내용 |
+|------|------|
+| `data/processed/matches.csv` | 품질 검사·dedup를 통과한 맵 행 전체 |
+| `data/processed/features_base.csv` | 피처 테이블 (레이블 포함) |
+| `data/processed/train.csv` | 학습셋 |
+| `data/processed/test.csv` | 테스트셋 (최종 평가 전용) |
+| `reports/preprocess_summary.json` | 소스별 행수·제거율·최종 분포 등 실행 통계 |
+| `data/processed/rejects.csv` | 품질 검사에서 탈락한 행 및 탈락 사유 |
+
+모두 로컬 생성, git 제외 (`.gitignore`에 포함).

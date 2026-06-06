@@ -1,0 +1,41 @@
+# Python 3.14.4
+
+# Kaggle datasets and CLI fallback
+kagglehub>=1.0.0
+kaggle>=1.7.4
+
+# Environment variable loading
+python-dotenv>=1.1.0
+
+# Progress display
+tqdm>=4.67.0
+
+# CSV loading and dataset sanity checks
+numpy>=2.2.0
+pandas>=2.3.0
+
+# ML pipeline
+# Advanced joblib artifacts were saved with scikit-learn 1.8.0.
+scikit-learn==1.8.0
+xgboost>=2.1.0
+lightgbm>=4.5.0
+joblib>=1.4.0
+optuna>=3.0.0
+
+# Visualization
+matplotlib>=3.9.0
+seaborn>=0.13.0
+
+# Database — PostgreSQL 예측 히스토리(prediction_history), SQLAlchemy Core + psycopg2
+sqlalchemy>=2.0.0
+psycopg2-binary>=2.9.0
+
+# Web API (src/api) — FastAPI 모델 서빙
+# uvicorn은 순수 파이썬 패키지로 설치([standard] 제외): uvloop/httptools C-확장이
+# Python 3.14 휠을 아직 제공하지 않아 소스 빌드 실패를 피하기 위함. --reload 는 정상 동작.
+fastapi>=0.115.0
+uvicorn>=0.32.0
+pydantic>=2.9.0          # fastapi가 끌어오지만 src/api/schemas.py에서 직접 사용
+
+# Test
+pytest>=8.0.0

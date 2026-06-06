@@ -1,0 +1,93 @@
+# 05. 맵 단위 승패 샘플 집계
+
+마지막 업데이트: 2026-06-05
+
+## 1. 집계 필요성
+
+원본 데이터는 **선수 단위**(1행 = 선수 1명 × 맵 1개)다. 피처 엔지니어링을 위해 팀별 5명 스탯을 집계한 **맵 단위 승패 샘플**(1행 = 맵 1개, 양 팀 포함, 승패 라벨 1개)로 변환한다. BO3·BO5 같은 시리즈 한 경기는 여러 맵으로 구성될 수 있으므로, 이 행 수는 "진짜 BO 경기 수"가 아니라 모델이 학습하는 맵별 승패 사례 수다.
+
+```
+선수 행 단위 (raw/players 일부):
+match_key | map    | team  | player | agent   | acs | kd  | ...
+----------|--------|-------|--------|---------|-----|-----|
+abc123    | Ascent | T1    | TenZ   | Jett    | 280 | 1.8 | ...
+abc123    | Ascent | T1    | Guma   | Raze    | 240 | 1.5 | ...
+...
+abc123    | Ascent | FNC   | Derke  | Neon    | 200 | 1.2 | ...
+...
+          ↓ 집계
+맵 단위 승패 샘플:
+match_key | map    | team_a | team_b | players_a            | players_b | label
+----------|--------|--------|--------|----------------------|-----------|------
+abc123    | Ascent | T1     | FNC    | [{TenZ,Jett,...}, ...] | [...]   | 1
+```
+
+---
+
+## 2. 집계 구현
+
+```python
+def aggregate_to_map_level(rows: list[dict]) -> list[dict]:
+    """
+    공통 스키마 행 리스트 → 맵 단위 행 리스트.
+    각 행은 이미 파서에서 players_a / players_b 리스트를 포함하므로
+    별도 groupby 없이 직접 사용.
+    """
+    result = []
+    for row in rows:
+        if len(row["players_a"]) != 5 or len(row["players_b"]) != 5:
+            continue  # 품질 검사 통과 후에도 방어 체크
+        result.append(row)
+    return result
+```
+
+ryanluong 파서는 `overview.csv`와 `maps_scores.csv` 조인 시 이미 팀 단위로 집계. qualidea / piyush / ediashtarevin는 선수 행을 파서 내부에서 5명씩 그룹핑.
+
+---
+
+## 3. 선수 스탯 집계 (팀 단위)
+
+맵 행에는 5명 스탯이 배열로 저장된다. 피처 생성 단계에서 팀 단위 집계값을 계산한다.
+
+| 집계 방식 | 적용 피처 |
+|-----------|-----------|
+| `mean(5명)` | acs, kd, kast, adr, hs |
+| `max(5명)` | clutch_% |
+| `sum(5명) / sum(5명)` | fk_fd_ratio |
+| `mean(5명)` | assists |
+| `std(5명)` | kast_std |
+
+---
+
+## 4. 학습·평가 데이터 분리
+
+집계 단계에서는 train/val/test 분할 전이므로 아직 split이 없다. 분할 후 `agent_map_stats`·`agent_experience`·`atk_side_advantage`는 **train만으로 집계**한 뒤 val/test에 join한다(미등록 조합: winrate=0.5, experience=0). 증강은 없으며 클래스 균형은 자연 분포(약 56.8:43.2)를 유지한다.
+
+---
+
+## 5. 예외 케이스 처리
+
+| 예외 | 처리 |
+|------|------|
+| 팀이 3개 이상 | 해당 맵 행 제외 (품질 검사에서 미리 제거) |
+| 동점 경기 | 해당 맵 행 제외 (품질 검사에서 미리 제거) |
+| 요원이 5명 미만인 팀 | 해당 맵 행 제외 |
+| 같은 경기의 같은 요원 2명 이상 | 경고 로그 후 제외 |
+
+---
+
+## 6. 출력
+
+| 파일 | 내용 |
+|------|------|
+| `data/processed/matches.csv` | dedup·5v5 품질 게이트를 통과한 맵 단위 승패 후보 91,459개 |
+| `data/processed/advanced/{train,test}.csv` | 실제 advanced 학습·평가에 사용된 맵 단위 승패 샘플 91,458개(train 75,405 / test 16,053) |
+
+---
+
+## 7. 관련 문서
+
+| 문서 | 내용 |
+|------|------|
+| [06_feature_engineering.md](06_feature_engineering.md) | 집계 후 baseline 421개 / advanced 179개 피처 생성 |
+| [07_split_and_validation.md](07_split_and_validation.md) | 맵 단위 `match_key` 분할 및 검증 |
